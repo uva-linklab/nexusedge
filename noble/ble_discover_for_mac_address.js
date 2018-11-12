@@ -11,7 +11,7 @@ noble.on('stateChange', function(state) {
 });
 
 noble.on('discover', function(peripheral) {
-  console.log(peripheral.address);
+  //console.log(peripheral.address);
   if(peripheral.address === mac_address) {
     console.log('peripheral discovered (' + peripheral.id +
               ' with address <' + peripheral.address +  ', ' + peripheral.addressType + '>,' +
@@ -31,6 +31,7 @@ noble.on('discover', function(peripheral) {
     }
     if (peripheral.advertisement.manufacturerData) {
       console.log('\there is my manufacturer data:');
+      console.log(peripheral.advertisement.manufacturerData);
       console.log('\t\t' + JSON.stringify(peripheral.advertisement.manufacturerData.toString('hex')));
     }
     if (peripheral.advertisement.txPowerLevel !== undefined) {
