@@ -15,13 +15,12 @@ noble.on('stateChange', function(state) {
 noble.on('discover', handleDiscoveredPeripheral);
 
 function handleDiscoveredPeripheral(peripheral) {
-  console.log(peripheral.address);
-  var serviceData = peripheral.advertisement.serviceData;
-  if (serviceData && serviceData.length) {
-    console.log('there is serviceData:');
-    console.log(serviceData);
-    console.log("length = " + serviceData.length);
-    var data = serviceData.toString('utf8');
+  console.log("Found " + peripheral.address);
+  if (!peripheral.advertisement.manufacturerData) {
+    console.log("no manufacturerData");
+    
+    const localName = peripheral.advertisement.localName;
+    var data = localName.toString('utf8');
     console.log(data);
     var ip = aes_crypto.decrypt(data,password,iv);
     console.log("decrypted = " + ip);
