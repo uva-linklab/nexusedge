@@ -1,6 +1,9 @@
 var noble = require('noble');
+var aes_crypto = require('../gateway_code/aes_crypto');
 
 mac_address = process.argv[2];
+var password = "95CFEF1B1F1F5FAAC6954BC1BD713081";
+var iv = "6F2E2CEE52C1AB42";
 
 noble.on('stateChange', function(state) {
   if (state === 'poweredOn') {
@@ -31,8 +34,10 @@ noble.on('discover', function(peripheral) {
     }
     if (peripheral.advertisement.manufacturerData) {
       console.log('\there is my manufacturer data:');
-      console.log(peripheral.advertisement.manufacturerData);
-      console.log('\t\t' + JSON.stringify(peripheral.advertisement.manufacturerData.toString('hex')));
+      var data = peripheral.advertisement.manufacturerData.toString('utf8');
+      console.log(data);
+      console.log("decrypted = " + aes_crypto.decrypt(data,password,iv));
+
     }
     if (peripheral.advertisement.txPowerLevel !== undefined) {
       console.log('\tmy TX power level is:');
