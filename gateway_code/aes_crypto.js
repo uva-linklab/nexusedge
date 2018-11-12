@@ -1,5 +1,5 @@
-module.exports.encrypt = encrypt
-module.exports.decrypt = decrypt
+module.exports.encrypt = encrypt;
+module.exports.decrypt = decrypt;
 
 var crypto = require('crypto'),
   algorithm = 'aes-256-ctr',
