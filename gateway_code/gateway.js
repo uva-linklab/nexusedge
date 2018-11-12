@@ -97,7 +97,13 @@ function startAdvertising() {
   // var scanData = new Buffer(...); // maximum 31 bytes
   // var advertisementData = new Buffer(...); // maximum 31 bytes
 
-  var advertisementData = new Buffer("hello world", "utf8");
+  // var advertisementData = new Buffer("hello world", "utf8");
+  var advertisementData = new Buffer(31);
+  // first part
+  advertisementData.writeUInt8(0x10, 0); // Number of bytes that follow in first AD structure
+  advertisementData.writeUInt8(0x09, 1); // complete local name AD type
+
+  advertisementData.write('255.255.255.255', 2);
 
   bleno.startAdvertisingWithEIRData(advertisementData);
 
