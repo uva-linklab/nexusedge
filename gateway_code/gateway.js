@@ -110,7 +110,7 @@ function startAdvertising() {
 
   var advertisementData = new Buffer(31);
   advertisementData.writeUInt8(encrypted_ip.length + 1, 0); //length of the element (excluding the length byte itself). +1 is for length byte
-  advertisementData.writeUInt8(0xFF, 1); // AD type – specifies what data is included in the element. 0xFF => manufacturer specific data
+  advertisementData.writeUInt8(0x16, 1); // AD type – specifies what data is included in the element. 0x16 => service data
 
   advertisementData.write(encrypted_ip, 2);
 

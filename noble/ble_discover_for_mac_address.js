@@ -16,10 +16,12 @@ noble.on('discover', handleDiscoveredPeripheral);
 
 function handleDiscoveredPeripheral(peripheral) {
   console.log(peripheral.address);
-
-  if (peripheral.advertisement.manufacturerData) {
-    console.log('\there is my manufacturer data:');
-    var data = peripheral.advertisement.manufacturerData.toString('utf8');
+  var serviceData = peripheral.advertisement.serviceData;
+  if (serviceData && serviceData.length) {
+    console.log('there is serviceData:');
+    console.log(serviceData);
+    console.log("length = " + serviceData.length);
+    var data = serviceData.toString('utf8');
     console.log(data);
     var ip = aes_crypto.decrypt(data,password,iv);
     console.log("decrypted = " + ip);
