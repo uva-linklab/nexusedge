@@ -109,8 +109,8 @@ function startAdvertising() {
   console.log("length = " + encrypted_ip.length)
 
   var advertisementData = new Buffer(31);
-  advertisementData.writeUInt8(encrypted_ip.length, 0); // Number of bytes that follow in first AD structure
-  advertisementData.writeUInt8(0x09, 1); // complete local name AD type
+  advertisementData.writeUInt8(encrypted_ip.length + 1, 0); //length of the element (excluding the length byte itself). +1 is for length byte
+  advertisementData.writeUInt8(0xFF, 1); // AD type – specifies what data is included in the element. 0xFF => manufacturer specific data
 
   advertisementData.write(encrypted_ip, 2);
 
