@@ -3,9 +3,11 @@ var noble = require("noble");
 var bleno = require("bleno");
 var cron = require('cron');
 var fs = require('fs');
+var aes_crypto = require("aes_crypto");
 var EchoCharacteristic = require('./characteristic');
 
 register_url = process.argv[2];
+ip_addr = process.argv[3];
 params_file = "params.json";
 
 ranging_key = "";
@@ -15,6 +17,11 @@ var BlenoPrimaryService = bleno.PrimaryService;
 
 if(!register_url){
   console.log("Please provide register url");
+  process.exit(1);
+}
+
+if(!ip_addr){
+  console.log("Please provide ip address");
   process.exit(1);
 }
 
@@ -92,18 +99,14 @@ function handleBlenoStateChange(state) {
 }
 
 function startAdvertising() {
-  // bleno.startAdvertising('echo', ['ec00']);
-
-  // var scanData = new Buffer(...); // maximum 31 bytes
-  // var advertisementData = new Buffer(...); // maximum 31 bytes
-
-  // var advertisementData = new Buffer("hello world", "utf8");
+  
+  encrypted_ip = aes_crypto.encrypt(ip_addr);
+  
   var advertisementData = new Buffer(31);
-  // first part
-  advertisementData.writeUInt8(0x10, 0); // Number of bytes that follow in first AD structure
+  advertisementData.writeUInt8(0x14, 0); // Number of bytes that follow in first AD structure
   advertisementData.writeUInt8(0x09, 1); // complete local name AD type
 
-  advertisementData.write('255.255.255.255', 2);
+  advertisementData.write(encrypted_ip, 2);
 
   bleno.startAdvertisingWithEIRData(advertisementData);
 
