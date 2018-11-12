@@ -13,6 +13,9 @@ params_file = "params.json";
 ranging_key = "";
 iv = "";
 
+// password = '95CFEF1B1F1F5FAAC6954BC1BD713081',
+// iv = '6F2E2CEE52C1AB42',
+
 var BlenoPrimaryService = bleno.PrimaryService;
 
 if(!register_url){
@@ -100,7 +103,7 @@ function handleBlenoStateChange(state) {
 
 function startAdvertising() {
   
-  encrypted_ip = aes_crypto.encrypt(ip_addr);
+  encrypted_ip = aes_crypto.encrypt(ip_addr, ranging_key, iv);
 
   console.log("encrypted_ip = " + encrypted_ip)
   console.log("length = " + encrypted_ip.length)
