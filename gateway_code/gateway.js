@@ -1,0 +1,125 @@
+var Request = require("request");
+var noble = require("noble");
+var bleno = require("bleno");
+var cron = require('cron');
+var fs = require('fs');
+var EchoCharacteristic = require('./characteristic');
+
+register_url = process.argv[2];
+params_file = "params.json";
+
+ranging_key = "";
+iv = "";
+
+var BlenoPrimaryService = bleno.PrimaryService;
+
+if(!register_url){
+  console.log("Please provide register url");
+  process.exit(1);
+}
+
+bleno.on('advertisingStart', function(error) {
+  console.log('on -> advertisingStart: ' + (error ? 'error ' + error : 'success'));
+
+  // if (!error) {
+  //   bleno.setServices([
+  //     new BlenoPrimaryService({
+  //       uuid: 'ec00',
+  //       characteristics: [
+  //         new EchoCharacteristic()
+  //       ]
+  //     })
+  //   ]);
+  // }
+});
+
+bleno.on('stateChange', handleBlenoStateChange);
+
+function loadKeyParams(callback) {
+  if (!fs.existsSync(params_file)) {
+    callback("")
+  } else {
+    fs.readFile(params_file, 'utf-8', function handleReadFile(err, data) {
+      if (err) 
+        throw err;
+      key_params = JSON.parse(data);
+      callback(key_params);
+    });
+  }
+}
+
+function registerWithServer(mac_address, user, pass) {
+  var http_post_req_params = {
+      "headers": { "content-type": "application/json" },
+      "url": register_url,
+      "body": JSON.stringify({
+          "radioMACAddress": mac_address,
+          "user": user,
+          "pass": pass
+      })
+  };
+  Request.post(http_post_req_params, handlePOSTResponse);
+}
+
+function handlePOSTResponse(error, response, body) {
+  if(error) {
+      return console.dir(error);
+  }
+  var key_params = JSON.parse(body);
+  ranging_key = key_params.ranging_key;
+  iv = key_params.iv;
+  console.log('Succesfuly received params from gateway server!');
+  console.log(ranging_key);
+  console.log(iv);
+  fs.writeFile(params_file,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
+  //start advertising once we have the key
+  startAdvertising();
+}
+
+function handleWriteFileError(err) {
+  if (err) throw err;
+}  
+
+function handleBlenoStateChange(state) {
+  if (state === 'poweredOn') {
+    console.log("poweredOn");
+    console.log(bleno.address);
+    loadKeyParams(handleKeyParams);
+  } else if (state === 'poweredOff') {
+    bleno.stopAdvertising();
+    console.log("off");
+  }
+}
+
+function startAdvertising() {
+  // bleno.startAdvertising('echo', ['ec00']);
+
+  // var scanData = new Buffer(...); // maximum 31 bytes
+  // var advertisementData = new Buffer(...); // maximum 31 bytes
+
+  var advertisementData = new Buffer("hello world", "utf8");
+
+  bleno.startAdvertisingWithEIRData(advertisementData);
+
+  console.log("started advertising");
+}
+
+function handleKeyParams(key_params){
+  if(!key_params) {
+    mac_address = bleno.address;
+    registerWithServer(mac_address, "admin", "pass");
+  } else {
+    ranging_key = key_params.ranging_key;
+    iv = key_params.iv;
+    console.log('Reusing already obtained params = ');
+    console.log(key_params.ranging_key);
+    console.log(key_params.iv);
+    startAdvertising();
+  }
+}
+
+// var cronJob = cron.job("*/5 * * * * *", function(){
+//     // perform operation e.g. GET request http.get() etc.
+//     console.log('cron job completed');
+// }); 
+// cronJob.start();

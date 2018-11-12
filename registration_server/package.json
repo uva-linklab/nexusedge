@@ -1,0 +1,23 @@
+{
+  "name": "gateway_server",
+  "version": "1.0.0",
+  "description": "Server to handle gateway registrations over RESTful APIs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "gateway_server"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^1.18.4"
+  },
+  "dependencies": {
+    "express": "^4.16.4",
+    "mongoose": "^5.3.6"
+  }
+}
