@@ -101,9 +101,12 @@ function handleBlenoStateChange(state) {
 function startAdvertising() {
   
   encrypted_ip = aes_crypto.encrypt(ip_addr);
-  
+
+  console.log("encrypted_ip = " + encrypted_ip)
+  console.log("length = " + encrypted_ip.length)
+
   var advertisementData = new Buffer(31);
-  advertisementData.writeUInt8(0x14, 0); // Number of bytes that follow in first AD structure
+  advertisementData.writeUInt8(encrypted_ip.length, 0); // Number of bytes that follow in first AD structure
   advertisementData.writeUInt8(0x09, 1); // complete local name AD type
 
   advertisementData.write(encrypted_ip, 2);
