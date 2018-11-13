@@ -10,13 +10,13 @@ function getGatewayStatus() {
 
 	var data={}
 	if(uptime.status == 0)
-		data["uptime"] = uptime.stdout.toString();
+		data["uptime"] = uptime.stdout.toString().trim();
 
 	if(packetsSent.status == 0)
-		data["packetsSent"] = packetsSent.stdout.toString();
+		data["packetsSent"] = parseInt(packetsSent.stdout.toString());
 
 	if(packetsRcv.status == 0)
-		data["packetsRcv"] = packetsRcv.stdout.toString();
+		data["packetsRcv"] = parseInt(packetsRcv.stdout.toString());
 
 	var status = {"uptime": !uptime.status, "packetsSent": !packetsSent.status, "packetsRcv": !packetsRcv.status};
 
