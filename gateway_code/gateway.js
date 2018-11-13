@@ -1,10 +1,8 @@
 var Request = require("request");
 var noble = require("noble");
 var bleno = require("bleno");
-var cron = require('cron');
 var fs = require('fs');
 var aes_crypto = require("./aes_crypto");
-var EchoCharacteristic = require('./characteristic');
 
 register_url = process.argv[2];
 ip_addr = process.argv[3];
