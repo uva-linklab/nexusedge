@@ -15,16 +15,16 @@
 // };
 'use strict';
 module.exports = function(app) {
-  var gatewayServer = require('../controllers/gatewayServerController');
+  var appServer = require('../controllers/appServerController');
 
-  // gatewayServer Routes
-  app.route('/gateways')
-    .get(gatewayServer.list_all_gateways)
-    .post(gatewayServer.add_gateway);
+  // appServer Routes
+  app.route('/apps')
+    .get(appServer.list_all_apps)
+    .post(appServer.add_app);
 
 
-  app.route('/gateways/:gatewayId')
-    .get(gatewayServer.read)
-    .put(gatewayServer.update)
-    .delete(gatewayServer.delete);
+  app.route('/apps/:appId')
+    .get(appServer.read)
+    .put(appServer.update)
+    .delete(appServer.delete);
 };
