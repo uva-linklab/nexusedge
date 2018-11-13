@@ -22,9 +22,11 @@ module.exports = function(app) {
     .get(appServer.list_all_apps)
     .post(appServer.add_app);
 
-
   app.route('/apps/:appId')
     .get(appServer.read)
     .put(appServer.update)
     .delete(appServer.delete);
+
+  app.route('/execute/:appId')
+  	.get(appServer.exec);
 };

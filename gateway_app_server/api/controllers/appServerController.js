@@ -1,3 +1,4 @@
+var gatewayStatusApp = require("../../gatewayStatusApp");
 // 'use strict';
 
 
@@ -123,7 +124,18 @@ exports.add_app = function(req, res) {
 //   }
 // };
 
-
+exports.exec = function(req, res) {
+  AppModel.findById(req.params.appId, function(err, app) {
+      if (!err) {
+        switch(app.app_name) {
+          case "gateway status":
+            res.json(gatewayStatusApp.getGatewayStatus());
+        }
+      } else {
+        res.sendStatus(404);
+      }
+    });
+};
 
 
 exports.read = function(req, res) {
