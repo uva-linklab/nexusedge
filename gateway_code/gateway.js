@@ -57,7 +57,7 @@ function handleDiscoveredPeripheral(peripheral) {
     if(isValidIPAddress(discovered_ip)) {
       console.log(`[Ranging] ${discovered_ip} is a valid IP address`);
       devices_in_proximity[peripheral.address] = [discovered_ip, Date.now()];
-      console.log(`[Ranging] Peripherals discovered: ${devices_in_proximity}`);
+      console.log(`[Ranging] Peripherals discovered: ${JSON.stringify(devices_in_proximity, null, 4)}`);
     } else {
       console.log(`[Ranging] ${discovered_ip} is an invalid IP address`);
     }
