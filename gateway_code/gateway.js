@@ -23,9 +23,9 @@ if(!ip_addr){
   process.exit(1);
 }
 
-bleno.on('advertisingStart', function(error) {
-  console.log('bleno advertisingStart: ' + (error ? 'error ' + error : 'success'));
-});
+// bleno.on('advertisingStart', function(error) {
+//   console.log('[BLE Radio] Started AdvertisingStart: ' + (error ? 'error ' + error : 'success'));
+// });
 
 bleno.on('stateChange', handleBlenoStateChange);
 
@@ -35,31 +35,31 @@ noble.on('discover', handleDiscoveredPeripheral);
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
-    console.log("noble state = powered on")
+    // console.log("noble state = powered on")
     noble.startScanning([], true);
-    console.log("noble started scanning")
+    console.log("[BLE Radio] Started peripheral discovery")
   } else {
-    console.log("noble state = powered off")
+    // console.log("noble state = powered off")
     noble.stopScanning();
-    console.log("noble stopped scanning")
+    // console.log("noble stopped scanning")
   }
 }
 
 function handleDiscoveredPeripheral(peripheral) {
   if (!peripheral.advertisement.manufacturerData) {
-    console.log("noble discvored " + peripheral.address);
+    console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
     
     const localName = peripheral.advertisement.localName;
     var data = localName.toString('utf8');
-    console.log(data);
+    console.log(`[BLE Radio] Received advertisement data = ${data}`);
     var discovered_ip = aes_crypto.decrypt(data, ranging_key, iv);
-    console.log("decrypted = " + discovered_ip);
+    console.log("[Ranging] Decrypted data = " + discovered_ip);
     if(isValidIPAddress(discovered_ip)) {
-      console.log("valid ip");
+      console.log(`[Ranging] ${discovered_ip} is a valid IP address`);
       devices_in_proximity[peripheral.address] = [discovered_ip, Date.now()];
-      console.log(devices_in_proximity);
+      console.log(`[Ranging] Peripherals discovered: ${devices_in_proximity}`);
     } else {
-      console.log("invalid ip");
+      console.log(`[Ranging] ${discovered_ip} is an invalid IP address`);
     }
   }
 }
@@ -104,9 +104,7 @@ function handlePOSTResponse(error, response, body) {
   var key_params = JSON.parse(body);
   ranging_key = key_params.ranging_key;
   iv = key_params.iv;
-  console.log('Succesfuly received params from gateway server!');
-  console.log(ranging_key);
-  console.log(iv);
+  console.log(`[Ranging] Received ranging key from registration server. Key = ${ranging_key}, IV = ${iv}`);
   fs.writeFile(params_file,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
   //start advertising once we have the key
   startAdvertising();
@@ -118,21 +116,18 @@ function handleWriteFileError(err) {
 
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
-    console.log("bleno state = powered on");
-    console.log("my BLE Mac = " + bleno.address);
+    //console.log("bleno state = powered on");
+    console.log("[BLE Radio] BLE MAC Address = " + bleno.address);
     loadKeyParams(handleKeyParams);
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
-    console.log("bleno state = powered off");
+    // console.log("bleno state = powered off");
   }
 }
 
 function startAdvertising() {
   
   encrypted_ip = aes_crypto.encrypt(ip_addr, ranging_key, iv);
-
-  console.log("encrypted_ip = " + encrypted_ip)
-  console.log("length = " + encrypted_ip.length)
 
   var advertisementData = new Buffer(31);
   advertisementData.writeUInt8(encrypted_ip.length + 1, 0); //length of the element (excluding the length byte itself). +1 is for length byte
@@ -142,7 +137,7 @@ function startAdvertising() {
 
   bleno.startAdvertisingWithEIRData(advertisementData);
 
-  console.log("started advertising");
+  console.log(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
 }
 
 function handleKeyParams(key_params){
@@ -152,9 +147,7 @@ function handleKeyParams(key_params){
   } else {
     ranging_key = key_params.ranging_key;
     iv = key_params.iv;
-    console.log('Reusing already obtained params = ');
-    console.log(key_params.ranging_key);
-    console.log(key_params.iv);
+    console.log(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
     startAdvertising();
   }
 }
