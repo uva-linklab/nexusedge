@@ -13,11 +13,6 @@ params_file = "params.json";
 ranging_key = "";
 iv = "";
 
-// password = '95CFEF1B1F1F5FAAC6954BC1BD713081',
-// iv = '6F2E2CEE52C1AB42',
-
-var BlenoPrimaryService = bleno.PrimaryService;
-
 if(!register_url){
   console.log("Please provide register url");
   process.exit(1);
@@ -29,21 +24,50 @@ if(!ip_addr){
 }
 
 bleno.on('advertisingStart', function(error) {
-  console.log('on -> advertisingStart: ' + (error ? 'error ' + error : 'success'));
-
-  // if (!error) {
-  //   bleno.setServices([
-  //     new BlenoPrimaryService({
-  //       uuid: 'ec00',
-  //       characteristics: [
-  //         new EchoCharacteristic()
-  //       ]
-  //     })
-  //   ]);
-  // }
+  console.log('bleno advertisingStart: ' + (error ? 'error ' + error : 'success'));
 });
 
 bleno.on('stateChange', handleBlenoStateChange);
+
+noble.on('stateChange', handleNobleStateChange);
+
+noble.on('discover', handleDiscoveredPeripheral);
+
+function handleNobleStateChange(state) {
+  if (state === 'poweredOn') {
+    console.log("noble state = powered on")
+    noble.startScanning();
+    console.log("noble started scanning")
+  } else {
+    console.log("noble state = powered off")
+    noble.stopScanning();
+    console.log("noble stopped scanning")
+  }
+}
+
+function handleDiscoveredPeripheral(peripheral) {
+  console.log("noble discvored " + peripheral.address);
+  if (!peripheral.advertisement.manufacturerData) {
+    console.log("no manufacturerData");
+    const localName = peripheral.advertisement.localName;
+    var data = localName.toString('utf8');
+    console.log(data);
+    var discovered_ip = aes_crypto.decrypt(data,password,iv);
+    console.log("decrypted = " + discovered_ip);
+    if(isValidIPAddress(discovered_ip)) {
+      console.log("valid ip");
+    } else {
+      console.log("invalid ip");
+    }
+  }
+}
+
+function isValidIPAddress(ipaddress) {  
+  if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
+    return (true);  
+  }  
+  return (false);  
+}
 
 function loadKeyParams(callback) {
   if (!fs.existsSync(params_file)) {
@@ -92,12 +116,12 @@ function handleWriteFileError(err) {
 
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
-    console.log("poweredOn");
-    console.log(bleno.address);
+    console.log("bleno state = powered on");
+    console.log("my BLE Mac = " + bleno.address);
     loadKeyParams(handleKeyParams);
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
-    console.log("off");
+    console.log("bleno state = powered off");
   }
 }
 
@@ -132,9 +156,3 @@ function handleKeyParams(key_params){
     startAdvertising();
   }
 }
-
-// var cronJob = cron.job("*/5 * * * * *", function(){
-//     // perform operation e.g. GET request http.get() etc.
-//     console.log('cron job completed');
-// }); 
-// cronJob.start();
