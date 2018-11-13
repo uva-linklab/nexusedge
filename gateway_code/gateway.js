@@ -52,7 +52,7 @@ function handleDiscoveredPeripheral(peripheral) {
     const localName = peripheral.advertisement.localName;
     var data = localName.toString('utf8');
     console.log(data);
-    var discovered_ip = aes_crypto.decrypt(data,password,iv);
+    var discovered_ip = aes_crypto.decrypt(data, ranging_key, iv);
     console.log("decrypted = " + discovered_ip);
     if(isValidIPAddress(discovered_ip)) {
       console.log("valid ip");
