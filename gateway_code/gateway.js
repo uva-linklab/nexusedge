@@ -11,6 +11,8 @@ params_file = "params.json";
 ranging_key = "";
 iv = "";
 
+devices_in_proximity = {}
+
 if(!register_url){
   console.log("Please provide register url");
   process.exit(1);
@@ -44,9 +46,9 @@ function handleNobleStateChange(state) {
 }
 
 function handleDiscoveredPeripheral(peripheral) {
-  console.log("noble discvored " + peripheral.address);
   if (!peripheral.advertisement.manufacturerData) {
-    console.log("no manufacturerData");
+    console.log("noble discvored " + peripheral.address);
+    
     const localName = peripheral.advertisement.localName;
     var data = localName.toString('utf8');
     console.log(data);
@@ -54,6 +56,8 @@ function handleDiscoveredPeripheral(peripheral) {
     console.log("decrypted = " + discovered_ip);
     if(isValidIPAddress(discovered_ip)) {
       console.log("valid ip");
+      devices_in_proximity[peripheral.address] = [discovered_ip, Date.now()];
+      console.log(devices_in_proximity);
     } else {
       console.log("invalid ip");
     }
