@@ -36,7 +36,7 @@ noble.on('discover', handleDiscoveredPeripheral);
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
     console.log("noble state = powered on")
-    noble.startScanning();
+    noble.startScanning([], true);
     console.log("noble started scanning")
   } else {
     console.log("noble state = powered off")
