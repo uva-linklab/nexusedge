@@ -3,11 +3,15 @@ var noble = require("noble");
 var bleno = require("bleno");
 var fs = require('fs');
 var aes_crypto = require("./aes_crypto");
+const MongoClient = require('mongodb').MongoClient;
 
 register_url = process.argv[2];
 ip_addr = process.argv[3];
-params_file = "params.json";
 
+const mongo_url = 'mongodb://localhost:27017';
+const discovery_dbName = 'discovery';
+
+params_file = "params.json";
 ranging_key = "";
 iv = "";
 
@@ -61,6 +65,7 @@ function handleDiscoveredPeripheral(peripheral) {
         console.log(`[Ranging] ${discovered_ip} is a valid IP address`);
         devices_in_proximity[peripheral.address] = [discovered_ip, Date.now()];
         console.log(`[Ranging] Peripherals discovered: ${JSON.stringify(devices_in_proximity, null, 4)}`);
+        updateDiscoveryDB(peripheral.address, discovered_ip);
       } else {
         console.log(`[Ranging] ${discovered_ip} is an invalid IP address`);
       }
@@ -155,3 +160,29 @@ function handleKeyParams(key_params){
     startAdvertising();
   }
 }
+
+function updateDiscoveryDB(peripheral_name, peripheral_ip) {
+  const client = new MongoClient(mongo_url);
+  client.connect(handleMongoDbConnect);
+  function handleMongoDbConnect(err) {
+    assert.equal(null, err);
+    console.log("Connected successfully to server");
+    const db = client.db(discovery_dbName);
+    updateDocument(db,function(result) {});
+    client.close();  
+  }
+
+  const updateDocument = function(db, callback) {
+    const collection = db.collection('partial_link_graph');
+    collection.updateOne(
+      { "gatewayIP" : peripheral_ip }, 
+      { $set: { "gatewayName" : peripheral_name, "ts" : Date.now()} }, 
+      { upsert: true },
+      function(err, result) {
+        console.log("Updated the document");
+        callback(result);
+      }
+    );
+  }
+}
+
