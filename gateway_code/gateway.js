@@ -165,11 +165,12 @@ function updateDiscoveryDB(peripheral_name, peripheral_ip) {
   const client = new MongoClient(mongo_url);
   client.connect(handleMongoDbConnect);
   function handleMongoDbConnect(err) {
-    assert.equal(null, err);
-    console.log("Connected successfully to server");
-    const db = client.db(discovery_dbName);
-    updateDocument(db,function(result) {});
-    client.close();  
+    if(err !== null) {
+      console.log("Connected successfully to server");
+      const db = client.db(discovery_dbName);
+      updateDocument(db,function(result) {});
+      client.close();    
+    }
   }
 
   const updateDocument = function(db, callback) {
