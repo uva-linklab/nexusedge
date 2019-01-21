@@ -165,8 +165,8 @@ function updateDiscoveryDB(peripheral_name, peripheral_ip) {
   const client = new MongoClient(mongo_url);
   client.connect(handleMongoDbConnect);
   function handleMongoDbConnect(err) {
-    if(err !== null) {
-      console.log("Connected successfully to server");
+    if(!err) {
+      // console.log("Connected successfully to server");
       const db = client.db(discovery_dbName);
       updateDocument(db,function(result) {});
       client.close();    
@@ -180,7 +180,7 @@ function updateDiscoveryDB(peripheral_name, peripheral_ip) {
       { $set: { "gatewayName" : peripheral_name, "ts" : Date.now()} }, 
       { upsert: true },
       function(err, result) {
-        console.log("Updated the document");
+        // console.log("Updated the document");
         callback(result);
       }
     );
