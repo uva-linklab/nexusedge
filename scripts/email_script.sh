@@ -1,4 +1,6 @@
 #!/bin/bash
+#expects the Artik serial number in the env var ARTIK_SERIAL
+source $HOME/.bash_profile
 echo -e "\
 From: "Artik Status" <artikstatus@gmail.com>\n\
 To: "Nabeel Nasir" <nn5rh@virginia.edu>\n\
