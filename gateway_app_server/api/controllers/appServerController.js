@@ -1,4 +1,5 @@
 var gatewayStatusApp = require("../../gatewayStatusApp");
+var partialLinkGraphApp = require("../../partialLinkGraphApp");
 // 'use strict';
 
 
@@ -127,9 +128,18 @@ exports.add_app = function(req, res) {
 exports.exec = function(req, res) {
   AppModel.findById(req.params.appId, function(err, app) {
       if (!err) {
+        console.log(`${app}`);
         switch(app.app_name) {
           case "gateway status":
             res.json(gatewayStatusApp.getGatewayStatus());
+            break;
+          case "partialLinkGraph":
+            partialLinkGraphApp.getPartialLinkGraph(function(partial_link_graph) {
+              res.json(partial_link_graph);
+            })
+            break;
+          default:
+            res.sendStatus(404);
         }
       } else {
         res.sendStatus(404);
