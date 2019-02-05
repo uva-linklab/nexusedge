@@ -69,7 +69,7 @@ function handleDiscoveredPeripheral(peripheral) {
       if(isValidIPAddress(discovered_ip)) {
         console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
         console.log(`[Ranging] IP Address = ${discovered_ip}`);
-        addToPartialLinkGraphDB(peripheral.id, discovered_ip);
+        addToPartialLinkGraphDB(peripheral.address, discovered_ip);
       } else {
         console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
         black_list.push(peripheral.address);
