@@ -1,2 +1,5 @@
 gateway_code/params.json
 test_code/
+gateway_app_server/node_modules/
+gateway_code/node_modules/
+registration_server/node_modules/
