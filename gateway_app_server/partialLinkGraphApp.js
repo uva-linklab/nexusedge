@@ -13,7 +13,7 @@ async function getPartialLinkGraph() {
 	const db = await conn.db(dbName);
 	const plg = await db.collection('partialLinkGraph')
 						.find({})
-						.project({"timestamp":0})
+						.project({"ts":0})
 						.toArray();
 	return plg;
 }

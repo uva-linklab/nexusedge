@@ -84,7 +84,7 @@ exports.exec = function(req, res) {
               .then(plg => res.json(plg));
             break;
           case "linkGraph":
-            linkGraphApp.getLinkGraph("this", "localhost")
+            linkGraphApp.getLinkGraph()
               .then(lg => res.json(lg));
               break;
           default:

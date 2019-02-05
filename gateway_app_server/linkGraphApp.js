@@ -5,11 +5,15 @@ var queue = new Queue();
 module.exports.getLinkGraph = getLinkGraph;
 'use strict';
 
-async function getLinkGraph(id, ip_address) {
-	var neighbors_dict = {};
-	var data_dict = {}
+async function getLinkGraph() {
 
-	queue.enqueue({_id: id, IP_address: ip_address});
+	//pick up self's id and ip address from mongo
+	const self_details = await getSelfDetails();
+	console.log(`self = ${self_details._id}, ${self_details.IP_address}`);
+	var neighbors_dict = {};
+	var data_dict = {};
+
+	queue.enqueue({_id: self_details._id, IP_address: self_details.IP_address});
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
@@ -59,4 +63,13 @@ async function getPartialLinkGraph(ip) {
     	response = [ { _id: 'this', IP_address: 'localhost' } ]
     }
     return response;
+}
+
+async function getSelfDetails() {
+	const conn = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
+	const db = await conn.db("discovery");
+	const self_details = await db.collection('self')
+						.findOne({})
+						.project({"timestamp":0});
+	return self_details;
 }
