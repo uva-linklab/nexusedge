@@ -16,6 +16,7 @@ ranging_key = "";
 iv = "";
 
 devices_in_proximity = {}
+var black_list = [];
 
 if(!register_url){
   console.log("Please provide register url");
@@ -50,12 +51,17 @@ function handleNobleStateChange(state) {
 }
 
 function handleDiscoveredPeripheral(peripheral) {
+  if(black_list.includes(peripheral.address)) {
+    return;
+  }
+
   if (!peripheral.advertisement.manufacturerData) {
     console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
     
     const localName = peripheral.advertisement.localName;
     if(typeof localName === "undefined") {
-      console.log("[BLE Radio] Invalid advertisement data. Skipping.");  
+      console.log("[BLE Radio] Invalid advertisement data. Skipping.");
+      black_list.push(peripheral.address);
     } else {
       var data = localName.toString('utf8');
       console.log(`[BLE Radio] Received advertisement data = ${data}`);
@@ -68,6 +74,7 @@ function handleDiscoveredPeripheral(peripheral) {
         updateDiscoveryDB(peripheral.id, discovered_ip);
       } else {
         console.log(`[Ranging] ${discovered_ip} is an invalid IP address`);
+        black_list.push(peripheral.address);
       }
     }
   }
