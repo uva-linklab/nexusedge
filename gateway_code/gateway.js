@@ -170,7 +170,7 @@ function handleKeyParams(key_params){
 function saveIPAddress(name, ip) {
   MongoClient.connect(mongo_url, { useNewUrlParser: true })
     .then(conn => {
-      conn.db(dbName)
+      conn.db(discovery_dbName)
         .then(db => {
           db.collection('self').updateOne(
             { "_id" : name }, 
