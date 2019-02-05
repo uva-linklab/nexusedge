@@ -5,6 +5,9 @@ var queue = new Queue();
 module.exports.getLinkGraph = getLinkGraph;
 'use strict';
 
+const MongoClient = require('mongodb').MongoClient;
+const mongo_url = 'mongodb://localhost:27017';
+
 async function getLinkGraph() {
 
 	//pick up self's id and ip address from mongo
