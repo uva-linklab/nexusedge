@@ -50,29 +50,32 @@ function getPartialLinkGraphAppId(ip) {
 
 //returns a promise of a list of list of gateway_name and gateway_IP
 async function getPartialLinkGraph(ip) {
-	
-    var response = [];
-    if(ip === "localhost") {
-    	const appId = await getPartialLinkGraphAppId(ip);
-    	const execUrl = `http://${ip}:5000/execute/${appId}`;
-    	const body = await request({method: 'GET', uri: execUrl})
-    	response = JSON.parse(body);
-    	// response = [ { _id: 'A', IP_address: '192.168.0.1' }, { _id: 'X', IP_address: '192.168.0.3' } ]
-    } else if(ip === "192.168.0.1") {
-    	response = [ { _id: 'B', IP_address: '192.168.0.2' } ]
-    } else if(ip === '192.168.0.2') {
-    	response = [ { _id: 'A', IP_address: '192.168.0.1' } ]
-    } else if(ip === '172.168.0.3') {
-    	response = [ { _id: 'this', IP_address: 'localhost' } ]
-    }
-    return response;
+	const appId = await getPartialLinkGraphAppId(ip);
+	const execUrl = `http://${ip}:5000/execute/${appId}`;
+	const body = await request({method: 'GET', uri: execUrl})
+	return JSON.parse(body);
+
+    // var response = [];
+    // if(ip === "localhost") {
+    // 	const appId = await getPartialLinkGraphAppId(ip);
+    // 	const execUrl = `http://${ip}:5000/execute/${appId}`;
+    // 	const body = await request({method: 'GET', uri: execUrl})
+    // 	response = JSON.parse(body);
+    // 	// response = [ { _id: 'A', IP_address: '192.168.0.1' }, { _id: 'X', IP_address: '192.168.0.3' } ]
+    // } else if(ip === "192.168.0.1") {
+    // 	response = [ { _id: 'B', IP_address: '192.168.0.2' } ]
+    // } else if(ip === '192.168.0.2') {
+    // 	response = [ { _id: 'A', IP_address: '192.168.0.1' } ]
+    // } else if(ip === '172.168.0.3') {
+    // 	response = [ { _id: 'this', IP_address: 'localhost' } ]
+    // }
+    // return response;
 }
 
 async function getSelfDetails() {
 	const conn = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
 	const db = await conn.db("discovery");
 	const self_details = await db.collection('self')
-						.findOne({})
-						.project({"timestamp":0});
+						.findOne({},{"timestamp":0});
 	return self_details;
 }
