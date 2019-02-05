@@ -15,7 +15,6 @@ params_file = "params.json";
 ranging_key = "";
 iv = "";
 
-devices_in_proximity = {}
 var black_list = [];
 
 if(!register_url){
@@ -56,24 +55,23 @@ function handleDiscoveredPeripheral(peripheral) {
   }
 
   if (!peripheral.advertisement.manufacturerData) {
-    console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
+    // console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
     
     const localName = peripheral.advertisement.localName;
     if(typeof localName === "undefined") {
-      console.log("[BLE Radio] Invalid advertisement data. Skipping.");
+      console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
       black_list.push(peripheral.address);
     } else {
       var data = localName.toString('utf8');
-      console.log(`[BLE Radio] Received advertisement data = ${data}`);
+      // console.log(`[BLE Radio] Received advertisement data = ${data}`);
       var discovered_ip = aes_crypto.decrypt(data, ranging_key, iv);
-      console.log("[Ranging] Decrypted data = " + discovered_ip);
+      // console.log("[Ranging] Decrypted data = " + discovered_ip);
       if(isValidIPAddress(discovered_ip)) {
-        console.log(`[Ranging] ${discovered_ip} is a valid IP address`);
-        devices_in_proximity[peripheral.id] = [discovered_ip, Date.now()];
-        console.log(`[Ranging] Peripherals discovered: ${JSON.stringify(devices_in_proximity, null, 4)}`);
+        console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
+        console.log(`[Ranging] IP Address = ${discovered_ip}`);
         updateDiscoveryDB(peripheral.id, discovered_ip);
       } else {
-        console.log(`[Ranging] ${discovered_ip} is an invalid IP address`);
+        console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
         black_list.push(peripheral.address);
       }
     }
