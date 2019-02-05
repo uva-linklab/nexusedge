@@ -69,7 +69,7 @@ function handleDiscoveredPeripheral(peripheral) {
       if(isValidIPAddress(discovered_ip)) {
         console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
         console.log(`[Ranging] IP Address = ${discovered_ip}`);
-        updateDiscoveryDB(peripheral.id, discovered_ip);
+        addToPartialLinkGraphDB(peripheral.id, discovered_ip);
       } else {
         console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
         black_list.push(peripheral.address);
@@ -133,6 +133,7 @@ function handleBlenoStateChange(state) {
     //console.log("bleno state = powered on");
     console.log("[BLE Radio] BLE MAC Address = " + bleno.address);
     loadKeyParams(handleKeyParams);
+    saveIPAddress(bleno.address, ip_addr);
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
     // console.log("bleno state = powered off");
@@ -166,9 +167,22 @@ function handleKeyParams(key_params){
   }
 }
 
-function updateDiscoveryDB(peripheral_name, peripheral_ip) {
+function saveIPAddress(name, ip) {
+  MongoClient.connect(mongo_url, { useNewUrlParser: true })
+    .then(conn => {
+      conn.db(dbName)
+        .then(db => {
+          db.collection('self').updateOne(
+            { "_id" : name }, 
+            { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} }, 
+            { upsert: true });
+        });
+    }); 
+}
+
+function addToPartialLinkGraphDB(peripheral_name, peripheral_ip) {
   const client = new MongoClient(mongo_url);
-  client.connect(handleMongoDbConnect);
+  client.connect(handleMongoDbConnect, { useNewUrlParser: true });
   function handleMongoDbConnect(err) {
     if(!err) {
       // console.log("Connected successfully to server");
