@@ -174,10 +174,19 @@ function updateDiscoveryDB(peripheral_name, peripheral_ip) {
   }
 
   const updateDocument = function(db, callback) {
-    const collection = db.collection('partial_link_graph');
+    const collection = db.collection('partialLinkGraph');
+    // collection.updateOne(
+    //   { "gatewayIP" : peripheral_ip }, 
+    //   { $set: { "gatewayName" : peripheral_name, "ts" : Date.now()} }, 
+    //   { upsert: true },
+    //   function(err, result) {
+    //     // console.log("Updated the document");
+    //     callback(result);
+    //   }
+    // );
     collection.updateOne(
-      { "gatewayIP" : peripheral_ip }, 
-      { $set: { "gatewayName" : peripheral_name, "ts" : Date.now()} }, 
+      { "_id" : peripheral_name }, 
+      { $set: { "_id": peripheral_name, "IP_address": peripheral_ip, "ts" : Date.now()} }, 
       { upsert: true },
       function(err, result) {
         // console.log("Updated the document");

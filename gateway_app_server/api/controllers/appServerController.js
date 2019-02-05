@@ -1,62 +1,8 @@
+'use strict';
 var gatewayStatusApp = require("../../gatewayStatusApp");
 var partialLinkGraphApp = require("../../partialLinkGraphApp");
-// 'use strict';
+var linkGraphApp = require("../../linkGraphApp");
 
-
-// var mongoose = require('mongoose'),
-//   Task = mongoose.model('Tasks');
-
-// exports.list_all_tasks = function(req, res) {
-//   Task.find({}, function(err, task) {
-//     if (err)
-//       res.send(err);
-//     res.json(task);
-//   });
-// };
-
-
-
-
-// exports.create_a_task = function(req, res) {
-//   var new_task = new Task(req.body);
-//   new_task.save(function(err, task) {
-//     if (err)
-//       res.send(err);
-//     res.json(task);
-//   });
-// };
-
-
-// exports.read_a_task = function(req, res) {
-//   Task.findById(req.params.taskId, function(err, task) {
-//     if (err)
-//       res.send(err);
-//     res.json(task);
-//   });
-// };
-
-
-// exports.update_a_task = function(req, res) {
-//   Task.findOneAndUpdate({_id: req.params.taskId}, req.body, {new: true}, function(err, task) {
-//     if (err)
-//       res.send(err);
-//     res.json(task);
-//   });
-// };
-
-
-// exports.delete_a_task = function(req, res) {
-
-
-//   Task.remove({
-//     _id: req.params.taskId
-//   }, function(err, task) {
-//     if (err)
-//       res.send(err);
-//     res.json({ message: 'Task successfully deleted' });
-//   });
-// };
-'use strict';
 var mongoose = require('mongoose'),
   util = require('util'),
   AppModel = mongoose.model('Apps');
@@ -128,16 +74,19 @@ exports.add_app = function(req, res) {
 exports.exec = function(req, res) {
   AppModel.findById(req.params.appId, function(err, app) {
       if (!err) {
-        console.log(`${app}`);
+        // console.log(`${app}`);
         switch(app.app_name) {
           case "gateway status":
             res.json(gatewayStatusApp.getGatewayStatus());
             break;
           case "partialLinkGraph":
-            partialLinkGraphApp.getPartialLinkGraph(function(partial_link_graph) {
-              res.json(partial_link_graph);
-            })
+            partialLinkGraphApp.getPartialLinkGraph()
+              .then(plg => res.json(plg));
             break;
+          case "linkGraph":
+            linkGraphApp.getLinkGraph("this", "localhost")
+              .then(lg => res.json(lg));
+              break;
           default:
             res.sendStatus(404);
         }
@@ -146,7 +95,6 @@ exports.exec = function(req, res) {
       }
     });
 };
-
 
 exports.read = function(req, res) {
   AppModel.findById(req.params.appId, function(err, app) {
