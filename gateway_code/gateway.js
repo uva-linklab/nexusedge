@@ -168,16 +168,30 @@ function handleKeyParams(key_params){
 }
 
 function saveIPAddress(name, ip) {
-  MongoClient.connect(mongo_url, { useNewUrlParser: true })
-    .then(conn => {
-      conn.db(discovery_dbName)
-        .then(db => {
-          db.collection('self').updateOne(
-            { "_id" : name }, 
-            { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} }, 
-            { upsert: true });
-        });
-    }); 
+  const client = new MongoClient(mongo_url);
+  client.connect(handleMongoDbConnect, { useNewUrlParser: true });
+  function handleMongoDbConnect(err) {
+    if(!err) {
+      // console.log("Connected successfully to server");
+      const db = client.db(discovery_dbName);
+      updateDocument(db,function(result) {});
+      client.close();    
+    }
+  }
+  const updateDocument = function(db, callback) {
+    const collection = db.collection('self');
+    
+    collection.updateOne(
+      { "_id" : name }, 
+      { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} }, 
+      { upsert: true },
+      function(err, result) {
+        // console.log("Updated the document");
+        callback(result);
+      }
+    );
+  }
+
 }
 
 function addToPartialLinkGraphDB(peripheral_name, peripheral_ip) {
