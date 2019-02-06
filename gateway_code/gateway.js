@@ -39,13 +39,10 @@ noble.on('discover', handleDiscoveredPeripheral);
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
-    // console.log("noble state = powered on")
     noble.startScanning([], true);
-    console.log("[BLE Radio] Started peripheral discovery")
+    logWithTs("[BLE Radio] Started peripheral discovery")
   } else {
-    // console.log("noble state = powered off")
     noble.stopScanning();
-    // console.log("noble stopped scanning")
   }
 }
 
@@ -59,7 +56,7 @@ function handleDiscoveredPeripheral(peripheral) {
     
     const localName = peripheral.advertisement.localName;
     if(typeof localName === "undefined") {
-      console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
+      logWithTs(`[BLE Radio] blacklisted ${peripheral.address}`);
       black_list.push(peripheral.address);
     } else {
       var data = localName.toString('utf8');
@@ -67,11 +64,11 @@ function handleDiscoveredPeripheral(peripheral) {
       var discovered_ip = aes_crypto.decrypt(data, ranging_key, iv);
       // console.log("[Ranging] Decrypted data = " + discovered_ip);
       if(isValidIPAddress(discovered_ip)) {
-        console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
-        console.log(`[Ranging] IP Address = ${discovered_ip}`);
+        logWithTs("[BLE Radio] Peripheral discovered: " + peripheral.address);
+        logWithTs(`[Ranging] IP Address = ${discovered_ip}`);
         addToPartialLinkGraphDB(peripheral.address, discovered_ip);
       } else {
-        console.log(`[BLE Radio] blacklisted ${peripheral.address}`);
+        logWithTs(`[BLE Radio] blacklisted ${peripheral.address}`);
         black_list.push(peripheral.address);
       }
     }
@@ -118,7 +115,7 @@ function handlePOSTResponse(error, response, body) {
   var key_params = JSON.parse(body);
   ranging_key = key_params.ranging_key;
   iv = key_params.iv;
-  console.log(`[Ranging] Received ranging key from registration server. Key = ${ranging_key}, IV = ${iv}`);
+  logWithTs(`[Ranging] Received ranging key from registration server. Key = ${ranging_key}, IV = ${iv}`);
   fs.writeFile(params_file,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
   //start advertising once we have the key
   startAdvertising();
@@ -131,7 +128,7 @@ function handleWriteFileError(err) {
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
     //console.log("bleno state = powered on");
-    console.log("[BLE Radio] BLE MAC Address = " + bleno.address);
+    logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
     loadKeyParams(handleKeyParams);
     saveIPAddress(bleno.address, ip_addr);
   } else if (state === 'poweredOff') {
@@ -152,7 +149,7 @@ function startAdvertising() {
 
   bleno.startAdvertisingWithEIRData(advertisementData);
 
-  console.log(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
+  logWithTs(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
 }
 
 function handleKeyParams(key_params){
@@ -162,7 +159,7 @@ function handleKeyParams(key_params){
   } else {
     ranging_key = key_params.ranging_key;
     iv = key_params.iv;
-    console.log(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
+    logWithTs(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
     startAdvertising();
   }
 }
@@ -229,3 +226,10 @@ function addToPartialLinkGraphDB(peripheral_name, peripheral_ip) {
   }
 }
 
+function logWithTs(log) {
+  console.log(`[${getCurrentDateTime()}] ${log}`);
+}
+
+function getCurrentDateTime() {
+  return new Date().toLocaleString("en-US", {timeZone: "America/New_York"});
+}

@@ -12,7 +12,6 @@ async function getLinkGraph() {
 
 	//pick up self's id and ip address from mongo
 	const self_details = await getSelfDetails();
-	console.log(`self = ${self_details._id}, ${self_details.IP_address}`);
 	var neighbors_dict = {};
 	var data_dict = {};
 
