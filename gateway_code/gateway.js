@@ -164,7 +164,7 @@ function handleKeyParams(key_params){
   } else {
     ranging_key = key_params.ranging_key;
     iv = key_params.iv;
-    logWithTs(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
+    utils.logWithTs(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
     startAdvertising();
   }
 }
