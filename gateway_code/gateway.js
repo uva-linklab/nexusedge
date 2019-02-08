@@ -28,9 +28,13 @@ if(!ip_addr){
   process.exit(1);
 }
 
-// bleno.on('advertisingStart', function(error) {
-//   console.log('[BLE Radio] Started AdvertisingStart: ' + (error ? 'error ' + error : 'success'));
-// });
+// Initialize connection once
+var db;
+MongoClient.connect(mongo_url, { useNewUrlParser: true }, function(err, client) {
+  if(err) throw err;
+
+  db = client.db(discovery_dbName);
+});
 
 bleno.on('stateChange', handleBlenoStateChange);
 
@@ -166,63 +170,23 @@ function handleKeyParams(key_params){
 }
 
 function saveIPAddress(name, ip) {
-  const client = new MongoClient(mongo_url);
-  client.connect(handleMongoDbConnect, { useNewUrlParser: true });
-  function handleMongoDbConnect(err) {
-    if(!err) {
-      // console.log("Connected successfully to server");
-      const db = client.db(discovery_dbName);
-      updateDocument(db,function(result) {});
-      client.close();    
-    }
-  }
-  const updateDocument = function(db, callback) {
-    const collection = db.collection('self');
-    
-    collection.updateOne(
+  db.collection('self').updateOne(
       { "_id" : name }, 
       { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} }, 
       { upsert: true },
       function(err, result) {
-        // console.log("Updated the document");
-        callback(result);
+        utils.logWithTs("recorded id and IP of self to db");
       }
     );
-  }
-
 }
 
 function addToPartialLinkGraphDB(peripheral_name, peripheral_ip) {
-  const client = new MongoClient(mongo_url);
-  client.connect(handleMongoDbConnect, { useNewUrlParser: true });
-  function handleMongoDbConnect(err) {
-    if(!err) {
-      // console.log("Connected successfully to server");
-      const db = client.db(discovery_dbName);
-      updateDocument(db,function(result) {});
-      client.close();    
-    }
-  }
-
-  const updateDocument = function(db, callback) {
-    const collection = db.collection('partialLinkGraph');
-    // collection.updateOne(
-    //   { "gatewayIP" : peripheral_ip }, 
-    //   { $set: { "gatewayName" : peripheral_name, "ts" : Date.now()} }, 
-    //   { upsert: true },
-    //   function(err, result) {
-    //     // console.log("Updated the document");
-    //     callback(result);
-    //   }
-    // );
-    collection.updateOne(
+  db.collection('partialLinkGraph').updateOne(
       { "_id" : peripheral_name }, 
       { $set: { "_id": peripheral_name, "IP_address": peripheral_ip, "ts" : Date.now()} }, 
       { upsert: true },
       function(err, result) {
-        // console.log("Updated the document");
-        callback(result);
+        utils.logWithTs("datapoint stored to db");
       }
     );
-  }
 }

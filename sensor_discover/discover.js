@@ -41,7 +41,7 @@ function addToSensorDiscoveryDB(sensor_id, sensor_device, gateway_id, receiver) 
       { $set: { "_id": sensor_id, "device": sensor_device, "gateway_id": gateway_id, "receiver": receiver, "ts" : Date.now()} }, 
       { upsert: true },
       function(err, result) {
-        utils.logWithTs("Added point to db");
+        utils.logWithTs("datapoint stored to db");
       }
     );
 }
