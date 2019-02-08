@@ -38,9 +38,20 @@ MongoClient.connect(mongo_url, { useNewUrlParser: true }, function(err, client) 
 
 bleno.on('stateChange', handleBlenoStateChange);
 
-noble.on('stateChange', handleNobleStateChange);
-
-noble.on('discover', handleDiscoveredPeripheral);
+function handleBlenoStateChange(state) {
+  if (state === 'poweredOn') {
+    utils.logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
+    loadKeyParams(handleKeyParams);
+    saveIPAddress(bleno.address, ip_addr);
+    
+    //start discovering BLE peripherals
+    //we do noble's listener initialization here as there's a dependency on ranging key and iv
+    noble.on('stateChange', handleNobleStateChange);
+    noble.on('discover', handleDiscoveredPeripheral);
+  } else if (state === 'poweredOff') {
+    bleno.stopAdvertising();
+  }
+}
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
@@ -129,18 +140,6 @@ function handlePOSTResponse(error, response, body) {
 function handleWriteFileError(err) {
   if (err) throw err;
 }  
-
-function handleBlenoStateChange(state) {
-  if (state === 'poweredOn') {
-    //console.log("bleno state = powered on");
-    utils.logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
-    loadKeyParams(handleKeyParams);
-    saveIPAddress(bleno.address, ip_addr);
-  } else if (state === 'poweredOff') {
-    bleno.stopAdvertising();
-    // console.log("bleno state = powered off");
-  }
-}
 
 function startAdvertising() {
   
