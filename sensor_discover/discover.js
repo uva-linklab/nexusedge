@@ -29,9 +29,8 @@ client.on('message', (topic, message) => {
     const gateway_id = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
-    if(gateway_id === "70:2c:1f:40:4d:70") {
-      addToSensorDiscoveryDB(sensor_id, sensor_device, gateway_id, receiver);
-    }
+    
+    addToSensorDiscoveryDB(sensor_id, sensor_device, gateway_id, receiver);
   }
 });
 
