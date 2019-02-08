@@ -1,6 +1,7 @@
 'use strict';
 var gatewayStatusApp = require("../../gatewayStatusApp");
 var partialLinkGraphApp = require("../../partialLinkGraphApp");
+var sensorDiscoveryApp = require("../../sensorDiscoveryApp");
 var linkGraphApp = require("../../linkGraphApp");
 
 var mongoose = require('mongoose'),
@@ -87,6 +88,10 @@ exports.exec = function(req, res) {
             linkGraphApp.getLinkGraph()
               .then(lg => res.json(lg));
               break;
+          case "sensorDiscovery":
+            sensorDiscoveryApp.getAttachedSensors()
+            .then(sensors => res.json(sensors));
+            break;   
           default:
             res.sendStatus(404);
         }
