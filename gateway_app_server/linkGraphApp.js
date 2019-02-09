@@ -33,8 +33,34 @@ async function getLinkGraph() {
 		});
 		neighbors_dict[node._id] = neighbors_of_node;
 	}
+
+	Object.entries(data_dict).forEach(entry => {
+		const node = entry[0];
+		const ip = entry[1][ip];
+
+		const sensors = await getAttachedSensors(ip);
+		data_dict[node]["sensors"] = sensors;
+	});
+
 	const linkGraph = {"graph": neighbors_dict, "data": data_dict};
 	return linkGraph;
+}
+
+//TODO: cache the app if for the ip addresses
+function getSensorDiscoveryAppId(ip) {
+	const appsUrl = `http://${ip}:5000/apps`;
+	return request({method: 'GET', uri: appsUrl})
+		.then(body => {
+			return JSON.parse(body)
+				.filter(app => app.app_name === "sensorDiscovery")[0].app_id;
+		});
+}
+
+async function getAttachedSensors(ip) {
+	const appId = await getSensorDiscoveryAppId(ip);
+	const execUrl = `http://${ip}:5000/execute/${appId}`;
+	const body = await request({method: 'GET', uri: execUrl})
+	return JSON.parse(body);
 }
 
 //TODO: cache the app if for the ip addresses
