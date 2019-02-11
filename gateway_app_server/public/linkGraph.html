@@ -35,25 +35,42 @@ var force = d3.layout.force()
     .charge(-100)
     .size([width, height]);
 
-function parseLinkGraphJson(data) {
+function parseLinkGraphJson(lg_data) {
   var nodes = [];
   var links = [];
   var node_list = [];
   // var i=0;
-  Object.keys(data.graph).forEach(node_id => {
+  Object.keys(lg_data.graph).forEach(node_id => {
     nodes.push({"name": node_id, "group": 1});
     node_list.push(node_id);
   });
 
-  Object.entries(data.graph).forEach(entry => {
+  Object.entries(lg_data.graph).forEach(entry => {
     var node_id = entry[0];
     var neighbors = entry[1];
     neighbors.forEach(neighbor => {
       links.push(
-        {"source": node_list.indexOf(node_id), "target": node_list.indexOf(neighbor), "weight": 1}
+        {"source": node_list.indexOf(node_id), "target": node_list.indexOf(neighbor), "weight": 2}
       );
     });
   });
+
+  Object.entries(lg_data.data).forEach(entry => {
+    var node_id = entry[0];
+    var data = entry[1];
+    var ip = data.ip;
+    data.sensors.forEach(sensor_data => {
+      var sensor_name = `${sensor_data.device} (${sensor_data._id})`;
+      nodes.push({"name": sensor_name, "group": 2});
+      links.push(
+        { "source": node_list.indexOf(node_id), 
+          "target": node_list.indexOf(sensor_name), 
+          "weight": 1
+        }
+      );
+    });
+  });
+
   return {"nodes": nodes, "links": links};
 }
 
