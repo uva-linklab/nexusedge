@@ -3,6 +3,7 @@ var gatewayStatusApp = require("../../gatewayStatusApp");
 var partialLinkGraphApp = require("../../partialLinkGraphApp");
 var sensorDiscoveryApp = require("../../sensorDiscoveryApp");
 var linkGraphApp = require("../../linkGraphApp");
+var utils = require("../../../utils");
 
 var mongoose = require('mongoose'),
   util = require('util'),
@@ -100,6 +101,22 @@ exports.exec = function(req, res) {
       }
     });
 };
+
+exports.test = function( req, res ) {
+    var data = {
+          firstName: 'Andy',
+          lastName: 'Neale'
+      } ;
+    return res.render('index.html', data) ;
+} 
+
+exports.renderLinkGraph = function(req, res) {
+  const ip_address = utils.getIPAddress();
+  const data = {
+    'ip_address': ip_address
+  };
+  res.render('linkGraph.html', data);
+}
 
 exports.read = function(req, res) {
   AppModel.findById(req.params.appId, function(err, app) {

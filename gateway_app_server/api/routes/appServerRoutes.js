@@ -29,4 +29,10 @@ module.exports = function(app) {
 
   app.route('/execute/:appId')
   	.get(appServer.exec);
+
+  app.route('/linkgraph')
+    .get(appServer.renderLinkGraph);
+
+  app.route('/home.html')
+    .get(appServer.test);
 };
