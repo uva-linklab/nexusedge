@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+[B<!DOCTYPE html>
 <meta charset="utf-8">
 <script src="http://d3js.org/d3.v2.min.js?2.9.3"></script>
 <style>
@@ -50,7 +50,7 @@ function parseLinkGraphJson(lg_data) {
     var neighbors = entry[1];
     neighbors.forEach(neighbor => {
       links.push(
-        {"source": node_list.indexOf(node_id), "target": node_list.indexOf(neighbor), "weight": 2}
+        {"source": node_list.indexOf(node_id), "target": node_list.indexOf(neighbor), "weight": 4}
       );
     });
   });
@@ -61,7 +61,10 @@ function parseLinkGraphJson(lg_data) {
     var ip = data.ip;
     data.sensors.forEach(sensor_data => {
       var sensor_name = `${sensor_data.device} (${sensor_data._id})`;
-      nodes.push({"name": sensor_name, "group": 2});
+      if(node_list.indexOf(sensor_name) < 0) {
+      	nodes.push({"name": sensor_name, "group": 2});
+      	node_list.push(sensor_name);
+      }
       links.push(
         { "source": node_list.indexOf(node_id), 
           "target": node_list.indexOf(sensor_name), 
@@ -74,7 +77,20 @@ function parseLinkGraphJson(lg_data) {
   return {"nodes": nodes, "links": links};
 }
 
-d3.json("http://localhost:5000/execute/5c596f351fc2ea9777dfd470", function(linkGraph) {
+function color(d) {
+ if(d.group === 1)
+	return "#3366cc";
+ else return "#7CFC00";
+}
+
+function radius(d) {
+  if(d.group === 1)
+	return "10";
+  else
+	return "8";
+}
+
+d3.json("http://172.27.44.185:5000/execute/5c596f351fc2ea9777dfd470", function(linkGraph) {
   const json = parseLinkGraphJson(linkGraph);
   console.log(json);
   force
@@ -97,10 +113,10 @@ d3.json("http://localhost:5000/execute/5c596f351fc2ea9777dfd470", function(linkG
       .call(force.drag);
 
   node.append("circle")
-      .attr("r","10")
+      .attr("r",radius)
       .style("stroke", "white")
       .style("stroke-width","1.5")
-      .style("fill","#3366cc");
+      .style("fill",color);
 
   node.append("text")
       .attr("dx", 12)

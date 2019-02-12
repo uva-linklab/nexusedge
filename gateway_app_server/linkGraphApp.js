@@ -34,13 +34,20 @@ async function getLinkGraph() {
 		neighbors_dict[node._id] = neighbors_of_node;
 	}
 
-	Object.entries(data_dict).forEach(entry => {
+        for(const entry of Object.entries(data_dict)) {
 		const node = entry[0];
-		const ip = entry[1][ip];
+                const ip = entry[1].ip;
 
-		const sensors = await getAttachedSensors(ip);
-		data_dict[node]["sensors"] = sensors;
-	});
+                const sensors = await getAttachedSensors(ip);
+                data_dict[node]["sensors"] = sensors;
+	}
+	//Object.entries(data_dict).forEach(entry => {
+	//	const node = entry[0];
+	//	const ip = entry[1][ip];
+
+	//	const sensors = await getAttachedSensors(ip);
+	//	data_dict[node]["sensors"] = sensors;
+	//});
 
 	const linkGraph = {"graph": neighbors_dict, "data": data_dict};
 	return linkGraph;
