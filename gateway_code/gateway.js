@@ -28,6 +28,8 @@ if(!ip_addr) {
   process.exit(1);
 }
 
+utils.logWithTs(`IP Address = ${ip_addr}`);
+
 // Initialize connection once
 var db;
 MongoClient.connect(mongo_url, { useNewUrlParser: true }, function(err, client) {
@@ -56,7 +58,7 @@ function handleBlenoStateChange(state) {
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
     noble.startScanning([], true);
-    utils.logWithTs("[BLE Radio] Started peripheral discovery")
+    utils.logWithTs("[BLE Radio] Started peripheral discovery");
   } else {
     noble.stopScanning();
   }
