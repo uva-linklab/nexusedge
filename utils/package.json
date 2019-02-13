@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ip": "^1.1.5"
+    "pcap": "^2.1.0"
   }
 }
