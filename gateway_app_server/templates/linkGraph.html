@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <script src="http://d3js.org/d3.v2.min.js?2.9.3"></script>
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-  <title>Network | Images</title>
+  <title>Link Graph</title>
 
   <style type="text/css">
     html, body {
@@ -90,6 +90,9 @@
             shape: 'dot',
             color: "#5A1E5C" // purple
           }
+        },
+        layout: {
+          randomSeed: 200
         }
       };
       network = new vis.Network(container, data, options);
