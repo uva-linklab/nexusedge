@@ -7,7 +7,7 @@ const utils = require("../utils/utils")
 const MongoClient = require('mongodb').MongoClient;
 
 register_url = process.argv[2];
-ip_addr = process.argv[3];
+ip_addr = utils.getIPAddress();
 
 const mongo_url = 'mongodb://localhost:27017';
 const discovery_dbName = 'discovery';
@@ -23,8 +23,8 @@ if(!register_url){
   process.exit(1);
 }
 
-if(!ip_addr){
-  console.log("Please provide ip address");
+if(!ip_addr) {
+  console.log("No IP address found. Please re-check the utils impl.");
   process.exit(1);
 }
 
