@@ -24,8 +24,8 @@ client.on('message', (topic, message) => {
   if(topic === 'gateway-data') {
     data = JSON.parse(message.toString());
 
-    const sensor_id = data.id;
-    const sensor_device = data._meta.device_id;
+    const sensor_id = data._meta.device_id;
+    const sensor_device = data.device;
     const gateway_id = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
