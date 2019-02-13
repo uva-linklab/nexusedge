@@ -1,139 +1,187 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
 <script src="http://d3js.org/d3.v2.min.js?2.9.3"></script>
-<style>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+  <title>Network | Images</title>
 
-.link {
-  stroke: #aaa;
-}
+  <style type="text/css">
+    html, body {
+      font: 10pt arial;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+    }
 
-.node text {
-stroke:#333;
-cursos:pointer;
-}
+    #mynetwork {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 
-.node circle{
-stroke:#fff;
-stroke-width:3px;
-fill:#555;
-}
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
 
-</style>
-<body>
-<script>
+  <script type="text/javascript">
+    var nodes = null;
+    var edges = null;
+    var network = null;
 
-var width = 960,
-    height = 500
+    var LENGTH_MAIN = 350,
+        LENGTH_SERVER = 150,
+        LENGTH_SUB = 50,
+        WIDTH_SCALE = 2,
+        GREEN = 'green',
+        RED = '#C5000B',
+        ORANGE = 'orange',
+    //GRAY = '#666666',
+        GRAY = 'gray',
+        BLACK = '#2B1B17';
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+    // Called when the Visualization API is loaded.
+    function draw(data) {
+      // Create a data table with nodes.
+      nodes = data.nodes;
 
-var force = d3.layout.force()
-    .gravity(.05)
-    .distance(100)
-    .charge(-100)
-    .size([width, height]);
+      // Create a data table with links.
+      edges = data.edges;
 
-function parseLinkGraphJson(lg_data) {
-  var nodes = [];
-  var links = [];
-  var node_list = [];
-  // var i=0;
-  Object.keys(lg_data.graph).forEach(node_id => {
-    nodes.push({"name": node_id, "group": 1});
-    node_list.push(node_id);
-  });
+      // legend
+      var mynetwork = document.getElementById('mynetwork');
+      var x = - mynetwork.clientWidth / 1 + 50;
+      var y = - mynetwork.clientHeight / 1 + 50;
+      var step = 100;
+      nodes.push({id: 1000, x: x, y: y, label: 'Gateway', group: 'gateway', value: 1, fixed: true, physics:false});
+      nodes.push({id: 1001, x: x, y: y + step, label: 'BLE Sensor', group: 'ble', value: 1, fixed: true,  physics:false});
+      nodes.push({id: 1002, x: x, y: y + 2 * step, label: 'Enocean Sensor', group: 'enocean', value: 1, fixed: true,  physics:false});
+      
+      // nodes.push({id: 1003, x: x, y: y + 3 * step, label: 'Computer', group: 'desktop', value: 1, fixed: true,  physics:false});
+      // nodes.push({id: 1004, x: x, y: y + 4 * step, label: 'Smartphone', group: 'mobile', value: 1, fixed: true,  physics:false});
 
-  Object.entries(lg_data.graph).forEach(entry => {
-    var node_id = entry[0];
-    var neighbors = entry[1];
-    neighbors.forEach(neighbor => {
-      links.push(
-        {"source": node_list.indexOf(node_id), "target": node_list.indexOf(neighbor), "weight": 4}
-      );
-    });
-  });
-
-  Object.entries(lg_data.data).forEach(entry => {
-    var node_id = entry[0];
-    var data = entry[1];
-    var ip = data.ip;
-    data.sensors.forEach(sensor_data => {
-      var sensor_name = `${sensor_data.device} (${sensor_data._id})`;
-      if(node_list.indexOf(sensor_name) < 0) {
-      	nodes.push({"name": sensor_name, "group": 2});
-      	node_list.push(sensor_name);
-      }
-      links.push(
-        { "source": node_list.indexOf(node_id), 
-          "target": node_list.indexOf(sensor_name), 
-          "weight": 1
+      // create a network
+      var container = document.getElementById('mynetwork');
+      var data = {
+        nodes: nodes,
+        edges: edges
+      };
+      var options = {
+        nodes: {
+          scaling: {
+            min: 20,
+            max: 20
+          }
+        },
+        edges: {
+          smooth: false
+        },
+        physics:{
+          barnesHut:{gravitationalConstant:-30000},
+          stabilization: {iterations:2500}
+        },
+        groups: {
+          'gateway': {
+            shape: 'triangle',
+            color: '#FF9900' // orange
+          },
+          ble: {
+            shape: 'dot',
+            color: "#2B7CE9" // blue
+          },
+          enocean: {
+            shape: 'dot',
+            color: "#5A1E5C" // purple
+          }
         }
-      );
-    });
-  });
+      };
+      network = new vis.Network(container, data, options);
+    }
 
-  return {"nodes": nodes, "links": links};
-}
+    function wrapper() {
+      d3.json("http://{{ ip_address }}:5000/execute/5c596f351fc2ea9777dfd470", renderJSONData)
+    }
 
-function color(d) {
- if(d.group === 1)
-	return "#3366cc";
- else return "#7CFC00";
-}
+    function renderJSONData(json_data) {
+      //get json data
+      const visjs_data = parseJsonData(json_data);
+      draw(visjs_data);
+    }
 
-function radius(d) {
-  if(d.group === 1)
-	return "10";
-  else
-	return "8";
-}
+    function parseJsonData(lg_data) {
+      var nodes = [];
+      var edges = [];
+      var node_list = [];
 
-d3.json("http://{{ ip_address }}:5000/execute/5c596f351fc2ea9777dfd470", function(linkGraph) {
-  const json = parseLinkGraphJson(linkGraph);
-  console.log(json);
-  force
-      .nodes(json.nodes)
-      .links(json.links)
-      .start();
+      var node_i = 0;
+      // var i=0;
+      Object.keys(lg_data.graph).forEach(node_id => {
+        nodes.push(
+            { id: node_i++, 
+              label: node_id, 
+              group: 'gateway', 
+              value: 5,
+              font: {size: 16}
+            }
+          );
+        node_list.push(node_id);
+      });
 
-  var link = svg.selectAll(".link")
-      .data(json.links)
-    .enter().append("line")
-      .attr("class", "link")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
-    .style("stroke-width", function(d) { return Math.sqrt(d.weight); });
+      Object.entries(lg_data.graph).forEach(entry => {
+        var node_id = entry[0];
+        var neighbors = entry[1];
+        neighbors.forEach(neighbor => {
+          edges.push(
+            { from: node_list.indexOf(node_id), 
+              to: node_list.indexOf(neighbor), 
+              length: LENGTH_MAIN, 
+              width: WIDTH_SCALE * 2, 
+              color: {color: ORANGE, highlight: ORANGE}}
+          );
+        });
+      });
 
-  var node = svg.selectAll(".node")
-      .data(json.nodes)
-    .enter().append("g")
-      .attr("class", "node")
-      .call(force.drag);
+      Object.entries(lg_data.data).forEach(entry => {
+        var node_id = entry[0];
+        var data = entry[1];
+        var ip = data.ip;
+        data.sensors.forEach(sensor_data => {
+          var sensor_name = `${sensor_data.device}\n(${sensor_data._id})`;
+          var sensor_type = sensor_data.receiver.split("-")[0];
+          if(node_list.indexOf(sensor_name) < 0) {
+            nodes.push(
+              { id: node_i++, 
+                label: sensor_name, 
+                group: sensor_type, 
+                value: 3,
+                font: {size: 16}
+              }
+            );
+            node_list.push(sensor_name);
+          }
+          var edge_color = "";
+          if(sensor_type === "ble")
+            edge_color = "#2B7CE9";
+          else if(sensor_type === "enocean")
+            edge_color = "#5A1E5C";
+          edges.push(
+            { from: node_list.indexOf(node_id), 
+              to: node_list.indexOf(sensor_name), 
+              length: LENGTH_MAIN, 
+              width: WIDTH_SCALE * 1, 
+              color: {color: edge_color, highlight: edge_color}}
+          );
+        });
+      });
 
-  node.append("circle")
-      .attr("r",radius)
-      .style("stroke", "white")
-      .style("stroke-width","1.5")
-      .style("fill",color);
+      return {"nodes": nodes, "edges": edges};
+    }
+  </script>
+  
+</head>
 
-  node.append("text")
-      .attr("dx", 12)
-      .attr("dy", ".35em")
-      .text(function(d) { return d.name });
+<body 
+  onload="wrapper()">
 
-  force.on("tick", function() {
-    link.attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
+<div id="mynetwork"></div>
 
-    node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
-  });
 
-  console.log(node);
-});
 
-</script>
-
+</body></html>''
