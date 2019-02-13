@@ -25,7 +25,7 @@ client.on('message', (topic, message) => {
     data = JSON.parse(message.toString());
 
     const sensor_id = data.id;
-    const sensor_device = data.device;
+    const sensor_device = data._meta.device_id;
     const gateway_id = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
