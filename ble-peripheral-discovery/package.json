@@ -1,0 +1,15 @@
+{
+  "name": "ble-peripheral-discovery",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^2.18.8",
+    "noble": "^1.9.1"
+  }
+}
