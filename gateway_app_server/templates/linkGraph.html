@@ -172,7 +172,7 @@
 
 
     function wrapper() {
-      d3.json("http://172.27.44.141:5000/execute/5c596f351fc2ea9777dfd470", renderJSONData)
+      d3.json("http://{{ ip_address }}:5000/execute/5c596f351fc2ea9777dfd470", renderJSONData)
     }
 
     function renderJSONData(json_data) {
