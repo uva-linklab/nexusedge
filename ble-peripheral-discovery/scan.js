@@ -21,7 +21,7 @@ function handleNobleStateChange(state) {
 
 function startScan() {
   if(noble.state === 'poweredOn') {
-    setTimeout(stopScan, 60000); //1min
+    setTimeout(stopScan, 60000); //scan for 1min
     console.log("Started BLE scan");
     noble.startScanning();
   }
@@ -29,7 +29,7 @@ function startScan() {
 
 function stopScan() {
   console.log("Stopped BLE scan");
-  setTimeout(startScan, 300000); //5mins
+  setTimeout(startScan, 180000); //scan every 3mins
   noble.stopScanning();
 }
 
