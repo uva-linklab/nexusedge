@@ -13,12 +13,24 @@ mqtt_client.on('connect', function () {
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
-    // noble.startScanning([], true);
-    noble.startScanning();
-    console.log("[BLE Radio] Started peripheral discovery");
+    startScan();
   } else {
     noble.stopScanning();
   }
+}
+
+function startScan() {
+  if(noble.state === 'poweredOn') {
+    setTimeout(stopScan, 60000); //1min
+    console.log("Started BLE scan");
+    noble.startScanning();
+  }
+}
+
+function stopScan() {
+  console.log("Stopped BLE scan");
+  setTimeout(startScan, 300000); //5mins
+  noble.stopScanning();
 }
 
 function handleDiscoveredPeripheral(peripheral) {
@@ -43,7 +55,6 @@ function handleDiscoveredPeripheral(peripheral) {
                 "gateway_id": gateway_id
             }
         };
-
         mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
     }
 }
