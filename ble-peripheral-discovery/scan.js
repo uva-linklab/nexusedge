@@ -44,7 +44,7 @@ function handleDiscoveredPeripheral(peripheral) {
         const device = isEstimote ? "Estimote" : "Lighting Sensor";
         const device_id = peripheral.id;
         const gateway_id = noble.address;
-        const receiver = isEstimote ? "estimote-gateway" : "ble-gateway";
+        const receiver = isEstimote ? "estimote-gateway" : "lighting-gateway";
 
         const data = {
             "device": device, 
