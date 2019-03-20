@@ -22,19 +22,28 @@ function handleNobleStateChange(state) {
 }
 
 function handleDiscoveredPeripheral(peripheral) {
-    //catch the estimotes here
-
-    // mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(adv_obj));
-
     var localName = peripheral.advertisement.localName;
     var serviceData = peripheral.advertisement.serviceData;
 
-    if(localName) {
-        console.log(peripheral);    
+    const isEstimote = serviceData && (serviceData.filter(sd => sd.uuid === "fe9a").length >=1);
+    const isLightingSensor = localName && localName.includes("$L$");
+
+    if(isEstimote || isLightingSensor) {
+        const device = isEstimote ? "Estimote" : "Lighting Sensor";
+        const device_id = peripheral.id;
+        const gateway_id = noble.address;
+        const receiver = "ble-gateway";
+
+        const data = {
+            "device": device, 
+            "id": device_id, 
+            "_meta": {
+                "device_id": device_id, 
+                "receiver": receiver,
+                "gateway_id": gateway_id
+            }
+        };
+
+        mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
     }
-    // if(serviceData) {
-    //     serviceData.filter(sd => sd.uuid);
-    //     console.log(serviceData);
-    // }
-    console.log("***")
 }
