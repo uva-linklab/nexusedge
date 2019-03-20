@@ -52,19 +52,21 @@
       },
       'enocean': {
         shape: 'dot',
-        color: "#5A1E5C" // purple
+        color: "#4C972C" // green
       },
       'enocean-label': {
         shape: 'dot',
-        color: "#5A1E5C" // purple
+        color: "#4C972C" // green
       },
       'estimote': {
-        shape: 'dot',
-        color: "#4C972C" // green
+        shape: 'image',
+        image: 'estimote2.png',
+        color: "#47C3D5" // turquoise
       },
       'estimote-label': {
-        shape: 'dot',
-        color: "#4C972C" // green
+        shape: 'image',
+        image: 'estimote2.png',
+        color: "#47C3D5" // turquoise
       },
       'lighting': {
         shape: 'dot',
@@ -132,7 +134,7 @@
 
       network.on("doubleClick", function (params) {
         const nodeId = params.nodes[0]; //get the double-clicked node
-        
+        console.log(nodeId);
         //if it is a cluster, then open it
         if (network.isCluster(nodeId) == true) {
           network.openCluster(nodeId);
@@ -176,16 +178,18 @@
     function clusterGroup(groupName) {
       const clusterShape = groupShapeSettings[groupName]["shape"];
       const clusterColor = groupShapeSettings[groupName]["color"];
+      const clusterImage = groupShapeSettings[groupName]["image"];
+
       var clusterOptionsByData = {
           joinCondition:function(childOptions) {
               return childOptions.group === groupName;
           },
           processProperties: function(clusterOptions, childNodes) {
             clusterOptions.label = `${childNodes.length}`;
-            clusterOptions.font = {size: 20, color: '#ffffff', vadjust: -45};
+            clusterOptions.font = {size: 20, color: "#ffffff", vadjust: -45};
             return clusterOptions;
           },
-          clusterNodeProperties: {id:`${groupName}Cluster`, borderWidth:3, shape:clusterShape, color:clusterColor}
+          clusterNodeProperties: {id:`${groupName}Cluster`, borderWidth:3, shape:clusterShape, image: clusterImage, color:clusterColor}
       };
       network.cluster(clusterOptionsByData);
     }
@@ -242,6 +246,9 @@
           var sensor_name = `${sensor_data.device}\n(${sensor_data._id})`;
           var sensor_type = sensor_data.receiver.split("-")[0];
           if(node_list.indexOf(sensor_name) < 0) {
+            if(sensor_type === 'estimote') {
+              console.log(sensor_data._id);
+            }
             nodes.push(
               { id: node_i++, 
                 label: sensor_name, 
@@ -256,9 +263,9 @@
           if(sensor_type === "ble")
             edge_color = "#2B7CE9";
           else if(sensor_type === "enocean")
-            edge_color = "#5A1E5C";
-          else if(sensor_type === "estimote")
             edge_color = "#4C972C";
+          else if(sensor_type === "estimote")
+            edge_color = "#47C3D5";
           else if(sensor_type === "lighting")
             edge_color = "#DF394D";
           
