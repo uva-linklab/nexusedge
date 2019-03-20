@@ -104,7 +104,7 @@
       nodes.push({id: 1001, x: x, y: y + step, label: 'BLE Sensor', group: 'ble-label', value: 1, fixed: true,  physics:false});
       nodes.push({id: 1002, x: x, y: y + 2 * step, label: 'Enocean Sensor', group: 'enocean-label', value: 1, fixed: true,  physics:false});
       nodes.push({id: 1003, x: x, y: y + 3 * step, label: 'Estimote Sensor', group: 'estimote-label', value: 1, fixed: true,  physics:false});
-      // nodes.push({id: 1004, x: x, y: y + 4 * step, label: 'Smartphone', group: 'mobile', value: 1, fixed: true,  physics:false});
+      nodes.push({id: 1004, x: x, y: y + 4 * step, label: 'Lighting Sensor', group: 'lighting-label', value: 1, fixed: true,  physics:false});
 
       // create a network
       var container = document.getElementById('mynetwork');
@@ -152,6 +152,9 @@
             case 1003: //estimote
               group = "estimote"
               break;
+            case 1004: //lighting
+              group = "lighting"
+              break;  
             default:
               group = "";
           }
