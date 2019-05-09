@@ -215,7 +215,7 @@
       Object.keys(lg_data.graph).forEach(node_id => {
         nodes.push(
             { id: node_i++, 
-              label: node_id, 
+              label: node_id + "\n[" + lg_data["data"][node_id]["ip"] + "]",
               group: 'gateway', 
               value: 5,
               font: {size: 16}
