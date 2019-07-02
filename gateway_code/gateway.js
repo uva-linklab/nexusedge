@@ -6,13 +6,16 @@ var aes_crypto = require("./aes_crypto");
 const utils = require("../utils/utils")
 const MongoClient = require('mongodb').MongoClient;
 
+const scriptDir = __dirname;
+
 register_url = process.argv[2];
 ip_addr = utils.getIPAddress();
 
 const mongo_url = 'mongodb://localhost:27017';
 const discovery_dbName = 'discovery';
 
-params_file = "params.json";
+paramsFileName = "params.json"
+paramsFilePath = scriptDir + "/" + paramsFileName;
 ranging_key = "";
 iv = "";
 
@@ -101,10 +104,10 @@ function isValidIPAddress(ipaddress) {
 }
 
 function loadKeyParams(callback) {
-  if (!fs.existsSync(params_file)) {
+  if (!fs.existsSync(paramsFilePath)) {
     callback("")
   } else {
-    fs.readFile(params_file, 'utf-8', function handleReadFile(err, data) {
+    fs.readFile(paramsFilePath, 'utf-8', function handleReadFile(err, data) {
       if (err) 
         throw err;
       key_params = JSON.parse(data);
@@ -134,7 +137,7 @@ function handlePOSTResponse(error, response, body) {
   ranging_key = key_params.ranging_key;
   iv = key_params.iv;
   utils.logWithTs(`[Ranging] Received ranging key from registration server. Key = ${ranging_key}, IV = ${iv}`);
-  fs.writeFile(params_file,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
+  fs.writeFile(paramsFilePath,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
   //start advertising once we have the key
   startAdvertising();
 }

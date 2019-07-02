@@ -38,3 +38,6 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
 	export ARTIK_SERIAL="0482U"
 6. Set up an email alert to send the IP address of the board on reboot. Use a shell script (email_script.sh under scripts directory of the repo) and add the following line to cron:
 	@reboot sleep 30 && /root/on-the-edge/scripts/email_script.sh
+
+7. Set /etc/mongodb.conf to include 
+	smallfiles = true 
