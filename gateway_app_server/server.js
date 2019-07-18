@@ -12,7 +12,7 @@ mongoose.Promise = global.Promise;
 mongoose.connect('mongodb://localhost/app_server', { useNewUrlParser: true }); 
 
 //nunjucks
-const PATH_TO_TEMPLATES = './templates';
+const PATH_TO_TEMPLATES = __dirname + '/templates';
 nunjucks.configure(PATH_TO_TEMPLATES, {
     autoescape: true,
     express: app
