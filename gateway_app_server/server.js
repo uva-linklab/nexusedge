@@ -2,7 +2,7 @@ var express = require('express'),
   app = express(),
   port = process.env.PORT || 5000,
   mongoose = require('mongoose'),
-  appServerModel = require('./api/models/appServerModel'), //created model loading here
+  appServerModel = require(__dirname + '/api/models/appServerModel'), //created model loading here
   bodyParser = require('body-parser'),
   cors = require('cors'),
   nunjucks = require('nunjucks');
@@ -21,9 +21,9 @@ nunjucks.configure(PATH_TO_TEMPLATES, {
 app.use(cors({credentials: true, origin: true}));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+app.use(express.static(__dirname + '/public'));
 
-var routes = require('./api/routes/appServerRoutes'); //importing route
+var routes = require(__dirname + '/api/routes/appServerRoutes'); //importing route
 routes(app); //register the route
 
 app.listen(port);
