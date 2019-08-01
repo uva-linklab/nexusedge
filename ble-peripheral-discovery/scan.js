@@ -34,13 +34,22 @@ function stopScan() {
   noble.stopScanning();
 }
 
-function handleDiscoveredPeripheral(peripheral) {
-    var localName = peripheral.advertisement.localName;
-    var serviceData = peripheral.advertisement.serviceData;
+// Packest from the Estimote family (Telemetry, Connectivity, etc.) are
+// broadcast as Service Data (per "§ 1.11. The Service Data - 16 bit UUID" from
+// the BLE spec), with the Service UUID 'fe9a'.
+var ESTIMOTE_SERVICE_UUID = 'fe9a';
 
-    const isEstimote = serviceData && (serviceData.filter(sd => sd.uuid === "fe9a").length >=1);
+function handleDiscoveredPeripheral(peripheral) {
+    //detecting lighting sensors
+    var localName = peripheral.advertisement.localName;
     const isLightingSensor = localName && localName.includes("$L$");
 
+    //detecting estimotes
+    var estimoteServiceData = peripheral.advertisement.serviceData.find(function(el) {
+      return el.uuid == ESTIMOTE_SERVICE_UUID;
+    });
+    const isEstimote = (estimoteServiceData !== undefined);
+    
     if(isLightingSensor) {
         var data = {
             "device": "Lighting Sensor", 
@@ -56,7 +65,7 @@ function handleDiscoveredPeripheral(peripheral) {
         // console.log(data);
 
     } else if(isEstimote) {
-        const telemetryData = serviceData.data;
+        const telemetryData = estimoteServiceData.data;
         var telemetryPacket = estimoteParser.parseEstimoteTelemetryPacket(telemetryData);
         const deviceId = telemetryPacket.shortIdentifier;
 
