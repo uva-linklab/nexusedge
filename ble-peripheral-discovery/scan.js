@@ -1,6 +1,7 @@
 var mqtt  = require('mqtt');
 var MQTT_TOPIC_NAME = 'gateway-data';
 var noble = require('noble');
+var estimoteParser = require("./estimote-telemetry-parser");
 
 var mqtt_client = mqtt.connect('mqtt://localhost');
 
@@ -40,21 +41,38 @@ function handleDiscoveredPeripheral(peripheral) {
     const isEstimote = serviceData && (serviceData.filter(sd => sd.uuid === "fe9a").length >=1);
     const isLightingSensor = localName && localName.includes("$L$");
 
-    if(isEstimote || isLightingSensor) {
-        const device = isEstimote ? "Estimote" : "Lighting Sensor";
-        const device_id = peripheral.id;
-        const gateway_id = noble.address;
-        const receiver = isEstimote ? "estimote-gateway" : "lighting-gateway";
-
-        const data = {
-            "device": device, 
-            "id": device_id, 
+    if(isLightingSensor) {
+        var data = {
+            "device": "Lighting Sensor", 
+            "id": peripheral.id, 
             "_meta": {
-                "device_id": device_id, 
-                "receiver": receiver,
-                "gateway_id": gateway_id
+                "device_id": peripheral.id, 
+                "receiver": "lighting-gateway",
+                "gateway_id": noble.address
             }
         };
         mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
+        // console.log("lighting sensor found");
+        // console.log(data);
+
+    } else if(isEstimote) {
+        const telemetryData = serviceData.data;
+        var telemetryPacket = estimoteParser.parseEstimoteTelemetryPacket(telemetryData);
+        const deviceId = telemetryPacket.shortIdentifier;
+
+        var data = {
+            "device": "Estimote", 
+            "id": deviceId, 
+            "_meta": {
+                "device_id": deviceId, 
+                "receiver": "estimote-gateway",
+                "gateway_id": noble.address
+            }
+        };
+
+        Object.assign(data, telemetryPacket); //concatenate data and telemetry packet objects
+        mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
+        // console.log("estimote sensor found");
+        // console.log(data);
     }
 }
