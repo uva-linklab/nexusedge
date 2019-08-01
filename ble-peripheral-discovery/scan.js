@@ -67,20 +67,24 @@ function handleDiscoveredPeripheral(peripheral) {
     } else if(isEstimote) {
         const telemetryData = estimoteServiceData.data;
         var telemetryPacket = estimoteParser.parseEstimoteTelemetryPacket(telemetryData);
-        const deviceId = telemetryPacket.shortIdentifier;
 
-        var data = {
-            "device": "Estimote", 
-            "id": deviceId, 
-            "_meta": {
-                "device_id": deviceId, 
-                "receiver": "estimote-gateway",
-                "gateway_id": noble.address
-            }
-        };
+        if(telemetryPacket) {
+          const deviceId = telemetryPacket.shortIdentifier;
 
-        Object.assign(data, telemetryPacket); //concatenate data and telemetry packet objects
-        mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
+          var data = {
+              "device": "Estimote", 
+              "id": deviceId, 
+              "_meta": {
+                  "device_id": deviceId, 
+                  "receiver": "estimote-gateway",
+                  "gateway_id": noble.address
+              }
+          };
+
+          Object.assign(data, telemetryPacket); //concatenate data and telemetry packet objects
+          mqtt_client.publish(MQTT_TOPIC_NAME, JSON.stringify(data));  
+        }
+        
         // console.log("estimote sensor found");
         // console.log(data);
     }
