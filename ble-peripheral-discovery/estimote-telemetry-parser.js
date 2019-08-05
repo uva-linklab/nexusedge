@@ -1,10 +1,5 @@
 module.exports.parseEstimoteTelemetryPacket = parseEstimoteTelemetryPacket;
 
-// Packet from the Estimote family (Telemetry, Connectivity, etc.) are
-// broadcast as Service Data (per "§ 1.11. The Service Data - 16 bit UUID" from
-// the BLE spec), with the Service UUID 'fe9a'.
-var ESTIMOTE_SERVICE_UUID = 'fe9a';
-
 // Once you obtain the "Estimote" Service Data, here's how to check if it's
 // a Telemetry packet, and if so, how to parse it.
 function parseEstimoteTelemetryPacket(data) { // data is a 0-indexed byte array/buffer
