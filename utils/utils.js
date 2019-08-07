@@ -21,9 +21,12 @@ function getIPAddress() {
 	if(!interface) {
 		logWithTs("interface not found in config file");
 	}
+
+	//regex to exclude ipv6 addresses and only capture ipv4 addresses. This doesn't ensure that the ipv4 octets are 0-255 but this would suffice. All we need is to exclude ipv6 addresses. 
+	const regex = /^\d+\.\d+\.\d+\.\d+$/;
 	return pcap.findalldevs()
-				.filter(entry => entry.name === interface)[0]
+				.find(elem => elem.name === interface)
 				.addresses
-				.filter(entry => entry.addr != "")[0]
+				.find(addrElem => addrElem && regex.test(addrElem.addr))
 				.addr;
 }
