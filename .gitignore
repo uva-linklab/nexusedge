@@ -3,3 +3,4 @@ test_code/
 node_modules/
 logs/
 utils/config
+deployed-code/

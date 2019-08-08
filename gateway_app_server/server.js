@@ -6,7 +6,19 @@ var express = require('express'),
   bodyParser = require('body-parser'),
   cors = require('cors'),
   nunjucks = require('nunjucks');
-  
+
+//package to accept multipart form-data which allows clients to upload code and mapping files for execution
+var multer  = require('multer');
+var storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, __dirname + '/deployed-code/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  }
+});
+var upload = multer({ storage: storage });
+
 // mongoose instance connection url connection
 mongoose.Promise = global.Promise;
 mongoose.connect('mongodb://localhost/app_server', { useNewUrlParser: true }); 
@@ -27,6 +39,13 @@ var routes = require(__dirname + '/api/routes/appServerRoutes'); //importing rou
 routes(app); //register the route
 
 app.listen(port);
+
+//accepts two files. one with the form name as "code" and another called "mapping"
+app.post('/deploy', upload.fields([{name: 'code'}, {name: 'mapping'}]), (req, res) => {  
+  console.log(req.body)
+  console.log(req.files);
+  res.send();
+});
 
 console.log('app_server RESTful API server started on: ' + port);
 
