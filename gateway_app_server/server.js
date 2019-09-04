@@ -5,7 +5,8 @@ var express = require('express'),
   appServerModel = require(__dirname + '/api/models/appServerModel'), //created model loading here
   bodyParser = require('body-parser'),
   cors = require('cors'),
-  nunjucks = require('nunjucks');
+  nunjucks = require('nunjucks'),
+  codeContainer = require(__dirname + '/code-container');
 
 //package to accept multipart form-data which allows clients to upload code and mapping files for execution
 var multer  = require('multer');
@@ -40,10 +41,15 @@ routes(app); //register the route
 
 app.listen(port);
 
-//accepts two files. one with the form name as "code" and another called "mapping"
-app.post('/deploy', upload.fields([{name: 'code'}, {name: 'mapping'}]), (req, res) => {  
+//accepts two files. one with the form name as "code" and another called "metadata"
+app.post('/deploy', upload.fields([{name: 'code'}, {name: 'metadata'}]), (req, res) => {  
   console.log(req.body)
   console.log(req.files);
+
+  const codePath = req["files"]["code"][0]["path"];
+  const metadataPath = req["files"]["metadata"][0]["path"];
+
+  codeContainer.execute(codePath, metadataPath);
   res.send();
 });
 
