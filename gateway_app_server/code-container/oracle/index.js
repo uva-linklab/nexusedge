@@ -4,10 +4,10 @@ var initialized = false;
 
 const fs = require("fs");
 const mqtt = require("mqtt");
+const path = require("path");
 
 function __initialize() {
-	const metadataFilePath = "./metadata.json";
-	console.log(metadataFilePath);
+	const metadataFilePath = path.join(__dirname, '../metadata.json');
 
 	//check if the metadata file is present in local directory
 	if (!fs.existsSync(metadataFilePath)){
@@ -22,7 +22,6 @@ function __initialize() {
 
 	//subscribe to mqtt
 	const gateways = Object.keys(mapping);
-	console.log(gateways);
 	const mqttClients = gateways.map(gatewayIP => {
 		return mqtt.connect('mqtt://' + gatewayIP);
 	});
@@ -33,7 +32,7 @@ function __initialize() {
 
 		client.on('connect', () => {
 		  client.subscribe('gateway-data');
-		  console.log(`client ${client.options.host} subbed to gateway-data`);
+		  console.log(`subbed to mqtt topic gateway-data at ${client.options.host}`);
 		});
 
 		client.on('message', (topic, message) => {
@@ -50,7 +49,6 @@ function __initialize() {
 }
 
 function register(sensorId, callback) {
-	console.log(initialized);
 	if(!initialized) {
 		__initialize();
 	}

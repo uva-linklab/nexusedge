@@ -3,3 +3,5 @@ test_code/
 node_modules/
 logs/
 deployed-code/
+gateway_app_server/code-container/executables/
+gateway_app_server/deployed-code/
