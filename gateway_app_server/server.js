@@ -6,13 +6,18 @@ var express = require('express'),
   bodyParser = require('body-parser'),
   cors = require('cors'),
   nunjucks = require('nunjucks'),
+  fs = require('fs'),
   codeContainer = require(__dirname + '/code-container');
 
+const deployedCodePath = `${__dirname}/deployed-code/`;
+if (!fs.existsSync(deployedCodePath)){
+      fs.mkdirSync(deployedCodePath);
+  }
 //package to accept multipart form-data which allows clients to upload code and mapping files for execution
 var multer  = require('multer');
 var storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, __dirname + '/deployed-code/');
+    cb(null, deployedCodePath);
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname);
