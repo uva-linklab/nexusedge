@@ -39,5 +39,9 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
 6. Set up an email alert to send the IP address of the board on reboot. Use a shell script (email_script.sh under scripts directory of the repo) and add the following line to cron:
 	@reboot sleep 30 && /root/on-the-edge/scripts/email_script.sh
 
-7. Set /etc/mongodb.conf to include 
+7. Install mongo
+	apt install mongodb
+8. Set /etc/mongodb.conf to include 
 	smallfiles = true 
+9. use mongorestore to restore the app 
+	mongorestore --db app_server on-the-edge/gateway_app_server/mongodump/app_server/
