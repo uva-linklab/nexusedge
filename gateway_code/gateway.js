@@ -3,8 +3,10 @@ var noble = require("noble");
 var bleno = require("bleno");
 var fs = require('fs');
 var aes_crypto = require("./aes_crypto");
-const utils = require("../utils/utils")
+const utils = require("../utils/utils");
 const MongoClient = require('mongodb').MongoClient;
+
+process.env.NOBLE_MULTI_ROLE = 1;
 
 const scriptDir = __dirname;
 
@@ -14,7 +16,7 @@ ip_addr = utils.getIPAddress();
 const mongo_url = 'mongodb://localhost:27017';
 const discovery_dbName = 'discovery';
 
-paramsFileName = "params.json"
+paramsFileName = "params.json";
 paramsFilePath = scriptDir + "/" + paramsFileName;
 ranging_key = "";
 iv = "";
@@ -42,6 +44,13 @@ MongoClient.connect(mongo_url, { useNewUrlParser: true }, function(err, client) 
 });
 
 bleno.on('stateChange', handleBlenoStateChange);
+bleno.on('advertisingStop', function() {
+  utils.logWithTs("[BLE Radio] Bleno advertisement stopped");
+});
+bleno.on('advertisingStartError', function(error) {
+  utils.logWithTs("[BLE Radio] Bleno advertisingStartError:");
+  utils.logWithTs(error);
+});
 
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
@@ -53,8 +62,17 @@ function handleBlenoStateChange(state) {
     //we do noble's listener initialization here as there's a dependency on ranging key and iv
     noble.on('stateChange', handleNobleStateChange);
     noble.on('discover', handleDiscoveredPeripheral);
+    noble.on('scanStop', function() {
+      utils.logWithTs("[BLE Radio] Noble scan stopped");
+    });
+    noble.on('warning', function (message) {
+      utils.logWithTs("[BLE Radio] Noble warning:");
+      utils.logWithTs(message);
+    });
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
+  } else {
+    utils.logWithTs("[BLE Radio] bleno state changed to " + state);
   }
 }
 
@@ -62,8 +80,10 @@ function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
     noble.startScanning([], true);
     utils.logWithTs("[BLE Radio] Started peripheral discovery");
-  } else {
+  } else if(state === 'poweredOff'){
     noble.stopScanning();
+  } else {
+    utils.logWithTs("[BLE Radio] noble state changed to " + state);
   }
 }
 
@@ -97,10 +117,10 @@ function handleDiscoveredPeripheral(peripheral) {
 }
 
 function isValidIPAddress(ipaddress) {  
-  if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
-    return (true);  
-  }  
-  return (false);  
+  if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {
+    return true;
+  }
+  return false;
 }
 
 function loadKeyParams(callback) {
