@@ -146,18 +146,37 @@ function handleWriteFileError(err) {
   if (err) throw err;
 }  
 
-function startAdvertising() {
-  
+/*
+The advertisement data payload consists of several AD structures. 
+Each AD structure has a length field (1 byte), AD Type (1 byte), and the data corresponding to the AD type.
+Length => Number of bytes for the AD type and the actual data (excluding the length byte itself).
+AD type => 
+As defined here: https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/
+
+Packet format:
+https://www.libelium.com/forum/libelium_files/bt4_core_spec_adv_data_reference.pdf
+*/
+function startAdvertising() {  
   encrypted_ip = aes_crypto.encrypt(ip_addr, ranging_key, iv);
 
-  var advertisementData = new Buffer(31);
-  advertisementData.writeUInt8(encrypted_ip.length + 1, 0); //length of the element (excluding the length byte itself). +1 is for length byte
-  advertisementData.writeUInt8(0x09, 1); // AD type – specifies what data is included in the element. 0x16 => complete local name
+  //create a buffer for the payload. 
+  //buffer size = 2 bytes for length and AD type + byte size of the encrypted-ip 
+  const bufferSize = 2 + encrypted_ip.length;
+  var advertisementData = new Buffer(bufferSize); 
 
+  //payload length = 1 byte for AD type + rest for the actual data. 
+  const payloadLength = 1 + encrypted_ip.length;
+
+  //Write it at the byte position 0 of the buffer. Since the length is stored in 1 byte, use writeUInt8
+  advertisementData.writeUInt8(payloadLength, 0); 
+  
+  //AD type – 0x09 = complete local name
+  advertisementData.writeUInt8(0x09, 1); 
+
+  //write the actual data
   advertisementData.write(encrypted_ip, 2);
 
   bleno.startAdvertisingWithEIRData(advertisementData);
-
   utils.logWithTs(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
 }
 
