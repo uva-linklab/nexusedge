@@ -45,3 +45,4 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
 	smallfiles = true 
 9. use mongorestore to restore the app 
 	mongorestore --db app_server on-the-edge/gateway_app_server/mongodump/app_server/
+10. set the network interface in on-the-edge/utils/config/client.json
