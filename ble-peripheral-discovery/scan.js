@@ -3,6 +3,8 @@ var MQTT_TOPIC_NAME = 'gateway-data';
 var noble = require('noble');
 var estimoteParser = require("./estimote-telemetry-parser");
 
+process.env.NOBLE_MULTI_ROLE = 1;
+
 var mqtt_client = mqtt.connect('mqtt://localhost');
 
 mqtt_client.on('connect', function () {
