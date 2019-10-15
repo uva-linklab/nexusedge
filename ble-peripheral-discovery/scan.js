@@ -55,6 +55,7 @@ function handleDiscoveredPeripheral(peripheral) {
             "device": "Lighting Sensor", 
             "id": peripheral.id, 
             "_meta": {
+                "received_time": new Date().toISOString(),
                 "device_id": peripheral.id, 
                 "receiver": "lighting-gateway",
                 "gateway_id": noble.address
@@ -75,6 +76,7 @@ function handleDiscoveredPeripheral(peripheral) {
               "device": "Estimote", 
               "id": deviceId, 
               "_meta": {
+                  "received_time": new Date().toISOString(),
                   "device_id": deviceId, 
                   "receiver": "estimote-gateway",
                   "gateway_id": noble.address
