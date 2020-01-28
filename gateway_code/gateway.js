@@ -1,4 +1,3 @@
-var Request = require("request");
 var noble = require("noble");
 var bleno = require("bleno");
 var fs = require('fs');
@@ -16,17 +15,12 @@ ip_addr = utils.getIPAddress();
 const mongo_url = 'mongodb://localhost:27017';
 const discovery_dbName = 'discovery';
 
-paramsFileName = "params.json";
+paramsFileName = "group-key-params.json";
 paramsFilePath = scriptDir + "/" + paramsFileName;
-ranging_key = "";
+key = "";
 iv = "";
 
 var black_list = [];
-
-if(!register_url){
-  console.log("Please provide register url");
-  process.exit(1);
-}
 
 if(!ip_addr) {
   console.log("No IP address found. Please re-check the utils impl.");
@@ -52,10 +46,35 @@ bleno.on('advertisingStartError', function(error) {
   utils.logWithTs(error);
 });
 
+function getGroupKeyParams() {
+  if (!fs.existsSync(paramsFilePath)) {
+    return "";
+  } else {
+    fs.readFile(paramsFilePath, 'utf-8', function(err, data) {
+      if (err) {
+        return "";
+      } else {
+        key_params = JSON.parse(data);
+        return key_params;  
+      }
+    });
+  }
+}
+
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
     utils.logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
-    loadKeyParams(handleKeyParams);
+    var groupKeyParams = getGroupKeyParams();
+    if(!groupKeyParams) {
+      console.log(`Group key params not found in ${paramsFilePath}. Exiting.`);
+      process.exit(1);
+    } 
+    
+    key = groupKeyParams.key;
+    iv = groupKeyParams.iv;
+    utils.logWithTs(`[GroupKey] key params = ${key_params.ranging_key}, IV = ${key_params.iv}`);
+    startAdvertising();
+
     saveIPAddress(bleno.address, ip_addr);
     
     //start discovering BLE peripherals
@@ -117,54 +136,8 @@ function handleDiscoveredPeripheral(peripheral) {
 }
 
 function isValidIPAddress(ipaddress) {  
-  if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {
-    return true;
-  }
-  return false;
+  return (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress));
 }
-
-function loadKeyParams(callback) {
-  if (!fs.existsSync(paramsFilePath)) {
-    callback("")
-  } else {
-    fs.readFile(paramsFilePath, 'utf-8', function handleReadFile(err, data) {
-      if (err) 
-        throw err;
-      key_params = JSON.parse(data);
-      callback(key_params);
-    });
-  }
-}
-
-function registerWithServer(mac_address, user, pass) {
-  var http_post_req_params = {
-      "headers": { "content-type": "application/json" },
-      "url": register_url,
-      "body": JSON.stringify({
-          "radioMACAddress": mac_address,
-          "user": user,
-          "pass": pass
-      })
-  };
-  Request.post(http_post_req_params, handlePOSTResponse);
-}
-
-function handlePOSTResponse(error, response, body) {
-  if(error) {
-      return console.dir(error);
-  }
-  var key_params = JSON.parse(body);
-  ranging_key = key_params.ranging_key;
-  iv = key_params.iv;
-  utils.logWithTs(`[Ranging] Received ranging key from registration server. Key = ${ranging_key}, IV = ${iv}`);
-  fs.writeFile(paramsFilePath,  JSON.stringify(key_params), 'utf-8', handleWriteFileError);
-  //start advertising once we have the key
-  startAdvertising();
-}
-
-function handleWriteFileError(err) {
-  if (err) throw err;
-}  
 
 /*
 The advertisement data payload consists of several AD structures. 
@@ -177,7 +150,7 @@ Packet format:
 https://www.libelium.com/forum/libelium_files/bt4_core_spec_adv_data_reference.pdf
 */
 function startAdvertising() {  
-  encrypted_ip = aes_crypto.encrypt(ip_addr, ranging_key, iv);
+  encrypted_ip = aes_crypto.encrypt(ip_addr, key, iv);
 
   //create a buffer for the payload. 
   //buffer size = 2 bytes for length and AD type + byte size of the encrypted-ip 
@@ -198,18 +171,6 @@ function startAdvertising() {
 
   bleno.startAdvertisingWithEIRData(advertisementData);
   utils.logWithTs(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
-}
-
-function handleKeyParams(key_params){
-  if(!key_params) {
-    mac_address = bleno.address;
-    registerWithServer(mac_address, "admin", "pass");
-  } else {
-    ranging_key = key_params.ranging_key;
-    iv = key_params.iv;
-    utils.logWithTs(`[Ranging] Reusing already obtained key = ${key_params.ranging_key}, IV = ${key_params.iv}`);
-    startAdvertising();
-  }
 }
 
 function saveIPAddress(name, ip) {
