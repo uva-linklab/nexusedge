@@ -15,7 +15,7 @@ ip_addr = utils.getIPAddress();
 const mongo_url = 'mongodb://localhost:27017';
 const discovery_dbName = 'discovery';
 
-paramsFileName = "group-key-params.json";
+paramsFileName = "group-key.json";
 paramsFilePath = scriptDir + "/" + paramsFileName;
 key = "";
 iv = "";
@@ -66,7 +66,7 @@ function handleBlenoStateChange(state) {
     utils.logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
     var groupKeyParams = getGroupKeyParams();
     if(!groupKeyParams) {
-      console.log(`Group key params not found in ${paramsFilePath}. Exiting.`);
+      console.log(`Group key params not found in ${paramsFilePath}. Please refer to setup instructions in the readme file.`);
       process.exit(1);
     } 
     
