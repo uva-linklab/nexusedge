@@ -1,196 +1,182 @@
-var noble = require("noble");
-var bleno = require("bleno");
-var fs = require('fs');
-var aes_crypto = require("./aes_crypto");
-const utils = require("../utils/utils");
-const MongoClient = require('mongodb').MongoClient;
-
 process.env.NOBLE_MULTI_ROLE = 1;
 
-const scriptDir = __dirname;
+var noble = require('noble');
+var bleno = require('bleno');
+var fs = require('fs');
+var debug = require('debug')('gateway_code');
+var mongoClient = require('mongodb').MongoClient;
+var aesCrypto = require("./aes_crypto");
+var utils = require("../utils/utils");
 
-register_url = process.argv[2];
-ip_addr = utils.getIPAddress();
+ipAddress = utils.getIPAddress();
 
-const mongo_url = 'mongodb://localhost:27017';
-const discovery_dbName = 'discovery';
+const mongoUrl = 'mongodb://localhost:27017';
+const discoveryDbName = 'discovery';
 
 paramsFileName = "group-key.json";
-paramsFilePath = scriptDir + "/" + paramsFileName;
+paramsFilePath = __dirname + "/" + paramsFileName;
 key = "";
 iv = "";
 
-var black_list = [];
+var blackList = [];
 
-if(!ip_addr) {
-  console.log("No IP address found. Please re-check the utils impl.");
+if(!ipAddress) {
+  console.log("No IP address found. Please ensure the config files are set properly.");
   process.exit(1);
 }
 
-utils.logWithTs(`IP Address = ${ip_addr}`);
+debug(`IP Address = ${ipAddress}`);
 
-// Initialize connection once
+// Initialize db connection once
 var db;
-MongoClient.connect(mongo_url, { useNewUrlParser: true }, function(err, client) {
+mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
   if(err) throw err;
 
-  db = client.db(discovery_dbName);
+  db = client.db(discoveryDbName);
 });
 
 bleno.on('stateChange', handleBlenoStateChange);
 bleno.on('advertisingStop', function() {
-  utils.logWithTs("[BLE Radio] Bleno advertisement stopped");
+  debug("[BLE Radio] Bleno advertisement stopped");
 });
 bleno.on('advertisingStartError', function(error) {
-  utils.logWithTs("[BLE Radio] Bleno advertisingStartError:");
-  utils.logWithTs(error);
+  debug("[BLE Radio] Bleno advertisingStartError:");
 });
 
 function getGroupKeyParams() {
   if (!fs.existsSync(paramsFilePath)) {
     return "";
   } else {
-    fs.readFile(paramsFilePath, 'utf-8', function(err, data) {
-      if (err) {
-        return "";
-      } else {
-        key_params = JSON.parse(data);
-        return key_params;  
-      }
-    });
+    var data = fs.readFileSync(paramsFilePath, 'utf-8');
+    var keyParams = JSON.parse(data);
+    return keyParams;
   }
 }
 
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
-    utils.logWithTs("[BLE Radio] BLE MAC Address = " + bleno.address);
+    debug("[BLE Radio] BLE MAC Address = " + bleno.address);
     var groupKeyParams = getGroupKeyParams();
     if(!groupKeyParams) {
       console.log(`Group key params not found in ${paramsFilePath}. Please refer to setup instructions in the readme file.`);
       process.exit(1);
-    } 
-    
+    }
+
     key = groupKeyParams.key;
     iv = groupKeyParams.iv;
-    utils.logWithTs(`[GroupKey] key params = ${key_params.ranging_key}, IV = ${key_params.iv}`);
     startAdvertising();
 
-    saveIPAddress(bleno.address, ip_addr);
-    
+    saveIPAddress(bleno.address, ipAddress);
+
     //start discovering BLE peripherals
-    //we do noble's listener initialization here as there's a dependency on ranging key and iv
+    //we do noble's listener initialization here as there's a dependency on key and iv
     noble.on('stateChange', handleNobleStateChange);
     noble.on('discover', handleDiscoveredPeripheral);
     noble.on('scanStop', function() {
-      utils.logWithTs("[BLE Radio] Noble scan stopped");
+      debug("[BLE Radio] Noble scan stopped");
     });
     noble.on('warning', function (message) {
-      utils.logWithTs("[BLE Radio] Noble warning:");
-      utils.logWithTs(message);
+      debug(`[BLE Radio] Noble warning:${message}`);
     });
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
   } else {
-    utils.logWithTs("[BLE Radio] bleno state changed to " + state);
+    debug("[BLE Radio] bleno state changed to " + state);
   }
 }
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
     noble.startScanning([], true);
-    utils.logWithTs("[BLE Radio] Started peripheral discovery");
+    debug("[BLE Radio] Started peripheral discovery");
   } else if(state === 'poweredOff'){
     noble.stopScanning();
   } else {
-    utils.logWithTs("[BLE Radio] noble state changed to " + state);
+    debug("[BLE Radio] noble state changed to " + state);
   }
 }
 
 function handleDiscoveredPeripheral(peripheral) {
-  if(black_list.includes(peripheral.address)) {
+  if(blackList.includes(peripheral.address)) {
     return;
   }
 
   if (!peripheral.advertisement.manufacturerData) {
-    // console.log("[BLE Radio] Peripheral discovered: " + peripheral.address);
-    
     const localName = peripheral.advertisement.localName;
     if(typeof localName === "undefined") {
-      utils.logWithTs(`[BLE Radio] blacklisted ${peripheral.address}`);
-      black_list.push(peripheral.address);
+      debug(`[BLE Radio] blacklisted ${peripheral.address}`);
+      blackList.push(peripheral.address);
     } else {
       var data = localName.toString('utf8');
-      // console.log(`[BLE Radio] Received advertisement data = ${data}`);
-      var discovered_ip = aes_crypto.decrypt(data, ranging_key, iv);
-      // console.log("[Ranging] Decrypted data = " + discovered_ip);
-      if(isValidIPAddress(discovered_ip)) {
-        utils.logWithTs("[BLE Radio] Peripheral discovered: " + peripheral.address);
-        utils.logWithTs(`[Ranging] IP Address = ${discovered_ip}`);
-        addToPartialLinkGraphDB(peripheral.address, discovered_ip);
+      var discoveredIp = aesCrypto.decrypt(data, key, iv);
+      if(isValidIPAddress(discoveredIp)) {
+        debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
+        debug(`[BLE Radio] IP Address = ${discoveredIp}`);
+        addToPartialLinkGraphDB(peripheral.address, discoveredIp);
       } else {
-        utils.logWithTs(`[BLE Radio] blacklisted ${peripheral.address}`);
-        black_list.push(peripheral.address);
+        debug(`[BLE Radio] blacklisted ${peripheral.address}`);
+        blackList.push(peripheral.address);
       }
     }
   }
 }
 
-function isValidIPAddress(ipaddress) {  
+function isValidIPAddress(ipaddress) {
   return (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress));
 }
 
 /*
-The advertisement data payload consists of several AD structures. 
+The advertisement data payload consists of several AD structures.
 Each AD structure has a length field (1 byte), AD Type (1 byte), and the data corresponding to the AD type.
 Length => Number of bytes for the AD type and the actual data (excluding the length byte itself).
-AD type => 
+AD type =>
 As defined here: https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/
 
 Packet format:
 https://www.libelium.com/forum/libelium_files/bt4_core_spec_adv_data_reference.pdf
 */
-function startAdvertising() {  
-  encrypted_ip = aes_crypto.encrypt(ip_addr, key, iv);
+function startAdvertising() {
+  var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
 
-  //create a buffer for the payload. 
-  //buffer size = 2 bytes for length and AD type + byte size of the encrypted-ip 
-  const bufferSize = 2 + encrypted_ip.length;
-  var advertisementData = new Buffer(bufferSize); 
+  //create a buffer for the payload.
+  //buffer size = 2 bytes for length and AD type + byte size of the encrypted-ip
+  const bufferSize = 2 + encryptedIp.length;
+  var advertisementData = new Buffer(bufferSize);
 
-  //payload length = 1 byte for AD type + rest for the actual data. 
-  const payloadLength = 1 + encrypted_ip.length;
+  //payload length = 1 byte for AD type + rest for the actual data.
+  const payloadLength = 1 + encryptedIp.length;
 
   //Write it at the byte position 0 of the buffer. Since the length is stored in 1 byte, use writeUInt8
-  advertisementData.writeUInt8(payloadLength, 0); 
-  
+  advertisementData.writeUInt8(payloadLength, 0);
+
   //AD type – 0x09 = complete local name
-  advertisementData.writeUInt8(0x09, 1); 
+  advertisementData.writeUInt8(0x09, 1);
 
   //write the actual data
-  advertisementData.write(encrypted_ip, 2);
+  advertisementData.write(encryptedIp, 2);
 
   bleno.startAdvertisingWithEIRData(advertisementData);
-  utils.logWithTs(`[BLE Radio] Started Advertising with encrypted data = ${encrypted_ip}`);
+  debug(`[BLE Radio] Started Advertising with encrypted data = ${encryptedIp}`);
 }
 
 function saveIPAddress(name, ip) {
   db.collection('self').updateOne(
-      { "_id" : name }, 
-      { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} }, 
+      { "_id" : name },
+      { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} },
       { upsert: true },
       function(err, result) {
-        utils.logWithTs("recorded id and IP of self to db");
+        debug("recorded id and IP of self to db");
       }
     );
 }
 
-function addToPartialLinkGraphDB(peripheral_name, peripheral_ip) {
+function addToPartialLinkGraphDB(peripheralName, peripheralIp) {
   db.collection('partialLinkGraph').updateOne(
-      { "_id" : peripheral_name }, 
-      { $set: { "_id": peripheral_name, "IP_address": peripheral_ip, "ts" : Date.now()} }, 
+      { "_id" : peripheralName },
+      { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
       { upsert: true },
       function(err, result) {
-        utils.logWithTs("datapoint stored to db");
+        debug("datapoint stored to db");
       }
     );
 }
