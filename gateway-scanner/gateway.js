@@ -3,9 +3,9 @@ process.env.NOBLE_MULTI_ROLE = 1;
 var noble = require('noble');
 var bleno = require('bleno');
 var fs = require('fs');
-var debug = require('debug')('gateway_code');
+var debug = require('debug')('gateway-scanner');
 var mongoClient = require('mongodb').MongoClient;
-var aesCrypto = require("./aes_crypto");
+var aesCrypto = require("./aes-crypto");
 var utils = require("../utils/utils");
 
 ipAddress = utils.getIPAddress();

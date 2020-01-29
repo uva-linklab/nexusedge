@@ -1,7 +1,7 @@
 These are the functions that are handled by this module:
-1. Advertises itself via BLE using the Bleno nodejs library.
-2. Looks for neighbor advertisements via BLE using the Noble nodejs library.
-3. Handles group encyption and decryption using a shared AES ranging key and IV in params.json.
+1. Advertises itself via BLE using the bleno module.
+2. Looks for neighbor advertisements via BLE using the noble module.
+3. Handles group encryption and decryption using a shared AES ranging key and IV in params.json.
 4. Saves self IP address in mongodb.
 5. Saves neighbor information (BLE address, IP address) to mongodb upon discovery.
 

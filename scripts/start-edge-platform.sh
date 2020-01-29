@@ -1,6 +1,6 @@
 #on-the-edge scripts
 node $HOME/on-the-edge/gateway_app_server/server.js > $HOME/on-the-edge/logs/gw_app_server.log 2>&1 &
-node $HOME/on-the-edge/gateway_code/gateway.js f > $HOME/on-the-edge/logs/gw_code.log 2>&1 &
+node $HOME/on-the-edge/gateway-scanner/gateway.js f > $HOME/on-the-edge/logs/gw_code.log 2>&1 &
 node $HOME/on-the-edge/sensor_discover/discover.js &
 node $HOME/on-the-edge/ble-peripheral-discovery/scan.js &
 
