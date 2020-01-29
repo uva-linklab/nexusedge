@@ -9,6 +9,7 @@
   "author": "Nabeel Nasir",
   "license": "ISC",
   "dependencies": {
+    "debug": "^4.1.1",
     "mqtt": "^2.18.8",
     "noble": "^1.9.1"
   }
