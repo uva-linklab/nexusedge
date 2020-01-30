@@ -1,15 +1,18 @@
+# Utils
 Common utilities for projects
 
-Setup:
-1. Add a config file named config.json which contains the network interface name that the gateway uses.
+## Setup
+1. Add a config file named config.json which contains the network interface name that the gateway uses for its backhaul network.
 
 For e.g.:
+```json
 {
   "network": {
-    "interface": "en0"
+    "interface": "wlan0"
   }
 }
+```
 
-Installation:
-apt-get install libpcap-dev
+## Install
+apt-get install libpcap-dev  
 npm install
