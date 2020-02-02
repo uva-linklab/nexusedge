@@ -2,7 +2,7 @@ process.env.NOBLE_MULTI_ROLE = 1;
 
 var mqtt  = require('mqtt');
 var noble = require('noble');
-var debug = require('deubg')('ble-peripheral-scanner');
+var debug = require('debug')('ble-peripheral-scanner');
 var estimoteParser = require("./estimote-telemetry-parser");
 
 const MQTT_TOPIC_NAME = 'gateway-data';
