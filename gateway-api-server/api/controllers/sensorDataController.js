@@ -1,13 +1,10 @@
-module.exports.getAttachedSensors = getAttachedSensors;
-'use strict';
-
 const MongoClient = require('mongodb').MongoClient;
 
 const mongo_url = 'mongodb://localhost:27017';
 const dbName = 'discovery';
 const sensor_discovery_collection = 'sensor_discovery';
 
-async function getAttachedSensors() {
+exports.getSensors = async function() {
 	//returns sensors active in the last 5minutes
 	const client = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
 	const db = await client.db(dbName);
@@ -17,4 +14,4 @@ async function getAttachedSensors() {
 						.toArray();
 	client.close();
 	return sensors;
-}
+};
