@@ -8,7 +8,14 @@ var sensorDataController = require("./sensorDataController");
 const MongoClient = require('mongodb').MongoClient;
 const mongo_url = 'mongodb://localhost:27017';
 
-exports.getLinkGraphData = async function() {
+/**
+ * Generates the link graph by traversing through the entire gateway network one neighbor at a time.
+ * For each neighbor
+ * @param req express request object
+ * @param res express response object
+ * @returns {Promise<*>} linkGraph in json response format
+ */
+exports.getLinkGraphData = async function(req, res) {
 	//pick up self's id and ip address from mongo
 	const self_details = await getSelfDetails();
 	var neighborsDict = {};
@@ -40,7 +47,8 @@ exports.getLinkGraphData = async function() {
 		dataDict[node]["sensors"] = await getSensorData(ip);
 	}
 
-	return {"graph": neighborsDict, "data": dataDict};
+	const linkGraph = {"graph": neighborsDict, "data": dataDict};
+	return res.json(linkGraph);
 };
 
 
@@ -62,24 +70,8 @@ async function getSensorData(gatewayIP) {
  */
 async function getNeighborData(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/neighbors`;
-	const body = await request({method: 'GET', uri: execUrl})
+	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
-
-    // var response = [];
-    // if(ip === "localhost") {
-    // 	const appId = await getPartialLinkGraphAppId(ip);
-    // 	const execUrl = `http://${ip}:5000/execute/${appId}`;
-    // 	const body = await request({method: 'GET', uri: execUrl})
-    // 	response = JSON.parse(body);
-    // 	// response = [ { _id: 'A', IP_address: '192.168.0.1' }, { _id: 'X', IP_address: '192.168.0.3' } ]
-    // } else if(ip === "192.168.0.1") {
-    // 	response = [ { _id: 'B', IP_address: '192.168.0.2' } ]
-    // } else if(ip === '192.168.0.2') {
-    // 	response = [ { _id: 'A', IP_address: '192.168.0.1' } ]
-    // } else if(ip === '172.168.0.3') {
-    // 	response = [ { _id: 'this', IP_address: 'localhost' } ]
-    // }
-    // return response;
 }
 
 async function getSelfDetails() {
@@ -92,12 +84,17 @@ async function getSelfDetails() {
 
 var utils = require("../../../utils");
 
+/**
+ * Renders a vis.js based visualization for the link graph data. Uses a nunjucks template stored in templates/ for the
+ * render.
+ * @param req
+ * @param res
+ */
 exports.getLinkGraphVisual = function(req, res) {
-
 	//TODO: this should be done in a different way!
-	const ip_address = utils.getIPAddress();
+	const ipAddress = utils.getIPAddress();
 	const data = {
-		'ip_address': ip_address
+		'ip_address': ipAddress
 	};
 	res.render('linkGraph.html', data);
 };

@@ -4,7 +4,7 @@ const mongo_url = 'mongodb://localhost:27017';
 const dbName = 'discovery';
 
 //returning gateways active in the last 5minutes
-exports.getNeighbors = async function() {
+exports.getNeighbors = async function(req, res) {
 	const client = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
 	const db = await client.db(dbName);
 	//TODO rename to neighbors
@@ -13,5 +13,5 @@ exports.getNeighbors = async function() {
 						.project({"ts":0})
 						.toArray();
 	client.close();
-	return plg;
+	return res.json(plg);
 };

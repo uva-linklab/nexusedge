@@ -6,13 +6,13 @@
   "dependencies": {
     "body-parser": "latest",
     "cors": "^2.8.5",
-    "debug": "^4.1.1",
     "express": "^4.16.4",
     "multer": "^1.4.2",
     "nunjucks": "^3.1.7",
     "queue-fifo": "^0.2.5",
     "request": "^2.88.0",
-    "request-promise": "^4.2.2"
+    "request-promise": "^4.2.2",
+    "mongodb": "^3.1.13"
   },
   "devDependencies": {},
   "scripts": {

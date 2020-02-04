@@ -3,7 +3,6 @@ var bodyParser = require('body-parser');
 var cors = require('cors');
 var nunjucks = require('nunjucks');
 var fs = require('fs');
-var debug = require('debug')('gateway-api');
 
 var codeContainer = require(__dirname + '/code-container');
 
@@ -28,7 +27,7 @@ var routes = require(__dirname + '/api/routes');
 routes(app);
 
 app.listen(port, function() {
-  debug(`Gateway API server started on port ${port}`)
+  console.log(`Gateway API server started on port ${port}`)
 });
 
 //throw an error if it is an unknown endpoint
