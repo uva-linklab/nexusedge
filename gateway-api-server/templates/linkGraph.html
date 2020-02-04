@@ -1,286 +1,336 @@
 <!DOCTYPE html>
 <script src="http://d3js.org/d3.v2.min.js?2.9.3"></script>
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-  <title>Link Graph</title>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>Link Graph</title>
 
-  <style type="text/css">
-    html, body {
-      font: 10pt arial;
-      padding: 0;
-      margin: 0;
-      width: 100%;
-      height: 100%;
-    }
+    <style type="text/css">
+        html, body {
+            font: 10pt arial;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
 
-    #mynetwork {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+        #mynetwork {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css"/>
 
 </head>
 
-<body 
-  onload="wrapper()">
+<!--request for the link graph json data on load-->
+<body onload="loadLinkGraphData()">
 
 <div id="mynetwork"></div>
 
-  <script type="text/javascript">
+<script type="text/javascript">
     var nodes = null;
     var edges = null;
     var network = null;
 
+    //The nodes are grouped so that they can be expanded or collapsed by double clicking the legend icon.
+    //However, the legend icon itself is a node. So it is assigned its own group so that it is not expanded/collapsed
+    //along with the other group nodes.
+    const gatewayIconShape = 'triangle';
+    const gatewayIconColor = '#FF9900'; //orange
+    const bleIconShape = 'dot';
+    const bleIconColor = "#2B7CE9"; //blue
+    const enoceanIconShape = 'dot';
+    const enoceanIconColor = "#4C972C"; //green
+    const estimoteIconShape = 'image';
+    const estimoteIconImage = 'estimote.png';
+    const estimoteEdgeColor = "#47C3D5"; //turquoise
+
     var groupShapeSettings = {
-      'gateway': {
-        shape: 'triangle',
-        color: '#FF9900' // orange
-      },
-      'gateway-label': {
-        shape: 'triangle',
-        color: '#FF9900' // orange
-      },
-      'ble': {
-        shape: 'dot',
-        color: "#2B7CE9" // blue
-      },
-      'ble-label': {
-        shape: 'dot',
-        color: "#2B7CE9" // blue
-      },
-      'enocean': {
-        shape: 'dot',
-        color: "#4C972C" // green
-      },
-      'enocean-label': {
-        shape: 'dot',
-        color: "#4C972C" // green
-      },
-      'estimote': {
-        shape: 'image',
-        image: 'estimote.png',
-        color: "#47C3D5" // turquoise
-      },
-      'estimote-label': {
-        shape: 'image',
-        image: 'estimote.png',
-        color: "#47C3D5" // turquoise
-      },
-      'lighting': {
-        shape: 'dot',
-        color: "#DF394D" // red
-      },
-      'lighting-label': {
-        shape: 'dot',
-        color: "#DF394D" // red
-      }
+        'gateway': {
+            shape: gatewayIconShape,
+            color: gatewayIconColor
+        },
+        'gateway-legend-icon': {
+            shape: gatewayIconShape,
+            color: gatewayIconColor
+        },
+        'ble': {
+            shape: bleIconShape,
+            color: bleIconColor
+        },
+        'ble-legend-icon': {
+            shape: bleIconShape,
+            color: bleIconColor
+        },
+        'enocean': {
+            shape: enoceanIconShape,
+            color: enoceanIconColor
+        },
+        'enocean-legend-icon': {
+            shape: enoceanIconShape,
+            color: enoceanIconColor
+        },
+        'estimote': {
+            shape: estimoteIconShape,
+            image: estimoteIconImage,
+        },
+        'estimote-legend-icon': {
+            shape: 'image',
+            image: estimoteIconImage,
+        }
+    };
+
+    function loadLinkGraphData() {
+        //load the link graph data and pass it on to the renderJSONData function
+        d3.json("http://{{ ip_address }}:5000/link-graph-data", renderJsonData);
     }
 
-    var LENGTH_MAIN = 350,
-        LENGTH_SERVER = 150,
-        LENGTH_SUB = 50,
-        WIDTH_SCALE = 2,
-        GREEN = 'green',
-        RED = '#C5000B',
-        ORANGE = 'orange',
-    //GRAY = '#666666',
-        GRAY = 'gray',
-        BLACK = '#2B1B17';
+    function renderJsonData(jsonData) {
+        draw(parseJsonData(jsonData));
+    }
+
+    function parseJsonData(linkGraphData) {
+        var nodes = [];
+        var edges = [];
+        var nodeList = [];
+
+        const EDGE_LENGTH = 350,
+            EDGE_WIDTH_SCALE = 2;
+
+        //Add gateways as nodes to the graph
+        var counter = 0;
+        Object.keys(linkGraphData.graph).forEach(nodeId => {
+            nodes.push(
+                {
+                    id: counter++,
+                    label: nodeId + "\n[" + linkGraphData["data"][nodeId]["ip"] + "]",
+                    group: 'gateway',
+                    value: 5,
+                    font: {size: 16}
+                }
+            );
+            nodeList.push(nodeId);
+        });
+
+        //Add gateway connections as edges to the graph
+        Object.entries(linkGraphData.graph).forEach(entry => {
+            var nodeId = entry[0];
+            var neighbors = entry[1];
+            neighbors.forEach(neighbor => {
+                edges.push(
+                    {
+                        from: nodeList.indexOf(nodeId),
+                        to: nodeList.indexOf(neighbor),
+                        length: EDGE_LENGTH,
+                        width: EDGE_WIDTH_SCALE * 2,
+                        color: {color: gatewayIconColor, highlight: gatewayIconColor}
+                    }
+                );
+            });
+        });
+
+        //Add sensors to the link graph
+        Object.entries(linkGraphData.data).forEach(entry => {
+            var nodeId = entry[0];
+            var data = entry[1];
+            var ip = data.ip;
+            data.sensors.forEach(sensorData => {
+                var sensorName = `${sensorData.device}\n(${sensorData._id})`;
+                var sensorType = "";
+
+                if (sensorData.device === "Estimote") {
+                    sensorType = "estimote";
+                } else if (sensorData.receiver === "enocean-generic-gateway") {
+                    sensorType = "enocean";
+                } else if (sensorData.receiver === "ble-gateway") {
+                    sensorType = "ble";
+                } else {
+                    console.log(`unknown device type ${sensorData.device}, ${sensorData.receiver}`);
+                    return;
+                }
+
+                //if the sensor is not already added, add it
+                if (nodeList.indexOf(sensorName) < 0) {
+                    nodes.push(
+                        {
+                            id: counter++,
+                            label: sensorName,
+                            group: sensorType,
+                            value: 3,
+                            font: {size: 16}
+                        }
+                    );
+                    nodeList.push(sensorName);
+                }
+                var edgeColor = "";
+                if (sensorType === "ble")
+                    edgeColor = bleIconColor;
+                else if (sensorType === "enocean")
+                    edgeColor = enoceanIconColor;
+                else if (sensorType === "estimote")
+                    edgeColor = estimoteEdgeColor;
+
+                edges.push(
+                    {
+                        from: nodeList.indexOf(nodeId),
+                        to: nodeList.indexOf(sensorName),
+                        length: EDGE_LENGTH,
+                        width: EDGE_WIDTH_SCALE,
+                        color: {color: edgeColor, highlight: edgeColor}
+                    }
+                );
+            });
+        });
+        return {"nodes": nodes, "edges": edges};
+    }
+
 
     // Called when the Visualization API is loaded.
-    function draw(data) {
-      // Create a data table with nodes.
-      nodes = data.nodes;
+    function draw(parsedData) {
+        //save the nodes and edges
+        nodes = parsedData.nodes;
+        edges = parsedData.edges;
 
-      // Create a data table with links.
-      edges = data.edges;
+        //create a legend by spacing y values of the icons
+        var mynetwork = document.getElementById('mynetwork');
+        var x = -mynetwork.clientWidth + 50;
+        var y = -mynetwork.clientHeight + 50;
+        var step = 100;
+        nodes.push({
+            id: 1000,
+            x: x,
+            y: y,
+            label: 'Gateway',
+            group: 'gateway-legend-icon',
+            value: 1,
+            fixed: true,
+            physics: false
+        });
+        nodes.push({
+            id: 1001,
+            x: x,
+            y: y + step,
+            label: 'BLE Sensor',
+            group: 'ble-legend-icon',
+            value: 1,
+            fixed: true,
+            physics: false
+        });
+        nodes.push({
+            id: 1002,
+            x: x,
+            y: y + 2 * step,
+            label: 'Estimote Sensor',
+            group: 'estimote-legend-icon',
+            value: 1,
+            fixed: true,
+            physics: false
+        });
+        nodes.push({
+            id: 1003,
+            x: x,
+            y: y + 3 * step,
+            label: 'Enocean Sensor',
+            group: 'enocean-legend-icon',
+            value: 1,
+            fixed: true,
+            physics: false
+        });
 
-      // legend
-      var mynetwork = document.getElementById('mynetwork');
-      var x = - mynetwork.clientWidth / 1 + 50;
-      var y = - mynetwork.clientHeight / 1 + 50;
-      var step = 100;
-      nodes.push({id: 1000, x: x, y: y, label: 'Gateway', group: 'gateway-label', value: 1, fixed: true, physics:false});
-      nodes.push({id: 1001, x: x, y: y + step, label: 'BLE Sensor', group: 'ble-label', value: 1, fixed: true,  physics:false});
-      nodes.push({id: 1002, x: x, y: y + 2 * step, label: 'Enocean Sensor', group: 'enocean-label', value: 1, fixed: true,  physics:false});
-      nodes.push({id: 1003, x: x, y: y + 3 * step, label: 'Estimote Sensor', group: 'estimote-label', value: 1, fixed: true,  physics:false});
-      nodes.push({id: 1004, x: x, y: y + 4 * step, label: 'Lighting Sensor', group: 'lighting-label', value: 1, fixed: true,  physics:false});
+        //create a network
+        var container = document.getElementById('mynetwork');
+        var data = {
+            nodes: nodes,
+            edges: edges
+        };
+        var options = {
+            nodes: {
+                scaling: {
+                    min: 20,
+                    max: 20
+                }
+            },
+            edges: {
+                smooth: false
+            },
+            physics: {
+                barnesHut: {gravitationalConstant: -30000},
+                stabilization: {iterations: 2500}
+            },
+            groups: groupShapeSettings
+        };
+        network = new vis.Network(container, data, options);
 
-      // create a network
-      var container = document.getElementById('mynetwork');
-      var data = {
-        nodes: nodes,
-        edges: edges
-      };
-      var options = {
-        nodes: {
-          scaling: {
-            min: 20,
-            max: 20
-          }
-        },
-        edges: {
-          smooth: false
-        },
-        physics:{
-          barnesHut:{gravitationalConstant:-30000},
-          stabilization: {iterations:2500}
-        },
-        groups: groupShapeSettings
-      };
-      network = new vis.Network(container, data, options);
-
-      network.on("doubleClick", function (params) {
-        const nodeId = params.nodes[0]; //get the double-clicked node
-        console.log(nodeId);
-        //if it is a cluster, then open it
-        if (network.isCluster(nodeId) == true) {
-          network.openCluster(nodeId);
-        } else {
-          //check if it belongs to any of the legend labels
-          var group = "";
-          switch(nodeId) {
-            case 1000: //gateway
-              group = "gateway"
-              break;
-            case 1001: //ble
-              group = "ble"
-              break;
-            case 1002: //enocean
-              group = "enocean"
-              break;
-            case 1003: //estimote
-              group = "estimote"
-              break;
-            case 1004: //lighting
-              group = "lighting"
-              break;  
-            default:
-              group = "";
-          }
-
-          //if yes, then cluster that group
-          if(group) {
-            //check if the clicked label group is already clustered. if yes, open the cluster, otherwise cluster it.
-            const clusterNodeId = `${group}Cluster`;
-            if(network.isCluster(clusterNodeId) == true) {
-              network.openCluster(clusterNodeId);
+        network.on("doubleClick", function (params) {
+            //get the double-clicked node
+            const nodeId = params.nodes[0];
+            //if it is a cluster, then open it
+            if (network.isCluster(nodeId)) {
+                network.openCluster(nodeId);
             } else {
-              clusterGroup(group);  
+                //check if it belongs to any of the legend labels
+                var group = "";
+                switch (nodeId) {
+                    case 1000: //gateway
+                        group = "gateway";
+                        break;
+                    case 1001: //ble
+                        group = "ble";
+                        break;
+                    case 1002: //estimote
+                        group = "estimote";
+                        break;
+                    case 1003: //enocean
+                        group = "enocean";
+                        break;
+                    default:
+                        group = "";
+                }
+
+                //if yes, then cluster that group
+                if (group) {
+                    //check if the clicked label group is already clustered. if yes, open the cluster, otherwise cluster it.
+                    const clusterNodeId = `${group}Cluster`;
+                    if (network.isCluster(clusterNodeId)) {
+                        network.openCluster(clusterNodeId);
+                    } else {
+                        clusterGroup(group);
+                    }
+                }
             }
-          }
-        } 
-      });
+        });
     }
 
     function clusterGroup(groupName) {
-      const clusterShape = groupShapeSettings[groupName]["shape"];
-      const clusterColor = groupShapeSettings[groupName]["color"];
-      const clusterImage = groupShapeSettings[groupName]["image"];
+        const clusterShape = groupShapeSettings[groupName]["shape"];
+        const clusterColor = groupShapeSettings[groupName]["color"];
+        const clusterImage = groupShapeSettings[groupName]["image"];
 
-      var clusterOptionsByData = {
-          joinCondition:function(childOptions) {
-              return childOptions.group === groupName;
-          },
-          processProperties: function(clusterOptions, childNodes) {
-            clusterOptions.label = `${childNodes.length}`;
-            clusterOptions.font = {size: 20, color: "#ffffff", vadjust: -45};
-            return clusterOptions;
-          },
-          clusterNodeProperties: {id:`${groupName}Cluster`, borderWidth:3, shape:clusterShape, image: clusterImage, color:clusterColor}
-      };
-      network.cluster(clusterOptionsByData);
-    }
-
-
-    function wrapper() {
-      d3.json("http://{{ ip_address }}:5000/execute/5c596f351fc2ea9777dfd470", renderJSONData);
-    }
-
-    function renderJSONData(json_data) {
-      //get json data
-      const visjs_data = parseJsonData(json_data);
-      draw(visjs_data);
-    }
-
-    function parseJsonData(lg_data) {
-      var nodes = [];
-      var edges = [];
-      var node_list = [];
-
-      var node_i = 0;
-      // var i=0;
-      Object.keys(lg_data.graph).forEach(node_id => {
-        nodes.push(
-            { id: node_i++, 
-              label: node_id + "\n[" + lg_data["data"][node_id]["ip"] + "]",
-              group: 'gateway', 
-              value: 5,
-              font: {size: 16}
+        var clusterOptionsByData = {
+            joinCondition: function (childOptions) {
+                return childOptions.group === groupName;
+            },
+            processProperties: function (clusterOptions, childNodes) {
+                clusterOptions.label = `${childNodes.length}`;
+                clusterOptions.font = {size: 20, color: "#ffffff", vadjust: -45};
+                return clusterOptions;
+            },
+            clusterNodeProperties: {
+                id: `${groupName}Cluster`,
+                borderWidth: 3,
+                shape: clusterShape,
+                image: clusterImage,
+                color: clusterColor
             }
-          );
-        node_list.push(node_id);
-      });
-
-      Object.entries(lg_data.graph).forEach(entry => {
-        var node_id = entry[0];
-        var neighbors = entry[1];
-        neighbors.forEach(neighbor => {
-          edges.push(
-            { from: node_list.indexOf(node_id), 
-              to: node_list.indexOf(neighbor), 
-              length: LENGTH_MAIN, 
-              width: WIDTH_SCALE * 2, 
-              color: {color: ORANGE, highlight: ORANGE}}
-          );
-        });
-      });
-
-      Object.entries(lg_data.data).forEach(entry => {
-        var node_id = entry[0];
-        var data = entry[1];
-        var ip = data.ip;
-        data.sensors.forEach(sensor_data => {
-          var sensor_name = `${sensor_data.device}\n(${sensor_data._id})`;
-          var sensor_type = sensor_data.receiver.split("-")[0];
-          if(node_list.indexOf(sensor_name) < 0) {
-            if(sensor_type === 'estimote') {
-              console.log(sensor_data._id);
-            }
-            nodes.push(
-              { id: node_i++, 
-                label: sensor_name, 
-                group: sensor_type, 
-                value: 3,
-                font: {size: 16}
-              }
-            );
-            node_list.push(sensor_name);
-          }
-          var edge_color = "";
-          if(sensor_type === "ble")
-            edge_color = "#2B7CE9";
-          else if(sensor_type === "enocean")
-            edge_color = "#4C972C";
-          else if(sensor_type === "estimote")
-            edge_color = "#47C3D5";
-          else if(sensor_type === "lighting")
-            edge_color = "#DF394D";
-          
-          edges.push(
-            { from: node_list.indexOf(node_id), 
-              to: node_list.indexOf(sensor_name), 
-              length: LENGTH_MAIN, 
-              width: WIDTH_SCALE * 1, 
-              color: {color: edge_color, highlight: edge_color}}
-          );
-        });
-      });
-
-      return {"nodes": nodes, "edges": edges};
+        };
+        network.cluster(clusterOptionsByData);
     }
-  </script>
 
-</body></html>
+
+</script>
+
+</body>
+</html>

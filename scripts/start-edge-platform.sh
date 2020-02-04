@@ -1,6 +1,6 @@
 #on-the-edge scripts
-node $HOME/on-the-edge/gateway-api-server/server.js > $HOME/on-the-edge/logs/gw_app_server.log 2>&1 &
-DEBUG=gateway-scanner node $HOME/on-the-edge/gateway-scanner/gateway-scanner.js 2> $HOME/on-the-edge/logs/gw_code.log &
+node $HOME/on-the-edge/gateway-api-server/server.js > $HOME/on-the-edge/logs/gw-api-server.log 2>&1 &
+DEBUG=gateway-scanner node $HOME/on-the-edge/gateway-scanner/gateway-scanner.js 2> $HOME/on-the-edge/logs/gw-scanner.log &
 node $HOME/on-the-edge/mqtt-data-collector/mqtt-data-collector.js &
 node $HOME/on-the-edge/ble-peripheral-scanner/ble-peripheral-scanner.js &
 
