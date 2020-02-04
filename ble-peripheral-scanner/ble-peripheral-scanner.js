@@ -9,7 +9,6 @@ const MQTT_TOPIC_NAME = 'gateway-data';
 var mqttClient = mqtt.connect('mqtt://localhost');
 
 mqttClient.on('connect', function () {
-    
     // initialize noble after mqtt client connection is open
     noble.on('stateChange', handleNobleStateChange);
     noble.on('discover', handleDiscoveredPeripheral);
@@ -54,18 +53,17 @@ function handleDiscoveredPeripheral(peripheral) {
     });
     const isEstimote = (estimoteServiceData !== undefined);
 
-    var data = {
-        "_meta": {
-            "received_time": new Date().toISOString(),
-            "receiver": "ble-peripheral-scanner",
-            "gateway_id": noble.address
-        }
-    };
+    var data = {};
 
     if(isLightingSensor) {
         data["device"] = "Lighting Sensor";
         data["id"] = peripheral.id;
-        data["_meta"]["device_id"] = peripheral.id;
+        data["_meta"] = {
+            "received_time": new Date().toISOString(),
+            "device_id": peripheral.id,
+            "receiver": "ble-peripheral-scanner",
+            "gateway_id": noble.address
+        };
 
         mqttClient.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
     } else if(isEstimote) {
@@ -77,9 +75,15 @@ function handleDiscoveredPeripheral(peripheral) {
 
         data["device"] = "Estimote";
         data["id"] = telemetryPacket.shortIdentifier;
-        data["_meta"]["device_id"] = telemetryPacket.shortIdentifier;
+        data["_meta"] = {
+            "received_time": new Date().toISOString(),
+            "device_id": telemetryPacket.shortIdentifier,
+            "receiver": "ble-peripheral-scanner",
+            "gateway_id": noble.address
+        };
 
-        Object.assign(data, telemetryPacket); //concatenate data and telemetry packet objects
+        //concatenate data and telemetry packet objects
+        Object.assign(data, telemetryPacket);
         mqttClient.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
     }
 }
