@@ -7,11 +7,10 @@ const dbName = 'discovery';
 exports.getNeighbors = async function(req, res) {
 	const client = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
 	const db = await client.db(dbName);
-	//TODO rename to neighbors
-	const plg = await db.collection('partialLinkGraph')
+	const neighbors = await db.collection('neighbors')
 						.find({"ts": {$gt: Date.now() - 300000}})
 						.project({"ts":0})
 						.toArray();
 	client.close();
-	return res.json(plg);
+	return res.json(neighbors);
 };

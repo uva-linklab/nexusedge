@@ -7,7 +7,7 @@ const client = mqtt.connect('mqtt://localhost');
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
-const sensorDiscoveryCollection = 'sensor_discovery';
+const sensorsCollection = 'sensors';
 
 // Initialize database connection once
 var db;
@@ -25,17 +25,17 @@ client.on('message', (topic, message) => {
   if(topic === MQTT_TOPIC_NAME) {
     data = JSON.parse(message.toString());
 
-    const sensor_id = data._meta.device_id;
-    const sensor_device = data.device;
-    const gateway_id = data._meta.gateway_id;
+    const sensorId = data._meta.device_id;
+    const sensorDevice = data.device;
+    const gatewayId = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
-    addToSensorDiscoveryDB(sensor_id, sensor_device, gateway_id, receiver);
+    saveSensorToDB(sensorId, sensorDevice, gatewayId, receiver);
   }
 });
 
-function addToSensorDiscoveryDB(sensorId, device, gatewayId, receiver) {
-   db.collection(sensorDiscoveryCollection).updateOne(
+function saveSensorToDB(sensorId, device, gatewayId, receiver) {
+   db.collection(sensorsCollection).updateOne(
       { "_id" : sensorId },
       { $set: { "_id": sensorId, "device": device, "gateway_id": gatewayId, "receiver": receiver, "ts" : Date.now()} },
       { upsert: true },

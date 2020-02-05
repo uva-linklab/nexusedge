@@ -112,7 +112,7 @@ function handleDiscoveredPeripheral(peripheral) {
       if(isValidIPAddress(discoveredIp)) {
         debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
         debug(`[BLE Radio] IP Address = ${discoveredIp}`);
-        addToPartialLinkGraphDB(peripheral.address, discoveredIp);
+        saveNeighborDataToDB(peripheral.address, discoveredIp);
       } else {
         debug(`[BLE Radio] blacklisted ${peripheral.address}`);
         blackList.push(peripheral.address);
@@ -170,8 +170,8 @@ function saveIPAddress(name, ip) {
     );
 }
 
-function addToPartialLinkGraphDB(peripheralName, peripheralIp) {
-  db.collection('partialLinkGraph').updateOne(
+function saveNeighborDataToDB(peripheralName, peripheralIp) {
+  db.collection('neighbors').updateOne(
       { "_id" : peripheralName },
       { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
       { upsert: true },
