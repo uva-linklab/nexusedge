@@ -1,9 +1,7 @@
 const request = require('request-promise');
 var Queue = require('queue-fifo');
+const utils = require("../../../utils");
 var queue = new Queue();
-
-var neighborDataController = require("./neighborDataController");
-var sensorDataController = require("./sensorDataController");
 
 const MongoClient = require('mongodb').MongoClient;
 const mongo_url = 'mongodb://localhost:27017';
@@ -16,12 +14,12 @@ const mongo_url = 'mongodb://localhost:27017';
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	//pick up self's id and ip address from mongo
-	const self_details = await getSelfDetails();
+	//pick up self's mac address (_id) and ip address from db
+	const selfDetails = await getSelfDetails();
 	var neighborsDict = {};
 	var dataDict = {};
 
-	queue.enqueue({_id: self_details._id, IP_address: self_details.IP_address});
+	queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
@@ -59,7 +57,7 @@ exports.getLinkGraphData = async function(req, res) {
  */
 async function getSensorData(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/sensors`;
-	const body = await request({method: 'GET', uri: execUrl})
+	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }
 
@@ -82,16 +80,14 @@ async function getSelfDetails() {
 	return selfDetails;
 }
 
-var utils = require("../../../utils");
-
 /**
  * Renders a vis.js based visualization for the link graph data. Uses a nunjucks template stored in templates/ for the
  * render.
  * @param req
  * @param res
  */
-exports.getLinkGraphVisual = function(req, res) {
-	//TODO: this should be done in a different way!
+exports.renderLinkGraph = async function(req, res) {
+	//pick up self's ip address from utils rather than self db collection to save a db lookup.
 	const ipAddress = utils.getIPAddress();
 	const data = {
 		'ip_address': ipAddress

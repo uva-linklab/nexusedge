@@ -30,11 +30,11 @@ client.on('message', (topic, message) => {
     const gatewayId = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
-    saveSensorToDB(sensorId, sensorDevice, gatewayId, receiver);
+    saveSensorDataToDB(sensorId, sensorDevice, gatewayId, receiver);
   }
 });
 
-function saveSensorToDB(sensorId, device, gatewayId, receiver) {
+function saveSensorDataToDB(sensorId, device, gatewayId, receiver) {
    db.collection(sensorsCollection).updateOne(
       { "_id" : sensorId },
       { $set: { "_id": sensorId, "device": device, "gateway_id": gatewayId, "receiver": receiver, "ts" : Date.now()} },

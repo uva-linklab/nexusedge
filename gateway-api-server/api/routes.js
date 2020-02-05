@@ -18,5 +18,5 @@ module.exports = function(app) {
         .get(linkGraphController.getLinkGraphData);
 
     app.route('/link-graph-visual')
-        .get(linkGraphController.getLinkGraphVisual);
+        .get(linkGraphController.renderLinkGraph);
 };
