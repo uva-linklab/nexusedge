@@ -1,10 +1,8 @@
 const request = require('request-promise');
 var Queue = require('queue-fifo');
 const utils = require("../../../utils");
+const discoveryModel = require('../model/discoveryModel');
 var queue = new Queue();
-
-const MongoClient = require('mongodb').MongoClient;
-const mongo_url = 'mongodb://localhost:27017';
 
 /**
  * Generates the link graph by traversing through the entire gateway network one neighbor at a time.
@@ -15,7 +13,7 @@ const mongo_url = 'mongodb://localhost:27017';
  */
 exports.getLinkGraphData = async function(req, res) {
 	//pick up self's mac address (_id) and ip address from db
-	const selfDetails = await getSelfDetails();
+	const selfDetails = await discoveryModel.getSelfData();
 	var neighborsDict = {};
 	var dataDict = {};
 
@@ -70,14 +68,6 @@ async function getNeighborData(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/neighbors`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
-}
-
-async function getSelfDetails() {
-	const conn = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
-	const db = await conn.db("discovery");
-	const selfDetails = await db.collection('self')
-						.findOne({},{"timestamp":0});
-	return selfDetails;
 }
 
 /**

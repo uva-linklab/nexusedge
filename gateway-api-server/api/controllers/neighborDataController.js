@@ -1,16 +1,7 @@
-const MongoClient = require('mongodb').MongoClient;
+const discoveryModel = require('../model/discoveryModel');
 
-const mongo_url = 'mongodb://localhost:27017';
-const dbName = 'discovery';
-
-//returning gateways active in the last 5minutes
 exports.getNeighbors = async function(req, res) {
-	const client = await MongoClient.connect(mongo_url, { useNewUrlParser: true });
-	const db = await client.db(dbName);
-	const neighbors = await db.collection('neighbors')
-						.find({"ts": {$gt: Date.now() - 300000}})
-						.project({"ts":0})
-						.toArray();
-	client.close();
-	return res.json(neighbors);
+	//return the neighbors connected in the last 5 mins
+	const neighborData = await discoveryModel.getNeighborData(300000);
+	return res.json(neighborData);
 };
