@@ -3,9 +3,10 @@ This file specifies the controller methods that handle API endpoints
 Controllers are to be placed in api/controllers/
 */
 
-var neighborDataController = require("./controllers/neighborDataController");
-var sensorDataController = require("./controllers/sensorDataController");
-var linkGraphController = require("./controllers/linkGraphController");
+const neighborDataController = require("./controllers/neighborDataController");
+const sensorDataController = require("./controllers/sensorDataController");
+const linkGraphController = require("./controllers/linkGraphController");
+const serverStatusController = require("./controllers/serverStatusController");
 
 module.exports = function(app) {
     app.route('/neighbors')
@@ -19,4 +20,7 @@ module.exports = function(app) {
 
     app.route('/link-graph-visual')
         .get(linkGraphController.renderLinkGraph);
+
+    app.route('/status')
+        .get(serverStatusController.getServerStatus);
 };

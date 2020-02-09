@@ -14,40 +14,64 @@ var queue = new Queue();
 exports.getLinkGraphData = async function(req, res) {
 	//pick up self's mac address (_id) and ip address from db
 	const selfDetails = await discoveryModel.getSelfData();
+
+	var nodeDict = {};
 	var neighborsDict = {};
-	var dataDict = {};
 
 	queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
 		var neighborsOfNode = [];
-		
-		dataDict[node._id] = {"ip": node.IP_address};
-		const neighbors = await getNeighborData(node.IP_address);
 
-		neighbors.forEach(neighborNode => {
-			const neighborId = neighborNode._id;
-			neighborsOfNode.push(neighborId);
-			if(!(Object.keys(neighborsDict).includes(neighborId))) {
-				queue.enqueue(neighborNode)
+		//check if the node is reachable
+		const nodeReachable = await isGatewayReachable(node.IP_address);
+		if(nodeReachable) {
+			//request for the neighbor data of a node is an API call made to that node's server
+			const neighbors = await getNeighborData(node.IP_address);
+
+			for(const neighborNode of neighbors) {
+				const neighborId = neighborNode._id;
+				const neighborIPAddress = neighborNode.IP_address;
+
+				//check if the neighbor is reachable
+				const neighborReachable = await isGatewayReachable(neighborIPAddress);
+				if(neighborReachable) {
+					neighborsOfNode.push(neighborId);
+
+					//Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
+					//to the neighborsDict. So the keyset can be used to check if traversed or not.
+					if(!(Object.keys(neighborsDict).includes(neighborId))) {
+						queue.enqueue(neighborNode)
+					}
+				}
 			}
-		});
-		neighborsDict[node._id] = neighborsOfNode;
+			nodeDict[node._id] = {"ip": node.IP_address};
+			neighborsDict[node._id] = neighborsOfNode;
+		}
 	}
 
-	for(const entry of Object.entries(dataDict)) {
+	for(const entry of Object.entries(nodeDict)) {
 		const node = entry[0];
 		const ip = entry[1].ip;
 
-		dataDict[node]["sensors"] = await getSensorData(ip);
+		nodeDict[node]["sensors"] = await getSensorData(ip);
 	}
 
-	const linkGraph = {"graph": neighborsDict, "data": dataDict};
+	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
 	return res.json(linkGraph);
 };
 
-
+async function isGatewayReachable(gatewayIP) {
+	const execUrl = `http://${gatewayIP}:5000/status`;
+	try {
+		const body = await request({method: 'GET', uri: execUrl, timeout: 5000});
+		const statusData = JSON.parse(body);
+		return statusData["status"];
+	} catch(e) {
+		return false;
+	}
+}
 /**
  * Uses the gateway API to query for the sensors connected to a given gateway
  * @param gatewayIP IP address of the gateway
