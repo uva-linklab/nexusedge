@@ -10,25 +10,25 @@ const linkGraphController = require("./controllers/linkGraphController");
 const serverStatusController = require("./controllers/serverStatusController");
 const codeDeployerController = require("./controllers/codeDeployerController");
 
+/*
+Endpoints are grouped into Gateway API and platform API
+Gateway API: data/action concerning just a single gateway
+Platform API: data/action concerning multiple gateways
+ */
 
 module.exports = function(app) {
-    app.get('/neighbors', neighborDataController.getNeighbors);
-
-    app.get('/sensors', sensorDataController.getSensors);
-
-    app.get('/link-graph-data', linkGraphController.getLinkGraphData);
-
-    app.get('/link-graph-visual', linkGraphController.renderLinkGraph);
-
-    app.get('/status', serverStatusController.getServerStatus);
+    app.get('/gateway/neighbors', neighborDataController.getNeighbors);
+    app.get('/gateway/sensors', sensorDataController.getSensors);
+    app.get('/gateway/status', serverStatusController.getServerStatus);
 
     //setup multipart form-data which allows clients to upload code and mapping files for execution
     //accepts two files. one with the form name as "code" and another called "metadata"
     const uploader = getMultipartFormDataUploader();
+    app.post('/gateway/deploy-code', uploader.fields([{name: 'code'}, {name: 'metadata'}]),
+        codeDeployerController.deploy);
 
-    //look for files that are uploaded as "code" and "metadata"
-    app.post('/deploy', uploader.fields([{name: 'code'}, {name: 'metadata'}]), codeDeployerController.deploy);
-
+    app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
+    app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
 };
 
 /**

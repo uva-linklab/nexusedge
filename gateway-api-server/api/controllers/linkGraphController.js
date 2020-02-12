@@ -12,13 +12,15 @@ var queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	//pick up self's mac address (_id) and ip address from db
-	const selfDetails = await discoveryModel.getSelfData();
-
 	var nodeDict = {};
 	var neighborsDict = {};
 
-	queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
+	//pick up self's mac address (_id) and ip address from db
+	const selfDetails = await discoveryModel.getSelfData();
+
+	if(selfDetails !== null){
+		queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
+	}
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
@@ -63,7 +65,7 @@ exports.getLinkGraphData = async function(req, res) {
 };
 
 async function isGatewayReachable(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/status`;
+	const execUrl = `http://${gatewayIP}:5000/gateway/status`;
 	try {
 		const body = await request({method: 'GET', uri: execUrl, timeout: 5000});
 		const statusData = JSON.parse(body);
@@ -78,7 +80,7 @@ async function isGatewayReachable(gatewayIP) {
  * @returns {Promise<any>}
  */
 async function getSensorData(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/sensors`;
+	const execUrl = `http://${gatewayIP}:5000/gateway/sensors`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }
@@ -89,7 +91,7 @@ async function getSensorData(gatewayIP) {
  * @returns {Promise<any>} promise of a list of list of gateway_name and gateway_IP
  */
 async function getNeighborData(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/neighbors`;
+	const execUrl = `http://${gatewayIP}:5000/gateway/neighbors`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }
