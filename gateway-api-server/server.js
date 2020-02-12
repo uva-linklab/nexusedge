@@ -4,7 +4,7 @@ var cors = require('cors');
 var nunjucks = require('nunjucks');
 var fs = require('fs');
 
-var codeContainer = require(__dirname + '/code-container');
+var codeContainer = require('./code-container/container');
 
 var app = express();
 var port = process.env.PORT || 5000;
