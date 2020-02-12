@@ -1,5 +1,5 @@
 {
-  "name": "sensor_discover",
+  "name": "mqtt-data-collector",
   "version": "1.0.0",
   "description": "",
   "main": "",

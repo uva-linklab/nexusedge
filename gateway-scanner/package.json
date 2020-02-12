@@ -1,5 +1,5 @@
 {
-  "name": "gateway_code",
+  "name": "gateway-scanner",
   "version": "1.0.0",
   "description": "",
   "main": "gateway.js",

@@ -1,5 +1,5 @@
 {
-  "name": "gateway_app_server",
+  "name": "gateway-api-server",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",

@@ -1,5 +1,5 @@
 {
-  "name": "ble-peripheral-discovery",
+  "name": "ble-peripheral-scanner",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
