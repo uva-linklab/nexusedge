@@ -38,7 +38,7 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
 * Add an environment variable called ARTIK_SERIAL with this id.
 	export ARTIK_SERIAL="0482U"
 * Install essential packages  
-    apt install nodejs cron build-essential libudev-dev mongodb openssh-server
+    apt install nodejs cron build-essential libudev-dev mongodb openssh-server git-all
 * Set up an email alert to send the IP address of the board on reboot. Add scripts/email-script.sh to cron:  
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Add the following line to /etc/mongodb.conf:   
