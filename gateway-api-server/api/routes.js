@@ -4,11 +4,9 @@ const fs = require('fs');
 This file specifies the controller methods that handle API endpoints
 Controllers are to be placed in api/controllers/
 */
-const neighborDataController = require("./controllers/neighborDataController");
-const sensorDataController = require("./controllers/sensorDataController");
+const gatewayAPIController = require("./controllers/gatewayAPIController");
+const platformAPIController = require("./controllers/platformAPIController");
 const linkGraphController = require("./controllers/linkGraphController");
-const serverStatusController = require("./controllers/serverStatusController");
-const codeDeployerController = require("./controllers/codeDeployerController");
 
 /*
 Endpoints are grouped into Gateway API and platform API
@@ -17,18 +15,19 @@ Platform API: data/action concerning multiple gateways
  */
 
 module.exports = function(app) {
-    app.get('/gateway/neighbors', neighborDataController.getNeighbors);
-    app.get('/gateway/sensors', sensorDataController.getSensors);
-    app.get('/gateway/status', serverStatusController.getServerStatus);
-
     //setup multipart form-data which allows clients to upload code and mapping files for execution
     //accepts two files. one with the form name as "code" and another called "metadata"
     const uploader = getMultipartFormDataUploader();
-    app.post('/gateway/deploy-code', uploader.fields([{name: 'code'}, {name: 'metadata'}]),
-        codeDeployerController.deploy);
 
+    app.get('/gateway/neighbors', gatewayAPIController.getNeighbors);
+    app.get('/gateway/sensors', gatewayAPIController.getSensors);
+    app.get('/gateway/status', gatewayAPIController.getServerStatus);
+    app.post('/gateway/deploy-code', uploader.fields([{name: 'code'}, {name: 'metadata'}]),
+        gatewayAPIController.deployCode);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
+    app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
+    app.post('/platform/query-all', platformAPIController.queryAll);
 };
 
 /**

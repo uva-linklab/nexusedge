@@ -9,6 +9,7 @@
     "express": "^4.16.4",
     "fs-extra": "^8.1.0",
     "mongodb": "^3.1.13",
+    "mqtt": "^3.0.0",
     "multer": "^1.4.2",
     "nunjucks": "^3.1.7",
     "queue-fifo": "^0.2.5",
