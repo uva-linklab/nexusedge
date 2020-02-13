@@ -24,7 +24,7 @@ const routes = require(__dirname + '/api/routes');
 routes(app);
 
 app.listen(port, function() {
-  console.log(`Gateway API server started on port ${port}`)
+  console.log(`API server started on port ${port}`)
 });
 
 //throw an error if it is an unknown endpoint
