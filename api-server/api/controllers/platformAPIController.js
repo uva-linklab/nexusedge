@@ -1,5 +1,6 @@
 const request = require('request-promise');
 const mqtt = require('mqtt');
+const utils = require('../../../utils/utils');
 const mqttTopic = 'platform-data';
 
 exports.disseminateAll = async function (req, res) {
@@ -22,6 +23,7 @@ exports.queryAll = async function (req, res) {
  */
 async function platformAPICallHelper(req, res, platformAPIFunction) {
     const data = req.body;
+    const ipAddress = utils.getIPAddress();
     const isLocalRequest = req.connection.localAddress === req.connection.remoteAddress;
 
     //TODO remove request id
@@ -40,10 +42,10 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
         console.log("gatewayIPAddressList");
         console.log(gatewayIPAddressList);
 
-        gatewayIPAddressList.forEach(gatewayIP => {
-            //call disseminate-all platform API
-            platformAPIFunction(gatewayIP, data);
-        });
+        gatewayIPAddressList
+            .filter(gatewayIP => gatewayIP !== ipAddress) //exclude self from the list of recipients
+            .forEach(gatewayIP => platformAPIFunction(gatewayIP, data)); //call the platform API function
+
     } else {
         console.log("non-local req");
         //consume it
