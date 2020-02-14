@@ -26,29 +26,19 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
     const ipAddress = utils.getIPAddress();
     const isLocalRequest = req.connection.localAddress === req.connection.remoteAddress;
 
-    //TODO remove request id
-    console.log(`localAddress = ${req.connection.localAddress}`);
-    console.log(`remoteAddress = ${req.connection.remoteAddress}`);
-
     if(isLocalRequest) {
-        console.log("local req");
-        //forward to everyone, no need to consume
+        //if it is a local request, forward to everyone, no need to publish on mqtt
 
-        //get the link graph
+        //get the link graph to get all the gateways in the network
         const linkGraph = await getLinkGraphData();
-        console.log(`linkGraph`);
-        console.log(linkGraph);
         const gatewayIPAddressList = getGatewayIPAddressList(linkGraph);
-        console.log("gatewayIPAddressList");
-        console.log(gatewayIPAddressList);
 
         gatewayIPAddressList
             .filter(gatewayIP => gatewayIP !== ipAddress) //exclude self from the list of recipients
             .forEach(gatewayIP => platformAPIFunction(gatewayIP, data)); //call the platform API function
 
     } else {
-        console.log("non-local req");
-        //consume it
+        //if it is a request from some other gateway, then publish it on mqtt
         publishOnMQTT("mqtt://localhost", mqttTopic, JSON.stringify(data));
     }
     res.sendStatus(200);
