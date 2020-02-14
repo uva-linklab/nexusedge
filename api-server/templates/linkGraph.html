@@ -45,7 +45,9 @@
     const enoceanIconShape = 'dot';
     const enoceanIconColor = "#4C972C"; //green
     const estimoteIconShape = 'image';
-    const estimoteIconImage = 'estimote.png';
+    //endpoint for link graph is platform/link-graph-visual. However, the estimote.png is in the root directory. So
+    //go one level up for accessing it.
+    const estimoteIconImagePath = '../estimote.png';
     const estimoteEdgeColor = "#47C3D5"; //turquoise
 
     var groupShapeSettings = {
@@ -75,11 +77,11 @@
         },
         'estimote': {
             shape: estimoteIconShape,
-            image: estimoteIconImage,
+            image: estimoteIconImagePath,
         },
         'estimote-legend-icon': {
             shape: 'image',
-            image: estimoteIconImage,
+            image: estimoteIconImagePath,
         }
     };
 
