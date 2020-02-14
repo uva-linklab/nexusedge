@@ -1,4 +1,5 @@
 const discoveryModel = require('../model/discoveryModel');
+const codeContainer = require('../../code-container/container');
 
 /**
  * Return the neighbors discovered in the last 5 mins.
@@ -34,8 +35,6 @@ exports.getServerStatus = async function(req, res) {
     const status = {status: true};
     return res.json(status);
 };
-
-const codeContainer = require('../../code-container/container');
 
 /**
  * This endpoint takes the uploaded code and metadata and executes it using the codeContainer module

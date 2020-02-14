@@ -85,7 +85,7 @@
 
     function loadLinkGraphData() {
         //load the link graph data and pass it on to the renderJSONData function
-        d3.json("http://{{ ip_address }}:5000/link-graph-data", renderJsonData);
+        d3.json("http://{{ ip_address }}:5000/platform/link-graph-data", renderJsonData);
     }
 
     function renderJsonData(jsonData) {
