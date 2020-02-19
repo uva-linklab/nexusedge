@@ -4,9 +4,9 @@ const fs = require('fs');
 This file specifies the controller methods that handle API endpoints
 Controllers are to be placed in api/controllers/
 */
-const gatewayAPIController = require("./controllers/gatewayAPIController");
-const platformAPIController = require("./controllers/platformAPIController");
-const linkGraphController = require("./controllers/linkGraphController");
+const gatewayAPIController = require("./controllers/gateway-api-controller");
+const platformAPIController = require("./controllers/platform-api-controller");
+const linkGraphController = require("./controllers/link-graph-controller");
 
 /*
 Endpoints are grouped into Gateway API and platform API

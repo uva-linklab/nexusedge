@@ -1,7 +1,7 @@
 const request = require('request-promise');
 var Queue = require('queue-fifo');
 const utils = require("../../../utils");
-const discoveryModel = require('../model/discoveryModel');
+const discoveryModel = require('../models/discovery-model');
 var queue = new Queue();
 
 /**
@@ -74,6 +74,7 @@ async function isGatewayReachable(gatewayIP) {
 		return false;
 	}
 }
+
 /**
  * Uses the gateway API to query for the sensors connected to a given gateway
  * @param gatewayIP IP address of the gateway

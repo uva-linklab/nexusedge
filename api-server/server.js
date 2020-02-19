@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 //nunjucks
-const PATH_TO_TEMPLATES = __dirname + '/templates';
+const PATH_TO_TEMPLATES = __dirname + '/api/views';
 nunjucks.configure(PATH_TO_TEMPLATES, {
     autoescape: true,
     express: app

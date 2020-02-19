@@ -1,22 +1,22 @@
 process.env.NOBLE_MULTI_ROLE = 1;
 
-var noble = require('noble');
-var bleno = require('bleno');
-var fs = require('fs');
-var debug = require('debug')('gateway-scanner');
-var mongoClient = require('mongodb').MongoClient;
-var aesCrypto = require("./aes-crypto");
-var utils = require("../utils/utils");
+const noble = require('noble');
+const bleno = require('bleno');
+const fs = require('fs');
+const debug = require('debug')('gateway-scanner');
+const mongoClient = require('mongodb').MongoClient;
+const aesCrypto = require("./aes-crypto");
+const utils = require("../utils/utils");
 
 ipAddress = utils.getIPAddress();
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
 
-paramsFileName = "group-key.json";
-paramsFilePath = __dirname + "/" + paramsFileName;
-key = "";
-iv = "";
+const paramsFileName = "group-key.json";
+const paramsFilePath = __dirname + "/" + paramsFileName;
+var key = "";
+var iv = "";
 
 var blackList = [];
 

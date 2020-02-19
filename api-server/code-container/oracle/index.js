@@ -1,10 +1,11 @@
 module.exports.register = register;
-var callbackMap = {}
-var initialized = false;
-
 const fs = require("fs");
-const mqtt = require("mqtt");
 const path = require("path");
+const mqtt = require("mqtt");
+
+const mqttTopic = 'gateway-data';
+var callbackMap = {};
+var initialized = false;
 
 function __initialize() {
 	const metadataFilePath = path.join(__dirname, '../metadata.json');
@@ -16,8 +17,8 @@ function __initialize() {
 	}
 
 	//read the metadata into an object
-	rawdata = fs.readFileSync(metadataFilePath);
-	metadata = JSON.parse(rawdata);
+	const rawData = fs.readFileSync(metadataFilePath);
+	const metadata = JSON.parse(rawData);
 	const mapping = metadata["sensorMapping"];
 
 	//subscribe to mqtt
@@ -31,12 +32,12 @@ function __initialize() {
 		const sensorIds = mapping[gatewayIP];
 
 		client.on('connect', () => {
-		  client.subscribe('gateway-data');
+			client.subscribe(mqttTopic);
 		  console.log(`subbed to mqtt topic gateway-data at ${client.options.host}`);
 		});
 
 		client.on('message', (topic, message) => {
-		  if(topic === 'gateway-data') {
+		  if(topic === mqttTopic) {
 		  		var data = JSON.parse(message.toString());
 		  		var sensorId = data["_meta"]["device_id"];
 		  		if(sensorIds.includes(sensorId)) {
@@ -48,10 +49,10 @@ function __initialize() {
 	initialized = true;		
 }
 
-function register(sensorId, callback) {
+exports.register = function(sensorId, callback) {
 	if(!initialized) {
 		__initialize();
 	}
 	callbackMap[sensorId] = callback;
 	console.log(`added callback for ${sensorId}`);
-}
+};

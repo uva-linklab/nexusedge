@@ -1,4 +1,4 @@
-const discoveryModel = require('../model/discoveryModel');
+const discoveryModel = require('../models/discovery-model');
 const codeContainer = require('../../code-container/container');
 
 /**
