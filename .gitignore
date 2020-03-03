@@ -3,7 +3,7 @@ node_modules/
 logs/
 .idea/
 api-server/code-container/executables/
-api-server/deployed-code/
+api-server/deployed-apps/
 utils/config.json
 gateway-scanner/group-key.json
 package-lock.json

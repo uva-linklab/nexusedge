@@ -22,8 +22,8 @@ module.exports = function(app) {
     app.get('/gateway/neighbors', gatewayAPIController.getNeighbors);
     app.get('/gateway/sensors', gatewayAPIController.getSensors);
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
-    app.post('/gateway/deploy-code', uploader.fields([{name: 'code'}, {name: 'metadata'}]),
-        gatewayAPIController.deployCode);
+    app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
+        gatewayAPIController.executeApp);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
@@ -36,16 +36,16 @@ module.exports = function(app) {
  * @returns {multer|undefined}
  */
 function getMultipartFormDataUploader() {
-    //store the uploaded files to deployed-code directory. Create this directory if not already present. 
-    const deployedCodePath = `${__dirname}/../deployed-code/`;
-    if (!fs.existsSync(deployedCodePath)){
-        fs.mkdirSync(deployedCodePath);
+    //store the uploaded files to deployed-apps directory. Create this directory if not already present.
+    const deployedAppsPath = `${__dirname}/../deployed-apps/`;
+    if (!fs.existsSync(deployedAppsPath)){
+        fs.mkdirSync(deployedAppsPath);
     }
 
     const multerStorage = multer.diskStorage({
         //set the storage destination
         destination: function (req, file, cb) {
-            cb(null, deployedCodePath);
+            cb(null, deployedAppsPath);
         },
         //use the original filename as the multer filename
         filename: function (req, file, cb) {

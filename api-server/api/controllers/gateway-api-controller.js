@@ -37,15 +37,15 @@ exports.getServerStatus = async function(req, res) {
 };
 
 /**
- * This endpoint takes the uploaded code and metadata and executes it using the codeContainer module
+ * This endpoint takes the uploaded code and metadata and executes it using the code-container module
  * @param req
  * @param res
  * @returns {Promise<void>}
  */
-exports.deployCode = async function(req, res) {
-    const codePath = req["files"]["code"][0]["path"];
+exports.executeApp = async function(req, res) {
+    const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
 
-    codeContainer.execute(codePath, metadataPath);
+    codeContainer.execute(appPath, metadataPath);
     res.send();
 };

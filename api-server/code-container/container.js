@@ -1,11 +1,8 @@
-module.exports.execute = execute;
-
 const fs = require('fs-extra');
 const { spawn } = require('child_process');
 const path = require("path");
 
-//TODO make file operations async
-function execute(scriptPath, metadataPath) {
+exports.execute = function (appPath, metadataPath) {
 	const executableDirPath = `${__dirname}/executables`;
 	//create "executables" directory if not present
 	if (!fs.existsSync(executableDirPath)){
@@ -19,13 +16,13 @@ function execute(scriptPath, metadataPath) {
 	    fs.mkdirSync(dirPath);
 	}
 
-	const scriptTargetPath = `${dirPath}/${path.basename(scriptPath)}`;
+	const scriptTargetPath = `${dirPath}/${path.basename(appPath)}`;
 	const metadataTargetPath = `${dirPath}/${path.basename(metadataPath)}`;
 	const oracleSourcePath = `${__dirname}/oracle`;
 	const oracleTargetPath = `${dirPath}/oracle`;
 
-	fs.copyFileSync(scriptPath, scriptTargetPath);
-	console.log(`${scriptPath} copied to ${scriptTargetPath}`);
+	fs.copyFileSync(appPath, scriptTargetPath);
+	console.log(`${appPath} copied to ${scriptTargetPath}`);
 	fs.copyFileSync(metadataPath, metadataTargetPath);
 	console.log(`${metadataPath} copied to ${metadataTargetPath}`);
 	fs.copySync(oracleSourcePath, oracleTargetPath);
