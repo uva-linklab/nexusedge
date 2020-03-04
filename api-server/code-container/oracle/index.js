@@ -1,4 +1,3 @@
-module.exports.register = register;
 const fs = require("fs");
 const path = require("path");
 const mqtt = require("mqtt");
