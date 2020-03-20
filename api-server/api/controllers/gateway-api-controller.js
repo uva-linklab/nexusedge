@@ -1,5 +1,5 @@
 const discoveryModel = require('../models/discovery-model');
-const codeContainer = require('../../code-container/container');
+// const codeContainer = require('../../code-container/container');
 
 /**
  * Return the neighbors discovered in the last 5 mins.
@@ -46,6 +46,12 @@ exports.executeApp = async function(req, res) {
     const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
 
-    codeContainer.execute(appPath, metadataPath);
+    process.send({
+        appManager: {
+            appPath: appPath,
+            metadataPath: metadataPath
+        }
+    })
+    // codeContainer.execute(appPath, metadataPath);
     res.send();
 };
