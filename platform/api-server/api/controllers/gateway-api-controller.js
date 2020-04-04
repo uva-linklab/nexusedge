@@ -62,10 +62,8 @@ exports.executeApp = async function(req, res) {
   const metadataPath = req["files"]["metadata"][0]["path"];
 
   ipc.emit('app-deployment', {
-    appManager: {
-      appPath: appPath,
-      metadataPath: metadataPath
-    }
+    appPath: appPath,
+    metadataPath: metadataPath
   });
   res.send();
 };
