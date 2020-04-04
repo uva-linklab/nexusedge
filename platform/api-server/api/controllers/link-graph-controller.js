@@ -1,6 +1,6 @@
 const request = require('request-promise');
 var Queue = require('queue-fifo');
-const utils = require("../../../utils");
+const utils = require("../../../../utils");
 const discoveryModel = require('../models/discovery-model');
 var queue = new Queue();
 

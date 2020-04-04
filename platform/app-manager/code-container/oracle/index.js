@@ -1,17 +1,17 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 const mqtt = require("mqtt");
 
-const mqttTopic = 'gateway-data';
+const mqttTopic = undefined;
 var callbackMap = {};
-var initialized = false;
 
 function __initialize() {
 	const metadataFilePath = path.join(__dirname, '../metadata.json');
+	mqttTopic = process.env.topic;
 
 	//check if the metadata file is present in local directory
 	if (!fs.existsSync(metadataFilePath)){
-		console.log("no metadata file in execution directory");
+		console.error("no metadata file in execution directory");
 	 	process.exit(1);
 	}
 
@@ -45,11 +45,10 @@ function __initialize() {
 			}
 		});
 	}
-	initialized = true;
 }
 
 exports.register = function(sensorId, callback) {
-	if(!initialized) {
+	if(!mqttTopic) {
 		__initialize();
 	}
 	callbackMap[sensorId] = callback;
