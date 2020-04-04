@@ -1,8 +1,8 @@
 {
-  "name": "api-server",
+  "name": "platform-manager",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "description": "platform",
+  "main": "platform-manager.js",
   "dependencies": {
     "body-parser": "latest",
     "cors": "^2.8.5",
@@ -11,6 +11,7 @@
     "mongodb": "^3.1.13",
     "mqtt": "^3.0.0",
     "multer": "^1.4.2",
+    "node-ipc": "^9.1.1",
     "nunjucks": "^3.1.7",
     "queue-fifo": "^0.2.5",
     "request": "^2.88.0",
@@ -19,8 +20,8 @@
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node platform-manager.js"
   },
-  "author": "",
+  "author": "Li-Pang Huang, Nabeel Nasir",
   "license": "ISC"
 }
