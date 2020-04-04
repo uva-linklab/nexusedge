@@ -72,9 +72,9 @@ function getTopic(appName) {
 
 // when app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app
-ipcToPlatform.of.platform.on('app-deployment', (cmd) => {
-  if(cmd.appPath && cmd.metadataPath) {
-    codeContainer.setApp(cmd.appPath, cmd.metadataPath)
+ipcToPlatform.of.platform.on('app-deployment', (appData) => {
+  if(appData.appPath && appData.metadataPath) {
+    codeContainer.setApp(appData.appPath, appData.metadataPath)
       .then((newAppPath) => {
         // appPath = /on-the-edge/app-manager/code-container/executables/1583622378159/app.js
         let appName = path.basename(newAppPath);

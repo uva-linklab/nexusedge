@@ -33,8 +33,8 @@ ipc.serve(() => {
     });
   }
   // "app-deployment" event will be emitted by gateway-api-controller and pass the data to app-manager
-  ipc.server.on("app-deployment", (data, socket) => {
-    ipc.server.emit(services[0].socket, "app-deployment", data);
+  ipc.server.on("app-deployment", (appData, socket) => {
+    ipc.server.emit(services[0].socket, "app-deployment", appData);
   });
 });
 ipc.server.start();
