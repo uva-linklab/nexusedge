@@ -1,6 +1,6 @@
 const request = require('request-promise');
 const mqtt = require('mqtt');
-const utils = require('../../../utils/utils');
+const utils = require('../../../../utils/utils');
 const mqttTopic = 'platform-data';
 
 exports.disseminateAll = async function (req, res) {

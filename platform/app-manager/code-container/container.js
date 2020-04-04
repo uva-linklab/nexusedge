@@ -1,5 +1,4 @@
 const fs = require('fs-extra');
-// const { spawn } = require('child_process');
 const path = require("path");
 
 exports.setApp = async function (appPath, metadataPath) {
