@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "pcap": "^2.1.0"
+    "pcap": "^3.1.0"
   }
 }

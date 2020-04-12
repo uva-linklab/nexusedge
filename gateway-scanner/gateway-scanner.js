@@ -1,7 +1,12 @@
 process.env.NOBLE_MULTI_ROLE = 1;
 
-const noble = require('noble');
-const bleno = require('bleno');
+/*
+use abandonware forks of noble and bleno because the original repos are not maintained and do not work with node.js
+versions 8 and above.
+https://github.com/noble/node-bluetooth-hci-socket/issues/84
+*/
+const noble = require('@abandonware/noble');
+const bleno = require('@abandonware/bleno');
 const fs = require('fs');
 const debug = require('debug')('gateway-scanner');
 const mongoClient = require('mongodb').MongoClient;

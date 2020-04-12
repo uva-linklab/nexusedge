@@ -1,7 +1,12 @@
 process.env.NOBLE_MULTI_ROLE = 1;
 
+/*
+use abandonware fork of noble bleno because the original repo is not maintained and do not work with node.js
+versions 8 and above.
+https://github.com/noble/node-bluetooth-hci-socket/issues/84
+*/
+var noble = require('@abandonware/noble');
 var mqtt  = require('mqtt');
-var noble = require('noble');
 var debug = require('debug')('ble-peripheral-scanner');
 var estimoteParser = require("./estimote-telemetry-parser");
 

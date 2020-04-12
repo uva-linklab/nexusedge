@@ -43,7 +43,11 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Add the following line to /etc/mongodb.conf:   
 	smallfiles = true 
-* Clone the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
-https://github.com/lab11/gateway
+~~* Clone the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
+https://github.com/lab11/gateway~~
+* Clone **(a fork of)** the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
+https://github.com/nabeeln7/gateway  
+*Note: We're currently using this fork because lab11/gateway repo uses the noble and eddystone-beacon-scanner npm modules 
+which are not maintained and therefore do not work with the latest node.js LTS version.*  
 * Run scripts/start-edge-platform.sh on reboot. Add the following line to cron:   
     @reboot sleep 15 && /root/on-the-edge/scripts/start-edge-platform.sh
