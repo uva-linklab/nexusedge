@@ -1,0 +1,1 @@
+This directory holds the logs from all of the processes from the edge platform.

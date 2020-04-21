@@ -1,6 +1,5 @@
 test-code/
 node_modules/
-logs/
 .idea/
 api-server/code-container/executables/
 api-server/deployed-apps/
