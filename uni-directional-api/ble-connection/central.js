@@ -42,7 +42,11 @@ noble.on('discover', function(peripheral) {
         // Once the peripheral has been connected, then discover the
         // services and characteristics of interest.
         //
-        peripheral.discoverServices([pizzaServiceUuid], function(err, services) {
+        peripheral.discoverServices([], function(err, services) {
+
+            console.log("discovered services:");
+            console.log(services);
+
             services.forEach(function(service) {
                 //
                 // This must be the service we were looking for.
