@@ -1,37 +1,7 @@
 var bleno = require('@abandonware/bleno');
-
-//how many characteristics do we need?
-//1. receive:
-//Request: connect to me at IP:port and give me
-//2. send
-//
-/* receive-sensor-data characteristic:
-        sensor-id-list
-        socket-ip
-        socket-port
-
-
-
-    WebSockets are much more reliable than sockets. Also,
-
-    Research:
-    WAMP over WebSockets
-    https://stackoverflow.com/questions/10882370/websocket-request-response-subprotocol
-        Libraries: https://wamp-proto.org/implementations.html#libraries
-        Broker: https://github.com/christian-raedel/nightlife-rabbit
-        Client: https://github.com/crossbario/autobahn-js
-
-    Command:
-        Connect to me over websockets
-            ws-address
-
-
- */
-
 var util = require('util');
 
 var PizzaService = require('./service');
-
 //
 // A name to advertise our Pizza Service.
 //
