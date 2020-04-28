@@ -89,7 +89,7 @@ noble.on('discover', function(peripheral) {
 });
 
 function bakePizza() {
-    var buff = Buffer.from('abcdef');
+    var buff = Buffer.from('abcdef', 'utf8');
 
     console.log("about to write to characteristic");
     console.log(pizzaCrustCharacteristic);
