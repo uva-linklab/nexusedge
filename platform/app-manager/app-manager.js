@@ -19,7 +19,13 @@ ipcToPlatform.config.silent = true;
 ipcToPlatform.connectTo('platform', () => {
   ipcToPlatform.of.platform.on('connect', () => {
     console.log(`${role} connected to platform`);
-    ipcToPlatform.of.platform.emit(role, `${role} send back the socket`);
+    let message = {
+      sender: role,
+      _meta: {
+        data: `${role} send back the socket`
+      }
+    }
+    ipcToPlatform.of.platform.emit("register-socket", message);
   });
   ipcToPlatform.of.platform.on('disconnect', () => {
     console.log(`${role} disconnected from platform`);
@@ -72,7 +78,8 @@ function getTopic(appName) {
 
 // when app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app
-ipcToPlatform.of.platform.on('app-deployment', (appData) => {
+ipcToPlatform.of.platform.on('app-deployment', message => {
+  let appData = message.data;
   if(appData.appPath && appData.metadataPath) {
     codeContainer.setApp(appData.appPath, appData.metadataPath)
       .then((newAppPath) => {

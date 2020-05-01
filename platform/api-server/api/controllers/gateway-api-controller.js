@@ -12,7 +12,13 @@ ipc.config.silent = true;
 ipc.connectTo('platform', () => {
   ipc.of.platform.on('connect', () => {
     console.log(`gateway-api-controller connected to platform`);
-    ipc.of.platform.emit(role, `${role} send back the socket`);
+    let message = {
+      sender: role,
+      _meta: {
+        data: `${role} send back the socket`
+      }
+    }
+    ipc.of.platform.emit("register-socket", message);
   });
 });
 
@@ -61,9 +67,16 @@ exports.executeApp = async function(req, res) {
   const appPath = req["files"]["app"][0]["path"];
   const metadataPath = req["files"]["metadata"][0]["path"];
 
-  ipc.emit('app-deployment', {
-    appPath: appPath,
-    metadataPath: metadataPath
+  ipc.of.platform.emit("forward", {
+    "sender": "api-server",
+    "_meta": {
+      "recipient": "app-manager",
+      "event": "app-deployment",
+      "data": {
+        appPath: appPath,
+        metadataPath: metadataPath
+      }
+    }
   });
   res.send();
 };
