@@ -1,26 +1,23 @@
+const noble = require('@abandonware/noble');
 
-var noble = require('@abandonware/noble');
-
-var pizzaServiceUuid = '13333333333333333333333333333337';
-var pizzaCrustCharacteristicUuid = '13333333333333333333333333330001';
+const talkToManagerServiceUuid = '18338db1-5c58-41cc-a009-71c5fd792920';
+const messageCharacteristicUuid = '18338db1-5c58-41cc-a009-71c5fd792921';
 
 noble.on('stateChange', function(state) {
-    if (state === 'poweredOn') {
+    if(state === 'poweredOn') {
         //
         // Once the BLE radio has been powered on, it is possible
         // to begin scanning for services. Pass an empty array to
         // scan for all services (uses more time and power).
         //
         console.log('scanning...');
-        noble.startScanning([pizzaServiceUuid], false);
-    }
-    else {
+        noble.startScanning([talkToManagerServiceUuid], false);
+    } else {
         noble.stopScanning();
     }
 });
 
-var pizzaService = null;
-var pizzaCrustCharacteristic = null;
+let messageCharacteristic = null;
 
 noble.on('discover', function(peripheral) {
     // we found a peripheral, stop scanning
@@ -42,62 +39,38 @@ noble.on('discover', function(peripheral) {
         // Once the peripheral has been connected, then discover the
         // services and characteristics of interest.
         //
-        peripheral.discoverServices([], function(err, services) {
+        // specify the services and characteristics to discover
+        const serviceUUIDs = [talkToManagerServiceUuid];
+        const characteristicUUIDs = [messageCharacteristicUuid];
 
-            console.log("discovered services:");
-            console.log(services);
-
-            services.forEach(function(service) {
-                //
-                // This must be the service we were looking for.
-                //
-                console.log('found service:', service.uuid);
-
-                //
-                // So, discover its characteristics.
-                //
-                service.discoverCharacteristics([], function(err, characteristics) {
-
-                    characteristics.forEach(function(characteristic) {
-                        //
-                        // Loop through each characteristic and match them to the
-                        // UUIDs that we know about.
-                        //
-                        console.log('found characteristic:', characteristic.uuid);
-
-                        if (pizzaCrustCharacteristicUuid === characteristic.uuid) {
-                            pizzaCrustCharacteristic = characteristic;
-                        }
-                    });
-
-                    //
-                    // Check to see if we found all of our characteristics.
-                    //
-                    if (pizzaCrustCharacteristic) {
-                        //
-                        // We did, so bake a pizza!
-                        //
-                        bakePizza();
-                    }
-                    else {
-                        console.log('missing characteristics');
-                    }
-                })
-            })
-        })
+        peripheral.discoverSomeServicesAndCharacteristics(
+            serviceUUIDs,
+            characteristicUUIDs,
+            onServicesAndCharacteristicsDiscovered
+        );
     })
 });
 
-function bakePizza() {
-    var buff = Buffer.from('abcdef', 'utf8');
+function onServicesAndCharacteristicsDiscovered(error, services, characteristics) {
+    console.log('Discovered services and characteristics');
+    const messageCharacteristic = characteristics[0];
+
+    const msg = {
+        "_meta" : {
+            "recipient": "manager-name-goes-here"
+        },
+        "data": {
+            "ws-address": process.env.ws_address
+        }
+    };
+
+    const buff = Buffer.from(JSON.stringify(msg), 'utf8');
 
     console.log("about to write to characteristic");
-    console.log(pizzaCrustCharacteristic);
-    pizzaCrustCharacteristic.write(buff, false, function(err) {
-        if (!err) {
-            console.log("write complete. got callback.")
-        }
-        else {
+    messageCharacteristic.write(buff, false, function(err) {
+        if(!err) {
+            console.log("write complete. got callback.");
+        } else {
             console.log('write error');
         }
     });
