@@ -35,6 +35,17 @@ bleno.on('advertisingStart', function(err) {
         // Once we are advertising, it's time to set up our services,
         // along with our characteristics.
         //
+
+        /*
+        Note: make sure you stop the bluetooth service and then power up the adapter. Otherwise the peripheral does
+        not accept connections for BlueZ >= 5.14.
+
+        sudo systemctl stop bluetooth
+        sudo hciconfig hci0 up
+
+        https://github.com/noble/bleno/issues/24
+         */
+
         bleno.setServices([
             talkToManagerService
         ]);

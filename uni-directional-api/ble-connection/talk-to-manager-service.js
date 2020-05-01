@@ -5,7 +5,7 @@ var MessageCharacteristic = require('./message-characteristic');
 
 function TalkToManagerService() {
     bleno.PrimaryService.call(this, {
-        uuid: '18338db1-5c58-41cc-a009-71c5fd792920',
+        uuid: '18338db15c5841cca00971c5fd792920',
         characteristics: [
             new MessageCharacteristic()
         ]

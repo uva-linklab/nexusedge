@@ -1,7 +1,7 @@
 const noble = require('@abandonware/noble');
 
-const talkToManagerServiceUuid = '18338db1-5c58-41cc-a009-71c5fd792920';
-const messageCharacteristicUuid = '18338db1-5c58-41cc-a009-71c5fd792921';
+const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
+const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
 
 noble.on('stateChange', function(state) {
     if(state === 'poweredOn') {
