@@ -2,12 +2,14 @@ const fs = require("fs-extra");
 const path = require("path");
 const mqtt = require("mqtt");
 
-const mqttTopic = undefined;
-var callbackMap = {};
+let mqttTopic = undefined;
+let callbackMap = {};
 
 function __initialize() {
 	const metadataFilePath = path.join(__dirname, '../metadata.json');
-	mqttTopic = process.env.topic;
+	// The topic will be customized after sensor-stream-manager completed
+	// mqttTopic = process.env.topic;
+	mqttTopic = 'gateway-data';
 
 	//check if the metadata file is present in local directory
 	if (!fs.existsSync(metadataFilePath)){
@@ -25,7 +27,7 @@ function __initialize() {
 	const mqttClients = gateways.map(gatewayIP => {
 		return mqtt.connect('mqtt://' + gatewayIP);
 	});
-	for(var i = 0; i < mqttClients.length; i++) {
+	for(let i = 0; i < mqttClients.length; i++) {
 		const client = mqttClients[i];
 		const gatewayIP = gateways[i];
 		const sensorIds = mapping[gatewayIP];
@@ -37,8 +39,8 @@ function __initialize() {
 
 		client.on('message', (topic, message) => {
 		  if(topic === mqttTopic) {
-		  		var data = JSON.parse(message.toString());
-		  		var sensorId = data["_meta"]["device_id"];
+		  		let data = JSON.parse(message.toString());
+		  		let sensorId = data["_meta"]["device_id"];
 		  		if(sensorIds.includes(sensorId)) {
 		  			callbackMap[sensorId](data);
 				}
