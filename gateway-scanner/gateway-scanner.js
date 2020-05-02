@@ -61,6 +61,17 @@ bleno.on('advertisingStartError', function(error) {
   debug("[BLE Radio] Bleno advertisingStartError:");
 });
 
+//start discovering BLE peripherals
+//TODO check if we can do noble's listener initialization here
+noble.on('stateChange', handleNobleStateChange);
+noble.on('discover', handleDiscoveredPeripheral);
+noble.on('scanStop', function() {
+  debug("[BLE Radio] Noble scan stopped");
+});
+noble.on('warning', function (message) {
+  debug(`[BLE Radio] Noble warning:${message}`);
+});
+
 function getGroupKeyParams() {
   if (!fs.existsSync(paramsFilePath)) {
     return "";
@@ -75,19 +86,8 @@ function handleBlenoStateChange(state) {
     debug("[BLE Radio] BLE MAC Address = " + bleno.address);
 
     startAdvertising();
-
     saveIPAddress(bleno.address, ipAddress);
 
-    //start discovering BLE peripherals
-    //we do noble's listener initialization here as there's a dependency on key and iv
-    noble.on('stateChange', handleNobleStateChange);
-    noble.on('discover', handleDiscoveredPeripheral);
-    noble.on('scanStop', function() {
-      debug("[BLE Radio] Noble scan stopped");
-    });
-    noble.on('warning', function (message) {
-      debug(`[BLE Radio] Noble warning:${message}`);
-    });
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
   } else {
@@ -111,6 +111,7 @@ function handleDiscoveredPeripheral(peripheral) {
     return;
   }
 
+  //TODO check if this holds up when we start advertisement with a service
   if (!peripheral.advertisement.manufacturerData) {
     const localName = peripheral.advertisement.localName;
     if(typeof localName === "undefined") {
@@ -149,7 +150,7 @@ function startAdvertising() {
   var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
 
   //TODO add service UUID here
-  bleno.startAdvertising(name, [], function(err) {
+  bleno.startAdvertising(encryptedIp, [], function(err) {
     if(err) {
       console.log(err);
     } else {
