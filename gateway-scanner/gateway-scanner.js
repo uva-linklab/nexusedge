@@ -18,13 +18,13 @@ const discoveryDbName = 'discovery';
 
 const paramsFileName = "group-key.json";
 const paramsFilePath = __dirname + "/" + paramsFileName;
-var key = "";
-var iv = "";
+let key = "";
+let iv = "";
 
-var blackList = [];
+const blackList = [];
 
 //Stores any pending messages that need to be sent to a peripheral via bluetooth.
-//Type: peripheral-address -> message
+//Type: peripheral-address -> [message]
 const pendingMessages = {};
 
 ipAddress = utils.getIPAddress();
@@ -34,7 +34,7 @@ if(!ipAddress) {
   process.exit(1);
 }
 
-var groupKeyParams = getGroupKeyParams();
+const groupKeyParams = getGroupKeyParams();
 if(!groupKeyParams) {
   console.log(`Group key params not found in ${paramsFilePath}. Please refer to setup instructions in the readme file.`);
   process.exit(1);
@@ -148,25 +148,14 @@ https://www.libelium.com/forum/libelium_files/bt4_core_spec_adv_data_reference.p
 function startAdvertising() {
   var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
 
-  //create a buffer for the payload.
-  //buffer size = 2 bytes for length and AD type + byte size of the encrypted-ip
-  const bufferSize = 2 + encryptedIp.length;
-  var advertisementData = new Buffer(bufferSize);
-
-  //payload length = 1 byte for AD type + rest for the actual data.
-  const payloadLength = 1 + encryptedIp.length;
-
-  //Write it at the byte position 0 of the buffer. Since the length is stored in 1 byte, use writeUInt8
-  advertisementData.writeUInt8(payloadLength, 0);
-
-  //AD type – 0x09 = complete local name
-  advertisementData.writeUInt8(0x09, 1);
-
-  //write the actual data
-  advertisementData.write(encryptedIp, 2);
-
-  bleno.startAdvertisingWithEIRData(advertisementData);
-  debug(`[BLE Radio] Started Advertising with encrypted data = ${encryptedIp}`);
+  //TODO add service UUID here
+  bleno.startAdvertising(name, [], function(err) {
+    if(err) {
+      console.log(err);
+    } else {
+      debug(`[BLE Radio] Started Advertising with encrypted data = ${encryptedIp}`);
+    }
+  });
 }
 
 function saveIPAddress(name, ip) {
