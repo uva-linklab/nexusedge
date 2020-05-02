@@ -13,8 +13,6 @@ const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../utils/utils");
 
-ipAddress = utils.getIPAddress();
-
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
 
@@ -25,10 +23,25 @@ var iv = "";
 
 var blackList = [];
 
+//Stores any pending messages that need to be sent to a peripheral via bluetooth.
+//Type: peripheral-address -> message
+const pendingMessages = {};
+
+ipAddress = utils.getIPAddress();
+
 if(!ipAddress) {
   console.log("No IP address found. Please ensure the config files are set properly.");
   process.exit(1);
 }
+
+var groupKeyParams = getGroupKeyParams();
+if(!groupKeyParams) {
+  console.log(`Group key params not found in ${paramsFilePath}. Please refer to setup instructions in the readme file.`);
+  process.exit(1);
+}
+
+key = groupKeyParams.key;
+iv = groupKeyParams.iv;
 
 debug(`IP Address = ${ipAddress}`);
 
@@ -53,22 +66,14 @@ function getGroupKeyParams() {
     return "";
   } else {
     var data = fs.readFileSync(paramsFilePath, 'utf-8');
-    var keyParams = JSON.parse(data);
-    return keyParams;
+    return JSON.parse(data);
   }
 }
 
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
     debug("[BLE Radio] BLE MAC Address = " + bleno.address);
-    var groupKeyParams = getGroupKeyParams();
-    if(!groupKeyParams) {
-      console.log(`Group key params not found in ${paramsFilePath}. Please refer to setup instructions in the readme file.`);
-      process.exit(1);
-    }
 
-    key = groupKeyParams.key;
-    iv = groupKeyParams.iv;
     startAdvertising();
 
     saveIPAddress(bleno.address, ipAddress);
