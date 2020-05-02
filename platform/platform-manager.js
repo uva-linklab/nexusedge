@@ -53,10 +53,12 @@ let ipcCallback = {
   }
 }
 
+// create socket directory if not present
+fs.ensureDirSync(`${__dirname}/socket`);
 // ipc settings
 // reference: http://riaevangelist.github.io/node-ipc/#ipc-config
 ipc.config.appspace = "gateway."
-ipc.config.socketRoot = "./socket/"
+ipc.config.socketRoot = `${__dirname}/socket/`;
 ipc.config.id = 'platform';
 ipc.config.retry = 1500;
 ipc.config.silent = true;
@@ -68,9 +70,15 @@ ipc.serve(() => {
   ipc.server.on("register-socket", ipcCallback["register-socket"]);
   // listen to forward event
   ipc.server.on("forward", ipcCallback["forward"]);
+  ipc.server.on('socket.disconnected', (socket, destroyedSocketID) => {
+    ipc.log('client ' + destroyedSocketID + ' has disconnected!');
+  }
+);
 });
 ipc.server.start();
 
+// create logs directory if not present
+fs.ensureDirSync(`${__dirname}/logs`);
 // start services by fork
 for(let service in services) {
   services[service]["process"] = fork(services[service]["path"], [], {
