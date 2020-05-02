@@ -13,11 +13,11 @@ ipc.connectTo('platform', () => {
   ipc.of.platform.on('connect', () => {
     console.log(`gateway-api-controller connected to platform`);
     let message = {
-      sender: role,
-      _meta: {
-        data: `${role} send back the socket`
-      }
-    }
+      "meta": {
+        "sender": role
+      },
+      "payload": `${role} send back the socket`
+    };
     ipc.of.platform.emit("register-socket", message);
   });
 });
@@ -68,14 +68,14 @@ exports.executeApp = async function(req, res) {
   const metadataPath = req["files"]["metadata"][0]["path"];
 
   ipc.of.platform.emit("forward", {
-    "sender": "api-server",
-    "_meta": {
+    "meta": {
+      "sender": "api-server",
       "recipient": "app-manager",
-      "event": "app-deployment",
-      "data": {
-        appPath: appPath,
-        metadataPath: metadataPath
-      }
+      "event": "app-deployment"
+    },
+    "payload": {
+      "appPath": appPath,
+      "metadataPath": metadataPath
     }
   });
   res.send();
