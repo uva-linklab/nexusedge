@@ -20,10 +20,10 @@ ipcToPlatform.connectTo('platform', () => {
   ipcToPlatform.of.platform.on('connect', () => {
     console.log(`${role} connected to platform`);
     let message = {
-      sender: role,
-      _meta: {
-        data: `${role} send back the socket`
-      }
+      "meta": {
+        "sender": role,
+      },
+      "payload": `${role} send back the socket`
     }
     ipcToPlatform.of.platform.emit("register-socket", message);
   });

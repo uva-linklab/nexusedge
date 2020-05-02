@@ -15,42 +15,40 @@ let services = {
   }
 };
 
-/**
-  * data = {
-  *  "sender": "api-server",
-  *  "_meta": {
-  *  "recipient": "app-manager",
-  *  "event": "app-deployment",
-  *  "data": {}
-  * }
-  */
+// data = {
+//   "meta": {
+//     "recipient": "app-manager",
+//     "event": "app-deployment",
+//     "sender": "api-server",
+//   },
+//   "payload": {}
+// }
 let ipcCallback = {
   /**
    * The function forward the message from the sender to the recipient.
    * @param data
    */
-  forward: function (data) {
-    if(data["sender"] in services) {
+  "forward": function (data) {
+    if("meta" in data && data["meta"]["sender"] in services) {
       let message = {
-        sender: data["sender"],
-        data: data["_meta"]["data"]
+        sender: data["meta"]["sender"],
+        data: data["payload"]
       };
-      ipc.server.emit(services[data["_meta"]["recipient"]].socket,
-                      data["_meta"]["event"],
+      ipc.server.emit(services[data["meta"]["recipient"]].socket,
+                      data["meta"]["event"],
                       message);
     }
   },
-    /**
+  /**
    * The function store the socket from the sender.
    * @param data
    * @param socket
    */
   "register-socket": function (data, socket) {
-    if(data["sender"] in services) {
+    if("meta" in data && data["meta"]["sender"] in services) {
       // receive socket from services
-      services[data["sender"]].socket = socket;
-      // TODO: figure out why printing twice
-      console.log(`[PLATFORM] got a socket from ${data["sender"]}`);
+      services[data["meta"]["sender"]].socket = socket;
+      console.log(`[PLATFORM] got a socket from ${data["meta"]["sender"]}`);
     }
   }
 }
@@ -66,9 +64,8 @@ ipc.config.silent = true;
 // ipc server for services
 // reference: http://riaevangelist.github.io/node-ipc/#serve
 ipc.serve(() => {
-  for(let service in services) {
-    ipc.server.on("register-socket", ipcCallback["register-socket"]);
-  }
+  // get the socket from services
+  ipc.server.on("register-socket", ipcCallback["register-socket"]);
   // listen to forward event
   ipc.server.on("forward", ipcCallback["forward"]);
 });

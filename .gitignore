@@ -1,14 +1,10 @@
 # test code
 test-code/
-<<<<<<< HEAD
-node_modules/
-=======
 test.*
 
 # histories
 logs/
 socket/
->>>>>>> Platform restructure
 .idea/
 
 # deployments
