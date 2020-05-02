@@ -25,8 +25,6 @@ const paramsFilePath = __dirname + "/" + paramsFileName;
 let key = "";
 let iv = "";
 
-const blackList = [];
-
 //Stores any pending messages that need to be sent to a peripheral via bluetooth.
 //Type: peripheral-address -> [message]
 const pendingMessages = {};
@@ -89,7 +87,7 @@ function handleBlenoStateChange(state) {
     debug("[BLE Radio] BLE MAC Address = " + bleno.address);
     saveAddressesToDB(bleno.address, ipAddress);
 
-    var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
+    const encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
 
     bleno.startAdvertising(encryptedIp, [talkToManagerService.uuid], function(err) {
       if(err) {
@@ -107,7 +105,8 @@ function handleBlenoStateChange(state) {
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
-    noble.startScanning([], true);
+    //only discover peripherals with the talkToManagerService, which would be gateways part of the platform
+    noble.startScanning([talkToManagerService.uuid], true);
     debug("[BLE Radio] Started peripheral discovery");
   } else if(state === 'poweredOff'){
     noble.stopScanning();
@@ -117,33 +116,11 @@ function handleNobleStateChange(state) {
 }
 
 function handleDiscoveredPeripheral(peripheral) {
-  if(blackList.includes(peripheral.address)) {
-    return;
-  }
-
-  //TODO check if this holds up when we start advertisement with a service
-  if (!peripheral.advertisement.manufacturerData) {
     const localName = peripheral.advertisement.localName;
-    if(typeof localName === "undefined") {
-      debug(`[BLE Radio] blacklisted ${peripheral.address}`);
-      blackList.push(peripheral.address);
-    } else {
-      var data = localName.toString('utf8');
-      var discoveredIp = aesCrypto.decrypt(data, key, iv);
-      if(isValidIPAddress(discoveredIp)) {
-        debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
-        debug(`[BLE Radio] IP Address = ${discoveredIp}`);
-        saveNeighborDataToDB(peripheral.address, discoveredIp);
-      } else {
-        debug(`[BLE Radio] blacklisted ${peripheral.address}`);
-        blackList.push(peripheral.address);
-      }
-    }
-  }
-}
-
-function isValidIPAddress(ipaddress) {
-  return (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress));
+    const discoveredIp = aesCrypto.decrypt(localName.toString('utf8'), key, iv);
+    debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
+    debug(`[BLE Radio] IP Address = ${discoveredIp}`);
+    saveNeighborDataToDB(peripheral.address, discoveredIp);
 }
 
 function saveAddressesToDB(name, ip) {
