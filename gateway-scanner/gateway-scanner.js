@@ -13,6 +13,10 @@ const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../utils/utils");
 
+//BLE Service
+var TalkToManagerService = require('./talk-to-manager-service');
+var talkToManagerService = new TalkToManagerService();
+
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
 
@@ -62,7 +66,6 @@ bleno.on('advertisingStartError', function(error) {
 });
 
 //start discovering BLE peripherals
-//TODO check if we can do noble's listener initialization here
 noble.on('stateChange', handleNobleStateChange);
 noble.on('discover', handleDiscoveredPeripheral);
 noble.on('scanStop', function() {
@@ -84,10 +87,17 @@ function getGroupKeyParams() {
 function handleBlenoStateChange(state) {
   if (state === 'poweredOn') {
     debug("[BLE Radio] BLE MAC Address = " + bleno.address);
+    saveAddressesToDB(bleno.address, ipAddress);
 
-    startAdvertising();
-    saveIPAddress(bleno.address, ipAddress);
+    var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
 
+    bleno.startAdvertising(encryptedIp, [talkToManagerService.uuid], function(err) {
+      if(err) {
+        console.log(err);
+      } else {
+        debug(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service UUID ${talkToManagerService.uuid}`);
+      }
+    });
   } else if (state === 'poweredOff') {
     bleno.stopAdvertising();
   } else {
@@ -136,30 +146,7 @@ function isValidIPAddress(ipaddress) {
   return (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress));
 }
 
-/*
-The advertisement data payload consists of several AD structures.
-Each AD structure has a length field (1 byte), AD Type (1 byte), and the data corresponding to the AD type.
-Length => Number of bytes for the AD type and the actual data (excluding the length byte itself).
-AD type =>
-As defined here: https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/
-
-Packet format:
-https://www.libelium.com/forum/libelium_files/bt4_core_spec_adv_data_reference.pdf
-*/
-function startAdvertising() {
-  var encryptedIp = aesCrypto.encrypt(ipAddress, key, iv);
-
-  //TODO add service UUID here
-  bleno.startAdvertising(encryptedIp, [], function(err) {
-    if(err) {
-      console.log(err);
-    } else {
-      debug(`[BLE Radio] Started Advertising with encrypted data = ${encryptedIp}`);
-    }
-  });
-}
-
-function saveIPAddress(name, ip) {
+function saveAddressesToDB(name, ip) {
   db.collection('self').updateOne(
       { "_id" : name },
       { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} },
