@@ -1,4 +1,5 @@
 const codeContainer = require(`${__dirname}/code-container/container`);
+const fs = require("fs-extra");
 const path = require("path");
 const { fork } = require('child_process');
 const mongoClient = require('mongodb').MongoClient;
@@ -44,6 +45,8 @@ mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
   db = client.db(appsDb);
 });
 
+// create logs directory if not present
+fs.ensureDirSync(`${__dirname}/logs`);
 /**
  * This function saves the app info to the database
  * @param {string} appPath application path
@@ -102,7 +105,7 @@ ipcToPlatform.of.platform.on('app-deployment', message => {
           app: newApp,
           id: appId,
           topic: appTopic,
-          path: appPath
+          path: newAppPath
         };
 
       })

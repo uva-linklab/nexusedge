@@ -8,8 +8,9 @@ socket/
 .idea/
 
 # deployments
-api-server/code-container/executables/
-api-server/deployed-apps/
+platform/api-server/code-container/executables/
+platform/api-server/deployed-apps/
+platform/app-manager/code-container/executables/
 
 # configure files
 utils/config.json
