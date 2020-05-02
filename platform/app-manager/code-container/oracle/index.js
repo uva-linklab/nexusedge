@@ -27,6 +27,7 @@ function __initialize() {
 	const mqttClients = gateways.map(gatewayIP => {
 		return mqtt.connect('mqtt://' + gatewayIP);
 	});
+
 	for(let i = 0; i < mqttClients.length; i++) {
 		const client = mqttClients[i];
 		const gatewayIP = gateways[i];
