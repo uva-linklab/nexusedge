@@ -5,31 +5,32 @@ const { fork } = require('child_process');
 const mongoClient = require('mongodb').MongoClient;
 const ipc = require('node-ipc');
 
-const role = process.env.role;
+const serviceName = process.env.SERVICE_NAME;
 
-let ipcToPlatform = new ipc.IPC;
+const ipcToPlatform = new ipc.IPC;
 // ipc settings
-// reference: http://riaevangelist.github.io/node-ipc/#ipc-config
+// Reference:
+// http://riaevangelist.github.io/node-ipc/#ipc-config
 ipcToPlatform.config.appspace = "gateway.";
 ipcToPlatform.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipcToPlatform.config.id = role;
+ipcToPlatform.config.id = serviceName;
 ipcToPlatform.config.retry = 1500;
 ipcToPlatform.config.silent = true;
 
-// connect to platform manager
+// Connect to platform manager
 ipcToPlatform.connectTo('platform', () => {
   ipcToPlatform.of.platform.on('connect', () => {
-    console.log(`${role} connected to platform`);
+    console.log(`${serviceName} connected to platform`);
     let message = {
       "meta": {
-        "sender": role,
+        "sender": serviceName,
       },
-      "payload": `${role} send back the socket`
+      "payload": `${serviceName} sent back the socket.`
     }
     ipcToPlatform.of.platform.emit("register-socket", message);
   });
   ipcToPlatform.of.platform.on('disconnect', () => {
-    console.log(`${role} disconnected from platform`);
+    console.log(`${serviceName} disconnected from platform`);
   });
 });
 
@@ -45,7 +46,7 @@ mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
   db = client.db(appsDb);
 });
 
-// create logs directory if not present
+// Create logs directory if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 /**
  * This function saves the app info to the database
@@ -65,8 +66,8 @@ function saveAppInfoToDB(appPath, topic, pid) {
   return appId;
 }
 
-// APPS stores app name, topic, and pid
-let apps = {};
+// apps stores process, topic, pid, and path
+const apps = {};
 
 /**
  * This function generates the topic for new coming app.
@@ -79,8 +80,8 @@ function getTopic(appName) {
   return topic;
 }
 
-// when app-manager get appPath and metadataPath from platform-manager,
-// app-manager will fork a process for executing new app
+// When app-manager get appPath and metadataPath from platform-manager,
+// app-manager will fork a process for executing new app.
 ipcToPlatform.of.platform.on('app-deployment', message => {
   let appData = message.data;
   if(appData.appPath && appData.metadataPath) {
@@ -91,21 +92,22 @@ ipcToPlatform.of.platform.on('app-deployment', message => {
         // app's MQTT topic
         let appTopic = getTopic(appName);
 
-        // fork a process for a new app
-        // Use spaw or fork?
+        // Using fork() to create a child process for a new application
+        // Using fork() not spawn() is because fork is a special instance of spawn for creating a Nodejs child process.
+        // Reference:
         // https://stackoverflow.com/questions/17861362/node-js-child-process-difference-between-spawn-fork
         const newApp = fork(newAppPath, [], {
-          env: { "topic": appTopic },
+          env: { TOPIC: appTopic },
           stdio: [0, fs.openSync(`${__dirname}/logs/${appName}.out`, 'w'), fs.openSync(`${__dirname}/logs/${appName}.err`, 'w'), "ipc"]
         });
         let appId = saveAppInfoToDB(newAppPath, appTopic, newApp.pid);
 
-        // store the topic, pid, and appPath in apps
+        // Stores the process, topic, pid, and path in apps
         apps[appName] = {
-          app: newApp,
-          id: appId,
-          topic: appTopic,
-          path: newAppPath
+          "app": newApp,
+          "id": appId,
+          "topic": appTopic,
+          "path": newAppPath
         };
 
       })

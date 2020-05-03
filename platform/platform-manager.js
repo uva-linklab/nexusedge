@@ -1,8 +1,8 @@
 const { fork } = require('child_process');
 const fs = require("fs-extra");
-let ipc = require('node-ipc');
+const ipc = require('node-ipc');
 
-let services = {
+const services = {
   "app-manager": {
     path: __dirname + "/app-manager/app-manager.js",
     socket: undefined,
@@ -15,6 +15,8 @@ let services = {
   }
 };
 
+// ipcCallback stores all the call back function used by ipc server.
+// The data format is described below.
 // data = {
 //   "meta": {
 //     "recipient": "app-manager",
@@ -23,9 +25,10 @@ let services = {
 //   },
 //   "payload": {}
 // }
-let ipcCallback = {
+const ipcCallback = {
   /**
-   * The function forward the message from the sender to the recipient.
+   * The function forwards the message from the sender to the recipient
+   * and is the call back function used for `forward` event.
    * @param data
    */
   "forward": function (data) {
@@ -40,7 +43,8 @@ let ipcCallback = {
     }
   },
   /**
-   * The function store the socket from the sender.
+   * The function stores the socket from the sender
+   * and is the call back function used for `register-socket` event.
    * @param data
    * @param socket
    */
@@ -53,10 +57,10 @@ let ipcCallback = {
   }
 }
 
-// create socket directory if not present
+// Create socket directory if not present
 fs.ensureDirSync(`${__dirname}/socket`);
 // ipc settings
-// reference: http://riaevangelist.github.io/node-ipc/#ipc-config
+// Reference: http://riaevangelist.github.io/node-ipc/#ipc-config
 ipc.config.appspace = "gateway."
 ipc.config.socketRoot = `${__dirname}/socket/`;
 ipc.config.id = 'platform';
@@ -64,7 +68,7 @@ ipc.config.retry = 1500;
 ipc.config.silent = true;
 
 // ipc server for services
-// reference: http://riaevangelist.github.io/node-ipc/#serve
+// Reference: http://riaevangelist.github.io/node-ipc/#serve
 ipc.serve(() => {
   // get the socket from services
   ipc.server.on("register-socket", ipcCallback["register-socket"]);
@@ -77,21 +81,21 @@ ipc.serve(() => {
 });
 ipc.server.start();
 
-// create logs directory if not present
+// Create logs directory if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 // start services by fork
-for(let service in services) {
-  services[service]["process"] = fork(services[service]["path"], [], {
-    env: { role: service },
-    // references:
+for(let serviceName in services) {
+  services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
+    env: { SERVICE_NAME: serviceName },
+    // References:
     // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
     // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
     stdio: [
       0, // Use platform's stdin for services
-      fs.openSync(`${__dirname}/logs/${service}.out`, 'w'), // pipe service output to log
-      fs.openSync(`${__dirname}/logs/${service}.err`, 'w'), // pipe service output to log
+      fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'w'), // pipe service output to log
+      fs.openSync(`${__dirname}/logs/${serviceName}.err`, 'w'), // pipe service output to log
       "ipc"
     ]
   });
-  console.log(`${service} is successfully created with pid: ${services[service]["process"].pid}.`);
+  console.log(`${serviceName} is successfully created with pid: ${services[serviceName]["process"].pid}.`);
 };
