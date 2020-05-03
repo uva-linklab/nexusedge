@@ -12,19 +12,19 @@ ipc.config.retry = 1500;
 ipc.config.silent = true;
 
 ipc.connectTo('platform', () => {
-  ipc.of.platform.on('connect', () => {
-    console.log(`gateway-api-controller connected to platform`);
-    let message = {
-      "meta": {
-        "sender": serviceName
-      },
-      "payload": `${serviceName} send back the socket`
-    };
-    ipc.of.platform.emit("register-socket", message);
-  });
-  ipc.of.platform.on('disconnect', () => {
-    console.log(`${serviceName} disconnected from platform`);
-  });
+    ipc.of.platform.on('connect', () => {
+        console.log(`gateway-api-controller connected to platform`);
+        let message = {
+            "meta": {
+                "sender": serviceName
+            },
+            "payload": `${serviceName} send back the socket`
+        };
+        ipc.of.platform.emit("register-socket", message);
+    });
+    ipc.of.platform.on('disconnect', () => {
+        console.log(`${serviceName} disconnected from platform`);
+    });
 });
 
 /**
@@ -34,8 +34,8 @@ ipc.connectTo('platform', () => {
  * @returns {Promise<*>}
  */
 exports.getNeighbors = async function(req, res) {
-  const neighborData = await discoveryModel.getNeighborData(300000);
-  return res.json(neighborData);
+    const neighborData = await discoveryModel.getNeighborData(300000);
+    return res.json(neighborData);
 };
 
 /**
@@ -46,8 +46,8 @@ exports.getNeighbors = async function(req, res) {
  */
 exports.getSensors = async function(req, res) {
 
-  const sensorData = await discoveryModel.getSensorData(300000);
-  return res.json(sensorData);
+    const sensorData = await discoveryModel.getSensorData(300000);
+    return res.json(sensorData);
 };
 
 /**
@@ -57,9 +57,9 @@ exports.getSensors = async function(req, res) {
  * @returns {Promise<*>}
  */
 exports.getServerStatus = async function(req, res) {
-  //for the time being use a simple json with a status=true key-value
-  const status = {status: true};
-  return res.json(status);
+    //for the time being use a simple json with a status=true key-value
+    const status = {status: true};
+    return res.json(status);
 };
 
 /**
@@ -69,21 +69,21 @@ exports.getServerStatus = async function(req, res) {
  * @returns {Promise<void>}
  */
 exports.executeApp = async function(req, res) {
-  const appPath = req["files"]["app"][0]["path"];
-  const metadataPath = req["files"]["metadata"][0]["path"];
+    const appPath = req["files"]["app"][0]["path"];
+    const metadataPath = req["files"]["metadata"][0]["path"];
 
-  // Forward the application path and metadata.
-  // The data format is described in the platfor-manager.js
-  ipc.of.platform.emit("forward", {
-    "meta": {
-      "sender": serviceName,
-      "recipient": "app-manager",
-      "event": "app-deployment"
-    },
-    "payload": {
-      "appPath": appPath,
-      "metadataPath": metadataPath
-    }
-  });
-  res.send();
+    // Forward the application path and metadata.
+    // The data format is described in the platfor-manager.js
+    ipc.of.platform.emit("forward", {
+        "meta": {
+            "sender": serviceName,
+            "recipient": "app-manager",
+            "event": "app-deployment"
+        },
+        "payload": {
+            "appPath": appPath,
+            "metadataPath": metadataPath
+        }
+    });
+    res.send();
 };
