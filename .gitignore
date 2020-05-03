@@ -7,7 +7,6 @@ socket/
 .idea/
 
 # deployments
-platform/api-server/code-container/executables/
 platform/api-server/deployed-apps/
 platform/app-manager/code-container/executables/
 
