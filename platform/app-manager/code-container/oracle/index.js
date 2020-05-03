@@ -7,8 +7,8 @@ let callbackMap = {};
 
 function __initialize() {
 	const metadataFilePath = path.join(__dirname, '../metadata.json');
-	// The topic will be customized after sensor-stream-manager completed
-	// mqttTopic = process.env.topic;
+	// TODO: The topic will be customized after the sensor-stream-manager is completed.
+	// mqttTopic = process.env.TOPIC;
 	mqttTopic = 'gateway-data';
 
 	//check if the metadata file is present in local directory
