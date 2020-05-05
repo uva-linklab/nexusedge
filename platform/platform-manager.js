@@ -12,6 +12,11 @@ const services = {
         path: __dirname + "/api-server/server.js",
         socket: undefined,
         process: undefined
+    },
+    "gateway-scanner": {
+        path: __dirname + "/gateway-scanner/gateway-scanner.js",
+        socket: undefined,
+        process: undefined
     }
 };
 
@@ -55,13 +60,13 @@ const ipcCallback = {
             console.log(`[PLATFORM] got a socket from ${data["meta"]["sender"]}`);
         }
     }
-}
+};
 
 // Create socket directory if not present
 fs.ensureDirSync(`${__dirname}/socket`);
 // ipc settings
 // Reference: http://riaevangelist.github.io/node-ipc/#ipc-config
-ipc.config.appspace = "gateway."
+ipc.config.appspace = "gateway.";
 ipc.config.socketRoot = `${__dirname}/socket/`;
 ipc.config.id = 'platform';
 ipc.config.retry = 1500;
@@ -97,5 +102,5 @@ for(let serviceName in services) {
             "ipc"
         ]
     });
-    console.log(`${serviceName} is successfully created with pid: ${services[serviceName]["process"].pid}.`);
-};
+    console.log(`${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
+}

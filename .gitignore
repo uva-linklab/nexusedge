@@ -12,7 +12,7 @@ platform/app-manager/code-container/executables/
 
 # configure files
 utils/config.json
-gateway-scanner/group-key.json
+platform/gateway-scanner/group-key.json
 
 # packages
 package-lock.json

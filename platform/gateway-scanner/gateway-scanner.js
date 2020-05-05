@@ -11,7 +11,7 @@ const fs = require('fs');
 const debug = require('debug')('gateway-scanner');
 const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
-const utils = require("../utils/utils");
+const utils = require("../../utils");
 
 //Service and characteristic related
 var TalkToManagerService = require('./talk-to-manager-service');
