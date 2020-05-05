@@ -12,6 +12,7 @@ const debug = require('debug')('gateway-scanner');
 const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../../utils");
+const ipc = require('node-ipc');
 
 //Service and characteristic related
 var TalkToManagerService = require('./talk-to-manager-service');
@@ -27,6 +28,35 @@ const paramsFileName = "group-key.json";
 const paramsFilePath = __dirname + "/" + paramsFileName;
 let key = "";
 let iv = "";
+
+const serviceName = process.env.SERVICE_NAME;
+//TODO move all IPC related logic into a separate file
+const ipcToPlatform = new ipc.IPC;
+// ipc settings
+// Reference:
+// http://riaevangelist.github.io/node-ipc/#ipc-config
+ipcToPlatform.config.appspace = "gateway.";
+ipcToPlatform.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
+ipcToPlatform.config.id = serviceName;
+ipcToPlatform.config.retry = 1500;
+ipcToPlatform.config.silent = true;
+
+// Connect to platform manager
+ipcToPlatform.connectTo('platform', () => {
+  ipcToPlatform.of.platform.on('connect', () => {
+    console.log(`${serviceName} connected to platform`);
+    let message = {
+      "meta": {
+        "sender": serviceName,
+      },
+      "payload": `${serviceName} sent back the socket.`
+    };
+    ipcToPlatform.of.platform.emit("register-socket", message);
+  });
+  ipcToPlatform.of.platform.on('disconnect', () => {
+    console.log(`${serviceName} disconnected from platform`);
+  });
+});
 
 //Stores any pending messages that need to be sent to a peripheral via bluetooth.
 //Type: ip-address -> [message]

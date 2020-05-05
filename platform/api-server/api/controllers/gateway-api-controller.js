@@ -1,11 +1,12 @@
 const discoveryModel = require('../models/discovery-model');
 const path = require("path");
 
+//TODO move all IPC related logic into a separate file
 // TODO: ipc should be available for all function in api-server rather than specific controller.
 const ipc = require('node-ipc');
 
 const serviceName = process.env.SERVICE_NAME;
-ipc.config.appspace = "gateway."
+ipc.config.appspace = "gateway.";
 ipc.config.socketRoot = path.normalize(`${__dirname}/../../../socket/`);
 ipc.config.id = serviceName;
 ipc.config.retry = 1500;
