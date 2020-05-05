@@ -48,22 +48,24 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const event = jsonData["_meta"]["event"];
         const payload = jsonData["payload"];
 
-        forwardMessage("gateway-scanner", recipient, event, payload);
+        forwardMessage(this.ipc, "gateway-scanner", recipient, event, payload);
 
         callback(this.RESULT_SUCCESS);
     }
 };
 
+//TODO ipc object should be made available to this function
 /**
  * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
  * communication details.
+ * @param ipc
  * @param sender service-name of self
  * @param recipient service to which message is to be forwarded
  * @param event the name of the event the recipient should be listening for
  * @param payload contents of the message
  */
-function forwardMessage(sender, recipient, event, payload) {
-    this.ipc.of.platform.emit("forward", {
+function forwardMessage(ipc, sender, recipient, event, payload) {
+    ipc.of.platform.emit("forward", {
         "meta": {
             "sender": sender,
             "recipient": recipient,

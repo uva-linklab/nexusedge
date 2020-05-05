@@ -100,15 +100,14 @@ for(let serviceName in services) {
     services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
         //SERVICE_NAME is used by the IPC platform to set the id,
         //We pass in the DEBUG environment variable to output debug logs
-        //TODO: Check why debug logs are currently appearing in the .err file and not in the .out file
         env: { SERVICE_NAME: serviceName, DEBUG: serviceName },
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
         // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
         stdio: [
             0, // Use platform's stdin for services
-            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'w'), // pipe service output to log
-            fs.openSync(`${__dirname}/logs/${serviceName}.err`, 'w'), // pipe service output to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service stdout to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service stderr to same log
             "ipc"
         ]
     });

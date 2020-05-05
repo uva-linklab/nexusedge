@@ -68,7 +68,7 @@ function forwardMessage(sender, recipient, event, payload) {
 }
 
 ipc.of.platform.on('connect-to-socket', message => {
-    let payload = message.payload;
+    const payload = message.data;
 
     const wsAddress = payload["ws-address"];
     const ws = new WebSocket(wsAddress);
