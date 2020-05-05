@@ -17,6 +17,11 @@ const services = {
         path: __dirname + "/gateway-scanner/gateway-scanner.js",
         socket: undefined,
         process: undefined
+    },
+    "dummy-manager": {
+        path: __dirname + "/dummy-manager/dummy-manager.js",
+        socket: undefined,
+        process: undefined
     }
 };
 
@@ -45,6 +50,8 @@ const ipcCallback = {
             ipc.server.emit(services[data["meta"]["recipient"]].socket,
                                             data["meta"]["event"],
                                             message);
+            console.log("[PLATFORM] Forwarded msg.");
+            console.log(`Event: ${data["meta"]["event"]} From: ${data["meta"]["sender"]} To: ${data["meta"]["recipient"]}`);
         }
     },
     /**

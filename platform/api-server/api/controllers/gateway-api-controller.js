@@ -74,7 +74,7 @@ exports.executeApp = async function(req, res) {
     const metadataPath = req["files"]["metadata"][0]["path"];
 
     // Forward the application path and metadata.
-    // The data format is described in the platfor-manager.js
+    // The data format is described in the platform-manager.js
     ipc.of.platform.emit("forward", {
         "meta": {
             "sender": serviceName,

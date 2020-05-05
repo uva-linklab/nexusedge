@@ -13,13 +13,7 @@ const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../../utils");
 const ipc = require('node-ipc');
-
-//Service and characteristic related
-var TalkToManagerService = require('./talk-to-manager-service');
-var talkToManagerService = new TalkToManagerService();
-
-const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
-const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
+const path = require("path");
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
@@ -57,6 +51,13 @@ ipcToPlatform.connectTo('platform', () => {
     console.log(`${serviceName} disconnected from platform`);
   });
 });
+
+//Service and characteristic related
+var TalkToManagerService = require('./talk-to-manager-service');
+var talkToManagerService = new TalkToManagerService(ipcToPlatform);
+
+const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
+const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
 
 //Stores any pending messages that need to be sent to a peripheral via bluetooth.
 //Type: ip-address -> [message]
@@ -231,3 +232,18 @@ function saveNeighborDataToDB(peripheralName, peripheralIp) {
       }
     );
 }
+
+//when gateway-scanner obtains a message to be passed on to another gateway, it adds it to pendingMessages.
+ipcToPlatform.of.platform.on('talk-to-gateway', message => {
+  const messageToSend = message.data;
+
+  const gatewayIP = messageToSend["gateway-ip"];
+  const payload = messageToSend["gateway-msg-payload"];
+
+  //add to pendingMessages
+  if(pendingMessages.hasOwnProperty(gatewayIP)) {
+    pendingMessages[gatewayIP].append(payload);
+  } else {
+    pendingMessages[gatewayIP] = [payload];
+  }
+});

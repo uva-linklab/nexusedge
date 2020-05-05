@@ -1,10 +1,7 @@
 var util = require('util');
 var bleno = require('@abandonware/bleno');
 
-//TODO: should move to manager
-const WebSocket = require('ws');
-
-function MessageCharacteristic() {
+function MessageCharacteristic(ipcToPlatform) {
     bleno.Characteristic.call(this, {
         uuid: '18338db15c5841cca00971c5fd792921',
         properties: ['write'],
@@ -15,6 +12,7 @@ function MessageCharacteristic() {
             })
         ]
     });
+    this.ipcToPlatform = ipcToPlatform;
 }
 
 util.inherits(MessageCharacteristic, bleno.Characteristic);
@@ -27,8 +25,9 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
     {
         "_meta" : {
             "recipient": "manager-name-goes-here"
+            "event": "connect-to-socket"
         },
-        "data": {
+        "payload": {
             ...
         }
     }
@@ -46,28 +45,32 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
 
     if(jsonData != null) {
         const recipient = jsonData["_meta"]["recipient"];
-        const data = jsonData["data"];
+        const event = jsonData["_meta"]["event"];
+        const payload = jsonData["payload"];
 
-        console.log(data);
-
-        //TODO: check if recipient is a valid manager name who does indeed accept message requests
-        //(check if node-ipc has an option for this)
-
-        //if yes, pass it on to the manager using IPC
-        //TODO: this has to be moved ot the manager
-        const wsAddress = data["ws-address"];
-        const ws = new WebSocket(wsAddress);
-
-        ws.on('open', function open() {
-            ws.send('something');
-        });
-
-        ws.on('message', function incoming(data) {
-            console.log(data);
-        });
+        forwardMessage("gateway-scanner", recipient, event, payload);
 
         callback(this.RESULT_SUCCESS);
     }
 };
+
+/**
+ * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
+ * communication details.
+ * @param sender service-name of self
+ * @param recipient service to which message is to be forwarded
+ * @param event the name of the event the recipient should be listening for
+ * @param payload contents of the message
+ */
+function forwardMessage(sender, recipient, event, payload) {
+    this.ipcToPlatform.of.platform.emit("forward", {
+        "meta": {
+            "sender": sender,
+            "recipient": recipient,
+            "event": event
+        },
+        "payload": payload
+    });
+}
 
 module.exports = MessageCharacteristic;
