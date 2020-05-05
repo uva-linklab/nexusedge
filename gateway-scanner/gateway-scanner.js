@@ -13,9 +13,12 @@ const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../utils/utils");
 
-//BLE Service
+//Service and characteristic related
 var TalkToManagerService = require('./talk-to-manager-service');
 var talkToManagerService = new TalkToManagerService();
+
+const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
+const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
@@ -26,7 +29,7 @@ let key = "";
 let iv = "";
 
 //Stores any pending messages that need to be sent to a peripheral via bluetooth.
-//Type: peripheral-address -> [message]
+//Type: ip-address -> [message]
 const pendingMessages = {};
 
 ipAddress = utils.getIPAddress();
@@ -94,6 +97,9 @@ function handleBlenoStateChange(state) {
         console.log(err);
       } else {
         debug(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service UUID ${talkToManagerService.uuid}`);
+        bleno.setServices([
+          talkToManagerService
+        ]);
       }
     });
   } else if (state === 'poweredOff') {
@@ -117,10 +123,47 @@ function handleNobleStateChange(state) {
 
 function handleDiscoveredPeripheral(peripheral) {
     const localName = peripheral.advertisement.localName;
-    const discoveredIp = aesCrypto.decrypt(localName.toString('utf8'), key, iv);
-    debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
-    debug(`[BLE Radio] IP Address = ${discoveredIp}`);
-    saveNeighborDataToDB(peripheral.address, discoveredIp);
+    if(typeof localName !== "undefined") {
+      const discoveredIp = aesCrypto.decrypt(localName.toString('utf8'), key, iv);
+      debug("[BLE Radio] Peripheral discovered: " + peripheral.address);
+      debug(`[BLE Radio] IP Address = ${discoveredIp}`);
+      saveNeighborDataToDB(peripheral.address, discoveredIp);
+
+      //check if there are any pending messages that need to be sent to this peripheral
+      if(pendingMessages.hasOwnProperty(discoveredIp)) {
+        //get the list of messages
+        const messageList = pendingMessages[discoveredIp];
+
+        peripheral.connect(function(err) {
+          console.log("connected to peripheral");
+
+          const serviceUUIDs = [talkToManagerServiceUuid];
+          const characteristicUUIDs = [messageCharacteristicUuid];
+
+          peripheral.discoverSomeServicesAndCharacteristics(serviceUUIDs, characteristicUUIDs,
+              function (error, services, characteristics) {
+                console.log('Discovered services and characteristics');
+                const messageCharacteristic = characteristics[0];
+
+                messageList.forEach(message => {
+                  const buff = Buffer.from(JSON.stringify(message), 'utf8');
+
+                  console.log("about to write to characteristic");
+                  messageCharacteristic.write(buff, false, function(err) {
+                    if(!err) {
+                      console.log("write complete. got callback.");
+                    } else {
+                      console.log('write error');
+                    }
+                  });
+                });
+                //delete the messages for this peripheral
+                delete pendingMessages[discoveredIp];
+              }
+          );
+        })
+      }
+    }
 }
 
 function saveAddressesToDB(name, ip) {
