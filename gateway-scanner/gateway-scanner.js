@@ -71,6 +71,17 @@ noble.on('stateChange', handleNobleStateChange);
 noble.on('discover', handleDiscoveredPeripheral);
 noble.on('scanStop', function() {
   debug("[BLE Radio] Noble scan stopped");
+  /*
+  Once noble connects to a peripheral and writes to a characteristic, it stops the BLE peripheral scan. Noble scan on
+  the central as well as the peripheral stops.
+  This issue is documented here:
+  https://github.com/noble/noble/issues/223
+  One workaround is to restart the scan once it stops. We restart after 2.5 seconds as suggested in one comment.
+   */
+  setTimeout(function () {
+      debug("[BLE Radio] Restarting Noble.");
+      noble.startScanning([talkToManagerService.uuid], true);
+    },2500);
 });
 noble.on('warning', function (message) {
   debug(`[BLE Radio] Noble warning:${message}`);
@@ -131,33 +142,36 @@ function handleDiscoveredPeripheral(peripheral) {
 
       //check if there are any pending messages that need to be sent to this peripheral
       if(pendingMessages.hasOwnProperty(discoveredIp)) {
+
+        debug(`[BLE Radio] There are pending messages to be sent for ${discoveredIp}`);
         //get the list of messages
         const messageList = pendingMessages[discoveredIp];
 
         peripheral.connect(function(err) {
-          console.log("connected to peripheral");
+          debug(`[BLE Radio] Connected to peripheral at ${discoveredIp}`);
 
           const serviceUUIDs = [talkToManagerServiceUuid];
           const characteristicUUIDs = [messageCharacteristicUuid];
 
           peripheral.discoverSomeServicesAndCharacteristics(serviceUUIDs, characteristicUUIDs,
               function (error, services, characteristics) {
-                console.log('Discovered services and characteristics');
                 const messageCharacteristic = characteristics[0];
 
                 messageList.forEach(message => {
                   const buff = Buffer.from(JSON.stringify(message), 'utf8');
 
-                  console.log("about to write to characteristic");
+                  debug("[BLE Radio] Writing message to characteristic");
                   messageCharacteristic.write(buff, false, function(err) {
                     if(!err) {
-                      console.log("write complete. got callback.");
+                      debug("[BLE Radio] Write complete");
                     } else {
-                      console.log('write error');
+                      debug("[BLE Radio] Write Error!");
+                      debug(err);
                     }
                   });
                 });
                 //delete the messages for this peripheral
+                debug("[BLE Radio] Delete messages for peripheral");
                 delete pendingMessages[discoveredIp];
               }
           );
