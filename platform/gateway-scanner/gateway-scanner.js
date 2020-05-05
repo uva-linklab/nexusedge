@@ -25,19 +25,18 @@ let iv = "";
 
 const serviceName = process.env.SERVICE_NAME;
 //TODO move all IPC related logic into a separate file
-const ipcToPlatform = new ipc.IPC;
 // ipc settings
 // Reference:
 // http://riaevangelist.github.io/node-ipc/#ipc-config
-ipcToPlatform.config.appspace = "gateway.";
-ipcToPlatform.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipcToPlatform.config.id = serviceName;
-ipcToPlatform.config.retry = 1500;
-ipcToPlatform.config.silent = true;
+ipc.config.appspace = "gateway.";
+ipc.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
+ipc.config.id = serviceName;
+ipc.config.retry = 1500;
+ipc.config.silent = true;
 
 // Connect to platform manager
-ipcToPlatform.connectTo('platform', () => {
-  ipcToPlatform.of.platform.on('connect', () => {
+ipc.connectTo('platform', () => {
+  ipc.of.platform.on('connect', () => {
     console.log(`${serviceName} connected to platform`);
     let message = {
       "meta": {
@@ -45,16 +44,16 @@ ipcToPlatform.connectTo('platform', () => {
       },
       "payload": `${serviceName} sent back the socket.`
     };
-    ipcToPlatform.of.platform.emit("register-socket", message);
+    ipc.of.platform.emit("register-socket", message);
   });
-  ipcToPlatform.of.platform.on('disconnect', () => {
+  ipc.of.platform.on('disconnect', () => {
     console.log(`${serviceName} disconnected from platform`);
   });
 });
 
 //Service and characteristic related
 var TalkToManagerService = require('./talk-to-manager-service');
-var talkToManagerService = new TalkToManagerService(ipcToPlatform);
+var talkToManagerService = new TalkToManagerService(ipc);
 
 const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
 const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
@@ -234,7 +233,7 @@ function saveNeighborDataToDB(peripheralName, peripheralIp) {
 }
 
 //when gateway-scanner obtains a message to be passed on to another gateway, it adds it to pendingMessages.
-ipcToPlatform.of.platform.on('talk-to-gateway', message => {
+ipc.of.platform.on('talk-to-gateway', message => {
   const messageToSend = message.data;
 
   const gatewayIP = messageToSend["gateway-ip"];

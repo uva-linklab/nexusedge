@@ -1,7 +1,7 @@
 var util = require('util');
 var bleno = require('@abandonware/bleno');
 
-function MessageCharacteristic(ipcToPlatform) {
+function MessageCharacteristic(ipc) {
     bleno.Characteristic.call(this, {
         uuid: '18338db15c5841cca00971c5fd792921',
         properties: ['write'],
@@ -12,7 +12,7 @@ function MessageCharacteristic(ipcToPlatform) {
             })
         ]
     });
-    this.ipcToPlatform = ipcToPlatform;
+    this.ipc = ipc;
 }
 
 util.inherits(MessageCharacteristic, bleno.Characteristic);
@@ -63,7 +63,7 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
  * @param payload contents of the message
  */
 function forwardMessage(sender, recipient, event, payload) {
-    this.ipcToPlatform.of.platform.emit("forward", {
+    this.ipc.of.platform.emit("forward", {
         "meta": {
             "sender": sender,
             "recipient": recipient,
