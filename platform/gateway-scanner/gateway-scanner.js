@@ -52,8 +52,17 @@ ipc.connectTo('platform', () => {
 });
 
 //Service and characteristic related
-var TalkToManagerService = require('./talk-to-manager-service');
-var talkToManagerService = new TalkToManagerService(ipc);
+const TalkToManagerService = require('./talk-to-manager-service');
+const talkToManagerService = new TalkToManagerService(ipc, function onWriteRequestFinished() {
+  debug("[BLE] onWriteRequest to MessageCharacteristic complete.");
+  /*
+  For some reason, noble scan on the peripheral disconnects after a device connects and writes to its characteristic.
+  Reference: https://github.com/noble/noble/issues/223
+  So we put a callback after a write is complete, and then restart noble scan.
+   */
+  debug("[BLE] Restarting Noble scan");
+  startNobleScan();
+});
 
 const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
 const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
@@ -101,17 +110,6 @@ noble.on('stateChange', handleNobleStateChange);
 noble.on('discover', handleDiscoveredPeripheral);
 noble.on('scanStop', function() {
   debug("[BLE Radio] Noble scan stopped");
-  /*
-  Once noble connects to a peripheral and writes to a characteristic, it stops the BLE peripheral scan. Noble scan on
-  the central as well as the peripheral stops.
-  This issue is documented here:
-  https://github.com/noble/noble/issues/223
-  One workaround is to restart the scan once it stops. We restart after 2.5 seconds as suggested in one comment.
-   */
-  setTimeout(function () {
-      debug("[BLE Radio] Restarting Noble.");
-      noble.startScanning([talkToManagerService.uuid], true);
-    },2500);
 });
 noble.on('warning', function (message) {
   debug(`[BLE Radio] Noble warning:${message}`);
@@ -152,14 +150,18 @@ function handleBlenoStateChange(state) {
 
 function handleNobleStateChange(state) {
   if (state === 'poweredOn') {
-    //only discover peripherals with the talkToManagerService, which would be gateways part of the platform
-    noble.startScanning([talkToManagerService.uuid], true);
+    startNobleScan();
     debug("[BLE Radio] Started peripheral discovery");
   } else if(state === 'poweredOff'){
     noble.stopScanning();
   } else {
     debug("[BLE Radio] noble state changed to " + state);
   }
+}
+
+function startNobleScan() {
+  //only discover peripherals with the talkToManagerService, which would be gateways part of the platform
+  noble.startScanning([talkToManagerService.uuid], true);
 }
 
 function handleDiscoveredPeripheral(peripheral) {
@@ -172,6 +174,11 @@ function handleDiscoveredPeripheral(peripheral) {
 
       //check if there are any pending messages that need to be sent to this peripheral
       if(pendingMessages.hasOwnProperty(discoveredIp)) {
+        /*
+        If the peripheral scan continues while we are performing the write to the characteristic, there could be
+        race conditions. So we stop the scan, perform the write requests and then restart the noble scan.
+         */
+        noble.stopScanning();
 
         debug(`[BLE Radio] There are pending messages to be sent for ${discoveredIp}`);
         //get the list of messages
@@ -203,6 +210,9 @@ function handleDiscoveredPeripheral(peripheral) {
                 //delete the messages for this peripheral
                 debug("[BLE Radio] Delete messages for peripheral");
                 delete pendingMessages[discoveredIp];
+
+                //Restart noble scan once write requests are finished
+                startNobleScan();
               }
           );
         })

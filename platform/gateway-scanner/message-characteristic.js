@@ -1,7 +1,7 @@
 var util = require('util');
 var bleno = require('@abandonware/bleno');
 
-function MessageCharacteristic(ipc) {
+function MessageCharacteristic(ipc, onWriteRequestFinished) {
     bleno.Characteristic.call(this, {
         uuid: '18338db15c5841cca00971c5fd792921',
         properties: ['write'],
@@ -13,6 +13,7 @@ function MessageCharacteristic(ipc) {
         ]
     });
     this.ipc = ipc;
+    this.onWriteRequestFinished = onWriteRequestFinished;
 }
 
 util.inherits(MessageCharacteristic, bleno.Characteristic);
@@ -38,6 +39,9 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
     } catch (e) {
         //if there's a JSON parse error,
         if(e instanceof SyntaxError) {
+            //notify gateway-scanner that the onWriteRequest is complete
+            this.onWriteRequestFinished();
+
             //throw an error message
             callback(this.RESULT_UNLIKELY_ERROR); //best error message out of the given bunch
         }
@@ -49,6 +53,9 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const payload = jsonData["payload"];
 
         forwardMessage(this.ipc, "gateway-scanner", recipient, event, payload);
+
+        //notify gateway-scanner that the onWriteRequest is complete
+        this.onWriteRequestFinished();
 
         callback(this.RESULT_SUCCESS);
     }

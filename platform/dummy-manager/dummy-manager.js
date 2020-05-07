@@ -31,22 +31,24 @@ ipc.connectTo('platform', () => {
     });
 });
 
-setTimeout(function () {
-    console.log("send stuff to gateway-scanner");
-    const ipcPayload = {
-        "gateway-ip": "10.0.0.90",
-        "gateway-msg-payload": {
-            "_meta": {
-                "recipient": "dummy-manager",
-                "event": "connect-to-socket"
-            },
-            "payload": {
-                "ws-address": "ws://10.0.0.157:8080"
-            }
-        }
-    };
-    forwardMessage(serviceName, "gateway-scanner", "talk-to-gateway", ipcPayload);
-},10000);
+//TODO: remove test code
+
+// setTimeout(function () {
+//     console.log("send stuff to gateway-scanner");
+//     const ipcPayload = {
+//         "gateway-ip": "10.0.0.90",
+//         "gateway-msg-payload": {
+//             "_meta": {
+//                 "recipient": "dummy-manager",
+//                 "event": "connect-to-socket"
+//             },
+//             "payload": {
+//                 "ws-address": "ws://10.0.0.157:8080"
+//             }
+//         }
+//     };
+//     forwardMessage(serviceName, "gateway-scanner", "talk-to-gateway", ipcPayload);
+// },10000);
 
 /**
  * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
