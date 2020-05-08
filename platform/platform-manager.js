@@ -18,8 +18,8 @@ const services = {
         socket: undefined,
         process: undefined
     },
-    "dummy-manager": {
-        path: __dirname + "/dummy-manager/dummy-manager.js",
+    "sensor-stream-manager": {
+        path: __dirname + "/sensor-stream-manager/sensor-stream-manager.js",
         socket: undefined,
         process: undefined
     }
@@ -98,16 +98,19 @@ fs.ensureDirSync(`${__dirname}/logs`);
 // start services by fork
 for(let serviceName in services) {
     services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
-        //SERVICE_NAME is used by the IPC platform to set the id,
-        //We pass in the DEBUG environment variable to output debug logs
+        /*
+        We use two environment variables for the child processes.
+        1. SERVICE_NAME: used by the IPC platform to set the id of the service.
+        2. DEBUG: to obtain output logs.
+         */
         env: { SERVICE_NAME: serviceName, DEBUG: serviceName },
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
         // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
         stdio: [
             0, // Use platform's stdin for services
-            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service stdout to log
-            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service stderr to same log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stdout to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stderr to same log
             "ipc"
         ]
     });

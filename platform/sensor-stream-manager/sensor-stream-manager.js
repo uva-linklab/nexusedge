@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 
 const serviceName = process.env.SERVICE_NAME;
 //TODO move all IPC related logic into a separate file
+
 // ipc settings
 // Reference:
 // http://riaevangelist.github.io/node-ipc/#ipc-config
@@ -39,7 +40,7 @@ ipc.connectTo('platform', () => {
 //         "gateway-ip": "10.0.0.90",
 //         "gateway-msg-payload": {
 //             "_meta": {
-//                 "recipient": "dummy-manager",
+//                 "recipient": "sensor-stream-manager",
 //                 "event": "connect-to-socket"
 //             },
 //             "payload": {
