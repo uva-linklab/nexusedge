@@ -7,6 +7,7 @@ const ipc = require('node-ipc');
 
 const serviceName = process.env.SERVICE_NAME;
 
+//TODO move all IPC related logic into a separate file
 const ipcToPlatform = new ipc.IPC;
 // ipc settings
 // Reference:
@@ -26,7 +27,7 @@ ipcToPlatform.connectTo('platform', () => {
                 "sender": serviceName,
             },
             "payload": `${serviceName} sent back the socket.`
-        }
+        };
         ipcToPlatform.of.platform.emit("register-socket", message);
     });
     ipcToPlatform.of.platform.on('disconnect', () => {

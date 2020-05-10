@@ -12,6 +12,16 @@ const services = {
         path: __dirname + "/api-server/server.js",
         socket: undefined,
         process: undefined
+    },
+    "gateway-scanner": {
+        path: __dirname + "/gateway-scanner/gateway-scanner.js",
+        socket: undefined,
+        process: undefined
+    },
+    "sensor-stream-manager": {
+        path: __dirname + "/sensor-stream-manager/sensor-stream-manager.js",
+        socket: undefined,
+        process: undefined
     }
 };
 
@@ -40,6 +50,8 @@ const ipcCallback = {
             ipc.server.emit(services[data["meta"]["recipient"]].socket,
                                             data["meta"]["event"],
                                             message);
+            console.log("[PLATFORM] Forwarded msg.");
+            console.log(`Event: ${data["meta"]["event"]} From: ${data["meta"]["sender"]} To: ${data["meta"]["recipient"]}`);
         }
     },
     /**
@@ -55,13 +67,13 @@ const ipcCallback = {
             console.log(`[PLATFORM] got a socket from ${data["meta"]["sender"]}`);
         }
     }
-}
+};
 
 // Create socket directory if not present
 fs.ensureDirSync(`${__dirname}/socket`);
 // ipc settings
 // Reference: http://riaevangelist.github.io/node-ipc/#ipc-config
-ipc.config.appspace = "gateway."
+ipc.config.appspace = "gateway.";
 ipc.config.socketRoot = `${__dirname}/socket/`;
 ipc.config.id = 'platform';
 ipc.config.retry = 1500;
@@ -86,16 +98,21 @@ fs.ensureDirSync(`${__dirname}/logs`);
 // start services by fork
 for(let serviceName in services) {
     services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
-        env: { SERVICE_NAME: serviceName },
+        /*
+        We use two environment variables for the child processes.
+        1. SERVICE_NAME: used by the IPC platform to set the id of the service.
+        2. DEBUG: to obtain output logs.
+         */
+        env: { SERVICE_NAME: serviceName, DEBUG: serviceName },
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
         // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
         stdio: [
             0, // Use platform's stdin for services
-            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'w'), // pipe service output to log
-            fs.openSync(`${__dirname}/logs/${serviceName}.err`, 'w'), // pipe service output to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stdout to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stderr to same log
             "ipc"
         ]
     });
-    console.log(`${serviceName} is successfully created with pid: ${services[serviceName]["process"].pid}.`);
-};
+    console.log(`${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
+}
