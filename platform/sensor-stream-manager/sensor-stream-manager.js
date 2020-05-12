@@ -1,4 +1,4 @@
-//TODO: remove after test. Just to mock a sensor-stream-manager and test interaction with gateway-scanner.
+//TODO: add mqtt-data-collector logic to SSM.
 const ipc = require('node-ipc');
 const path = require("path");
 const WebSocket = require('ws');
@@ -74,13 +74,5 @@ ipc.of.platform.on('connect-to-socket', message => {
     const payload = message.data;
 
     const wsAddress = payload["ws-address"];
-    const ws = new WebSocket(wsAddress);
 
-    ws.on('open', function open() {
-        ws.send('something');
-    });
-
-    ws.on('message', function incoming(data) {
-        console.log(data);
-    });
 });
