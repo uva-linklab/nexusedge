@@ -1,10 +1,23 @@
+<<<<<<< Updated upstream
 //TODO: remove after test. Just to mock a sensor-stream-manager and test interaction with gateway-scanner.
 const ipc = require('node-ipc');
 const path = require("path");
 const WebSocket = require('ws');
+const fs = require("fs-extra");
+const mqtt = require("mqtt");
+const mongoClient = require('mongodb').MongoClient;
 
 const serviceName = process.env.SERVICE_NAME;
 //TODO move all IPC related logic into a separate file
+=======
+const fs = require("fs-extra");
+const path = require("path");
+const mqtt = require("mqtt");
+const mongoClient = require('mongodb').MongoClient;
+const ipc = require('node-ipc');
+
+const serviceName = process.env.SERVICE_NAME;
+>>>>>>> Stashed changes
 
 // ipc settings
 // Reference:
@@ -15,6 +28,10 @@ ipc.config.id = serviceName;
 ipc.config.retry = 1500;
 ipc.config.silent = true;
 
+const appTopic = {};
+const sensorStream = {};
+const policy = {};
+
 // Connect to platform manager
 ipc.connectTo('platform', () => {
     ipc.of.platform.on('connect', () => {
@@ -24,7 +41,11 @@ ipc.connectTo('platform', () => {
                 "sender": serviceName,
             },
             "payload": `${serviceName} sent back the socket.`
+<<<<<<< Updated upstream
         };
+=======
+        }
+>>>>>>> Stashed changes
         ipc.of.platform.emit("register-socket", message);
     });
     ipc.of.platform.on('disconnect', () => {
@@ -32,6 +53,7 @@ ipc.connectTo('platform', () => {
     });
 });
 
+<<<<<<< Updated upstream
 //TODO: remove test code
 
 // setTimeout(function () {
@@ -49,7 +71,7 @@ ipc.connectTo('platform', () => {
 //         }
 //     };
 //     forwardMessage(serviceName, "gateway-scanner", "talk-to-gateway", ipcPayload);
-// },10000);
+// }, 10000);
 
 /**
  * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
@@ -83,4 +105,34 @@ ipc.of.platform.on('connect-to-socket', message => {
     ws.on('message', function incoming(data) {
         console.log(data);
     });
+});
+// receive app and application metadata from app-manager
+// this listener will record the topic and metadata,
+// so the SSM will know where to push the sensor data
+=======
+// When app-manager finished setting up the app, 
+// it will notify sensor-stream manager and send the app metadata
+>>>>>>> Stashed changes
+ipc.of.platform.on('app-deployment', message => {
+    // appData = {
+    //     "app": {
+    //         "app": process instance,
+    //         "id": string,
+    //         "topic": string,
+    //         "path": string
+    //     },
+<<<<<<< Updated upstream
+    //     "metadataPath": string
+=======
+    //     "metadataPath":
+>>>>>>> Stashed changes
+    // };
+    let appData = message.data;
+    if(appData.app && appData.metadata) {
+        appTopic[appData["app"]["id"]] = appData["app"]["topic"];
+<<<<<<< Updated upstream
+=======
+        
+>>>>>>> Stashed changes
+    }
 });
