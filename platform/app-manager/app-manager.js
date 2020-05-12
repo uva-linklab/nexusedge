@@ -7,20 +7,18 @@ const ipc = require('node-ipc');
 
 const serviceName = process.env.SERVICE_NAME;
 
-//TODO move all IPC related logic into a separate file
-const ipcToPlatform = new ipc.IPC;
 // ipc settings
 // Reference:
 // http://riaevangelist.github.io/node-ipc/#ipc-config
-ipcToPlatform.config.appspace = "gateway.";
-ipcToPlatform.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipcToPlatform.config.id = serviceName;
-ipcToPlatform.config.retry = 1500;
-ipcToPlatform.config.silent = true;
+ipc.config.appspace = "gateway.";
+ipc.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
+ipc.config.id = serviceName;
+ipc.config.retry = 1500;
+ipc.config.silent = true;
 
 // Connect to platform manager
-ipcToPlatform.connectTo('platform', () => {
-    ipcToPlatform.of.platform.on('connect', () => {
+ipc.connectTo('platform', () => {
+    ipc.of.platform.on('connect', () => {
         console.log(`${serviceName} connected to platform`);
         let message = {
             "meta": {
@@ -30,7 +28,7 @@ ipcToPlatform.connectTo('platform', () => {
         };
         ipcToPlatform.of.platform.emit("register-socket", message);
     });
-    ipcToPlatform.of.platform.on('disconnect', () => {
+    ipc.of.platform.on('disconnect', () => {
         console.log(`${serviceName} disconnected from platform`);
     });
 });
@@ -47,7 +45,7 @@ mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
     db = client.db(appsDb);
 });
 
-// Create logs directory if not present
+// Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 /**
  * This function saves the app info to the database
@@ -60,6 +58,11 @@ function saveAppInfoToDB(appPath, topic, pid) {
     let appId;
     try {
         let result = db.collection(appsInfoCollection).insertOne( { "appName": appPath, "topic": topic, "pid": pid });
+        console.log(`Deployed successfully!`);
+        console.log(`app:   ${path.basename(appPath)}`);
+        console.log(`topic: ${topic}`);
+        console.log(`pid:   ${pid}`);
+        console.log(`time:   ${new Date().toISOString()}\n`);
         appId = result["insertedId"];
     } catch (err) {
         console.error(err);
@@ -81,9 +84,23 @@ function getTopic(appName) {
     return topic;
 }
 
+function notifySSM(app) {
+    ipc.of.platform.emit("forward", {
+        "meta": {
+            "sender": serviceName,
+            "recipient": "sensor-stream-manager",
+            "event": "app-deployment"
+        },
+        "payload": {
+            "app": app,
+            "metadataPath": path.dirname(app["path"]) + "/metadata"
+        }
+    });
+}
+
 // When app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app.
-ipcToPlatform.of.platform.on('app-deployment', message => {
+ipc.of.platform.on('app-deployment', message => {
     let appData = message.data;
     if(appData.appPath && appData.metadataPath) {
         codeContainer.setApp(appData.appPath, appData.metadataPath)
@@ -110,8 +127,8 @@ ipcToPlatform.of.platform.on('app-deployment', message => {
                     "topic": appTopic,
                     "path": newAppPath
                 };
-
+                notifySSM(apps[appName]);
             })
             .catch(err => console.error(err));
-        }
+    }
 });

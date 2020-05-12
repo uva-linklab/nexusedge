@@ -88,8 +88,7 @@ ipc.serve(() => {
     ipc.server.on("forward", ipcCallback["forward"]);
     ipc.server.on('socket.disconnected', (socket, destroyedSocketID) => {
         ipc.log('client ' + destroyedSocketID + ' has disconnected!');
-    }
-);
+    });
 });
 ipc.server.start();
 
