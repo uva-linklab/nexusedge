@@ -1,6 +1,6 @@
 const { fork } = require('child_process');
 const fs = require("fs-extra");
-const PlatformMessenger = require('./platform-messenger');
+const PlatformMessenger = require('./messaging-service');
 const platformMessenger = new PlatformMessenger("platform");
 const ipc = platformMessenger.getIPCObject();
 

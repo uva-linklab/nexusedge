@@ -1,8 +1,8 @@
 const ipc = require('node-ipc');
 
-class PlatformMessenger {
+class MessagingService {
     /**
-     * Creates a PlatformMessenger object and registers the given service to the IPC platform
+     * Creates a MessagingService object and registers the given service to the IPC platform
      * @param serviceName Name of the service that needs to be registered
      */
     constructor(serviceName) {
@@ -16,24 +16,27 @@ class PlatformMessenger {
         ipc.config.retry = 1500; //client waits 1500 milliseconds before trying to reconnect to server if connection is lost
         ipc.config.silent = true; //turn off IPC logging
 
-        // Connect to platform manager and send
-        ipc.connectTo('platform', () => {
-            ipc.of.platform.on('connect', () => {
-                console.log(`${serviceName} connected to platform`);
+        //For all managers except the platform manager, connect to the PlatformManager and send back socket
+        if(serviceName !== "platform") {
+            // Connect to platform manager and send
+            ipc.connectTo('platform', () => {
+                ipc.of.platform.on('connect', () => {
+                    console.log(`${serviceName} connected to platform`);
 
-                //TODO check if this is necessary
-                let message = {
-                    "meta": {
-                        "sender": serviceName,
-                    },
-                    "payload": `${serviceName} sent back the socket.`
-                };
-                ipc.of.platform.emit("register-socket", message);
+                    //TODO check if this is necessary
+                    let message = {
+                        "meta": {
+                            "sender": serviceName,
+                        },
+                        "payload": `${serviceName} sent back the socket.`
+                    };
+                    ipc.of.platform.emit("register-socket", message);
+                });
+                ipc.of.platform.on('disconnect', () => {
+                    console.log(`${serviceName} disconnected from platform`);
+                });
             });
-            ipc.of.platform.on('disconnect', () => {
-                console.log(`${serviceName} disconnected from platform`);
-            });
-        });
+        }
     }
 
     getIPCObject() {
@@ -66,7 +69,7 @@ class PlatformMessenger {
     };
 }
 
-module.exports = PlatformMessenger;
+module.exports = MessagingService;
 
 
 // module.exports.register = function(serviceName) {
