@@ -3,37 +3,8 @@ const fs = require("fs-extra");
 const path = require("path");
 const { fork } = require('child_process');
 const mongoClient = require('mongodb').MongoClient;
-const ipc = require('node-ipc');
-
-const serviceName = process.env.SERVICE_NAME;
-
-//TODO move all IPC related logic into a separate file
-const ipcToPlatform = new ipc.IPC;
-// ipc settings
-// Reference:
-// http://riaevangelist.github.io/node-ipc/#ipc-config
-ipcToPlatform.config.appspace = "gateway.";
-ipcToPlatform.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipcToPlatform.config.id = serviceName;
-ipcToPlatform.config.retry = 1500;
-ipcToPlatform.config.silent = true;
-
-// Connect to platform manager
-ipcToPlatform.connectTo('platform', () => {
-    ipcToPlatform.of.platform.on('connect', () => {
-        console.log(`${serviceName} connected to platform`);
-        let message = {
-            "meta": {
-                "sender": serviceName,
-            },
-            "payload": `${serviceName} sent back the socket.`
-        };
-        ipcToPlatform.of.platform.emit("register-socket", message);
-    });
-    ipcToPlatform.of.platform.on('disconnect', () => {
-        console.log(`${serviceName} disconnected from platform`);
-    });
-});
+const MessagingService = require('../messaging-service');
+const messagingService = new MessagingService(process.env.SERVICE_NAME);
 
 // db settings
 const mongoUrl = 'mongodb://localhost:27017';
@@ -63,7 +34,7 @@ function saveAppInfoToDB(appPath, topic, pid) {
         appId = result["insertedId"];
     } catch (err) {
         console.error(err);
-    };
+    }
     return appId;
 }
 
@@ -83,7 +54,7 @@ function getTopic(appName) {
 
 // When app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app.
-ipcToPlatform.of.platform.on('app-deployment', message => {
+messagingService.listenForEvent('app-deployment', message => {
     let appData = message.data;
     if(appData.appPath && appData.metadataPath) {
         codeContainer.setApp(appData.appPath, appData.metadataPath)

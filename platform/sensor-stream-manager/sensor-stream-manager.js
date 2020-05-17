@@ -1,8 +1,10 @@
 //TODO: add mqtt-data-collector logic to SSM.
-const PlatformMessenger = require('../messaging-service');
-const platformMessenger = new PlatformMessenger(process.env.SERVICE_NAME);
+const MessagingService = require('../messaging-service');
 
-platformMessenger.listenForEvent('connect-to-socket', (message) => {
+const serviceName = process.env.SERVICE_NAME;
+const messagingService = new MessagingService(serviceName);
+
+messagingService.listenForEvent('connect-to-socket', (message) => {
     const payload = message.data;
     const wsAddress = payload["ws-address"];
 });
