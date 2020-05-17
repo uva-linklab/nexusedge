@@ -6,6 +6,9 @@ class PlatformMessenger {
      * @param serviceName Name of the service that needs to be registered
      */
     constructor(serviceName) {
+        // Create socket directory if not present
+        fs.ensureDirSync(`${__dirname}/socket`);
+
         // Reference: http://riaevangelist.github.io/node-ipc/#ipc-config
         ipc.config.appspace = "gateway.";
         ipc.config.socketRoot = __dirname + "/socket/"; //path where the socket directory is created
@@ -33,6 +36,10 @@ class PlatformMessenger {
         });
     }
 
+    getIPCObject() {
+        return ipc;
+    }
+
     /**
      * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
      * communication details.
@@ -52,7 +59,7 @@ class PlatformMessenger {
         });
     };
 
-    subscribeForEvent(event, callback) {
+    listenForEvent(event, callback) {
         ipc.of.platform.on(event, message => {
             callback(message);
         });
