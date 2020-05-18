@@ -1,31 +1,20 @@
-
-const path = require("path");
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
-const os = require('os');
+const utils = require("../../utils");
 
-//TODO: add mqtt-data-collector logic to SSM.
+// TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-// get the gateway's ip address
-const ifaces = os.networkInterfaces();
-let gatewayIp = undefined;
-Object.keys(ifaces).forEach((ifname) => {
-  ifaces[ifname].forEach((iface) => {
-    if ('IPv4' !== iface.family || iface.internal) {
-      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
-      return;
-    }
-    // the default wifi interface is wlan0 in Artik and RPi 4
-    if(ifname === "wlan0") {
-        gatewayIp = iface.address;
-        console.log(`gateway's ip is ${gatewayIp}`);
-    }
-  });
-});
+// get gateway's ip
+const gatewayIp = utils.getIPAddress();
+if(!gatewayIp) {
+  console.error("No IP address found. Please ensure the config files are set properly.");
+  process.exit(1);
+}
+console.log(`gateway's ip is ${gatewayIp}`);
 
 
 // sensorStream stores the sensor id and application topic mapping
@@ -96,6 +85,7 @@ messagingService.listenForEvent('app-deployment', message => {
         for(let ip in metadata) {
             // store the sensor connected to local gateway
             if(ip === gatewayIp) {
+                // check if metadata[ip] is an array
                 if(Array.isArray(metadata[ip])) {
                     for(let id of metadata[ip]) {
                         if(id in sensorStream) {
@@ -105,6 +95,7 @@ messagingService.listenForEvent('app-deployment', message => {
                         }
                     }
                 } else {
+                    // metadata[ip] is a string if it contains only 1 sensor
                     if(metadata[ip] in sensorStream) {
                         sensorStream[metadata[ip]].push(topic);
                     } else {
