@@ -4,10 +4,27 @@ const path = require("path");
 const WebSocket = require('ws');
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
-const mongoClient = require('mongodb').MongoClient;
+const os = require('os');
 
 const serviceName = process.env.SERVICE_NAME;
 //TODO move all IPC related logic into a separate file
+
+// get the gateway's ip address
+const ifaces = os.networkInterfaces();
+let gatewayIp = undefined;
+Object.keys(ifaces).forEach((ifname) => {
+  ifaces[ifname].forEach((iface) => {
+    if ('IPv4' !== iface.family || iface.internal) {
+      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+      return;
+    }
+    // the default wifi interface is wlan0 in Artik and RPi 4
+    if(ifname === "wlp0s20f3") {
+        gatewayIp = iface.address;
+        console.log(`gateway's ip is ${gatewayIp}`);
+    }
+  });
+});
 
 // ipc settings
 // Reference:
@@ -18,9 +35,47 @@ ipc.config.id = serviceName;
 ipc.config.retry = 1500;
 ipc.config.silent = true;
 
-const appTopic = {};
+// sensorStream stores the sensor id and application topic mapping
+// the key is sensor id and the value is an array of application's topics
+// SSM will use sensorStream to push data
+// check the example below
+// sensorStream = {
+//     "sensor1-id": [ '5ec23c4a30802a720dfea97d' ],
+//     "sensor2-id": [ '5ec23c4a30802a720dfea97d' ]
+// }
 const sensorStream = {};
+
+// TODO: policy
 const policy = {};
+
+// connect to localhost mqtt broker
+const mqttClient = mqtt.connect("mqtt://localhost");
+mqttClient.on('connect', () => {
+    // subscribe to localhost "gateway-data" topic
+    mqttClient.subscribe("gateway-data", (err) => {
+        if (err) {
+            console.error(`mqtt client subscribe ${mqttTopic} failed.`);
+            console.error(err);
+        } else {
+            console.log(`subscribe to "gateway-data" topic successfully!`);
+        }
+    });
+});
+
+// when sensor stream data is published to "gateway-data" topic
+// SSM will check policy and publish the data to application's topic
+mqttClient.on('message', (topic, message) => {
+    const payload = JSON.parse(message.toString());
+    const sensorId = payload["_meta"]["device_id"];
+    if(sensorId in sensorStream) {
+        for(let topic of sensorStream[sensorId]) {
+            // TODO: check policy
+
+            // publish to application's topic
+            mqttClient.publish(topic, JSON.stringify(payload));
+        }
+    }
+});
 
 // Connect to platform manager
 ipc.connectTo('platform', () => {
@@ -91,21 +146,48 @@ ipc.of.platform.on('connect-to-socket', message => {
         console.log(data);
     });
 });
-// receive app and application metadata from app-manager
-// this listener will record the topic and metadata,
-// so the SSM will know where to push the sensor data
+
+// SSM receives application's process instance and metadata from app-manager
+// this listener will store the application's topic and sensor stream requirement
 ipc.of.platform.on('app-deployment', message => {
     // appData = {
     //     "app": {
-    //         "app": process instance,
-    //         "id": string,
-    //         "topic": string,
-    //         "path": string
+    //         "app": process-instance,
+    //         "topic": "app-topic",
+    //         "path": "app-path"
     //     },
-    //     "metadataPath": string
+    //     "metadataPath": "metadata-path"
     // };
     let appData = message.data;
-    if(appData.app && appData.metadata) {
-        appTopic[appData["app"]["id"]] = appData["app"]["topic"];
+    if(appData["app"] && appData["metadataPath"]) {
+        // load application's metadata
+        let metadata = fs.readJsonSync(appData["metadataPath"]);
+        metadata = metadata["sensorMapping"];
+        let topic = appData["app"]["topic"];
+        // store application's sensor stream requirement in sensorStream
+        for(let ip in metadata) {
+            // store the sensor connected to local gateway
+            if(ip === gatewayIp) {
+                if(Array.isArray(metadata[ip])) {
+                    for(let id of metadata[ip]) {
+                        if(id in sensorStream) {
+                            sensorStream[id].push(topic);
+                        } else {
+                            sensorStream[id] = [topic];
+                        }
+                    }
+                } else {
+                    if(metadata[ip] in sensorStream) {
+                        sensorStream[metadata[ip]].push(topic);
+                    } else {
+                        sensorStream[metadata[ip]] = [topic];
+                    }
+                }
+            } else {
+                // TODO: send application's topic and sensor stream requirement to target gateway
+            }
+        }
+        console.log(`register application '${topic}' successfully!`);
+        console.log(sensorStream);
     }
 });
