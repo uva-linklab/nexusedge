@@ -1,7 +1,7 @@
-var util = require('util');
-var bleno = require('@abandonware/bleno');
+const util = require('util');
+const bleno = require('@abandonware/bleno');
 
-function MessageCharacteristic(ipc, onWriteRequestFinished) {
+function MessageCharacteristic(messagingService, onWriteRequestFinished) {
     bleno.Characteristic.call(this, {
         uuid: '18338db15c5841cca00971c5fd792921',
         properties: ['write'],
@@ -12,7 +12,7 @@ function MessageCharacteristic(ipc, onWriteRequestFinished) {
             })
         ]
     });
-    this.ipc = ipc;
+    this.messagingService = messagingService;
     this.onWriteRequestFinished = onWriteRequestFinished;
 }
 
@@ -52,7 +52,7 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const event = jsonData["_meta"]["event"];
         const payload = jsonData["payload"];
 
-        forwardMessage(this.ipc, "gateway-scanner", recipient, event, payload);
+        this.messagingService.forwardMessage("gateway-scanner", recipient, event, payload);
 
         //notify gateway-scanner that the onWriteRequest is complete
         this.onWriteRequestFinished();
@@ -60,26 +60,5 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         callback(this.RESULT_SUCCESS);
     }
 };
-
-//TODO ipc object should be made available to this function
-/**
- * Forwards message via IPC to the recipient specified. Adds a layer of metadata to the payload with all of the
- * communication details.
- * @param ipc
- * @param sender service-name of self
- * @param recipient service to which message is to be forwarded
- * @param event the name of the event the recipient should be listening for
- * @param payload contents of the message
- */
-function forwardMessage(ipc, sender, recipient, event, payload) {
-    ipc.of.platform.emit("forward", {
-        "meta": {
-            "sender": sender,
-            "recipient": recipient,
-            "event": event
-        },
-        "payload": payload
-    });
-}
 
 module.exports = MessageCharacteristic;

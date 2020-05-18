@@ -4,35 +4,10 @@ const path = require("path");
 const { fork } = require('child_process');
 const mongoClient = require('mongodb').MongoClient;
 const ObjectId = require("mongodb").ObjectID;
-const ipc = require('node-ipc');
+const MessagingService = require('../messaging-service');
 
 const serviceName = process.env.SERVICE_NAME;
-
-// ipc settings
-// Reference:
-// http://riaevangelist.github.io/node-ipc/#ipc-config
-ipc.config.appspace = "gateway.";
-ipc.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipc.config.id = serviceName;
-ipc.config.retry = 1500;
-ipc.config.silent = true;
-
-// Connect to platform manager
-ipc.connectTo('platform', () => {
-    ipc.of.platform.on('connect', () => {
-        console.log(`${serviceName} connected to platform`);
-        let message = {
-            "meta": {
-                "sender": serviceName,
-            },
-            "payload": `${serviceName} sent back the socket.`
-        };
-        ipc.of.platform.emit("register-socket", message);
-    });
-    ipc.of.platform.on('disconnect', () => {
-        console.log(`${serviceName} disconnected from platform`);
-    });
-});
+const messagingService = new MessagingService(serviceName);
 
 // db settings
 const mongoUrl = 'mongodb://localhost:27017';
@@ -101,22 +76,15 @@ async function getTopic(appName) {
 }
 
 function notifySSM(app) {
-    ipc.of.platform.emit("forward", {
-        "meta": {
-            "sender": serviceName,
-            "recipient": "sensor-stream-manager",
-            "event": "app-deployment"
-        },
-        "payload": {
-            "app": app,
-            "metadataPath": path.dirname(app["path"]) + "/metadata.json"
-        }
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "app-deployment", {
+        "app": app,
+        "metadataPath": path.dirname(app["path"]) + "/metadata.json"
     });
 }
 
 // When app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app.
-ipc.of.platform.on('app-deployment', message => {
+messagingService.listenForEvent('app-deployment', message => {
     let appData = message.data;
     if(appData.appPath && appData.metadataPath) {
         let appPath, appName;

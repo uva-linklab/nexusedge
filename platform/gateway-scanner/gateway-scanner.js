@@ -12,8 +12,7 @@ const debug = require('debug')('gateway-scanner');
 const mongoClient = require('mongodb').MongoClient;
 const aesCrypto = require("./aes-crypto");
 const utils = require("../../utils");
-const ipc = require('node-ipc');
-const path = require("path");
+const MessagingService = require('../messaging-service');
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
@@ -24,36 +23,11 @@ let key = "";
 let iv = "";
 
 const serviceName = process.env.SERVICE_NAME;
-//TODO move all IPC related logic into a separate file
-// ipc settings
-// Reference:
-// http://riaevangelist.github.io/node-ipc/#ipc-config
-ipc.config.appspace = "gateway.";
-ipc.config.socketRoot = path.normalize(`${__dirname}/../socket/`);
-ipc.config.id = serviceName;
-ipc.config.retry = 1500;
-ipc.config.silent = true;
-
-// Connect to platform manager
-ipc.connectTo('platform', () => {
-  ipc.of.platform.on('connect', () => {
-    console.log(`${serviceName} connected to platform`);
-    let message = {
-      "meta": {
-        "sender": serviceName,
-      },
-      "payload": `${serviceName} sent back the socket.`
-    };
-    ipc.of.platform.emit("register-socket", message);
-  });
-  ipc.of.platform.on('disconnect', () => {
-    console.log(`${serviceName} disconnected from platform`);
-  });
-});
+const messagingService = new MessagingService(serviceName);
 
 //Service and characteristic related
 const TalkToManagerService = require('./talk-to-manager-service');
-const talkToManagerService = new TalkToManagerService(ipc, function onWriteRequestFinished() {
+const talkToManagerService = new TalkToManagerService(messagingService, function onWriteRequestFinished() {
   debug("[BLE] onWriteRequest to MessageCharacteristic complete.");
   /*
   For some reason, noble scan on the peripheral disconnects after a device connects and writes to its characteristic.
@@ -243,7 +217,7 @@ function saveNeighborDataToDB(peripheralName, peripheralIp) {
 }
 
 //when gateway-scanner obtains a message to be passed on to another gateway, it adds it to pendingMessages.
-ipc.of.platform.on('talk-to-gateway', message => {
+messagingService.listenForEvent('talk-to-gateway', message => {
   const messageToSend = message.data;
 
   const gatewayIP = messageToSend["gateway-ip"];

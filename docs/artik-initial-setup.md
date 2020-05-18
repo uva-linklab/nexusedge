@@ -43,7 +43,7 @@ https://raspberrypi.stackexchange.com/questions/15393/connect-to-unsecured-wirel
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Add the following line to /etc/mongodb.conf:   
 	smallfiles = true 
-~~* Clone the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
+* ~~Clone the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
 https://github.com/lab11/gateway~~
 * Clone **(a fork of)** the lab11 gateway repository to collect data for BLE and EnOcean sensors.  
 https://github.com/nabeeln7/gateway  

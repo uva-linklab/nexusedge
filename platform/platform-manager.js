@@ -1,6 +1,7 @@
 const { fork } = require('child_process');
 const fs = require("fs-extra");
-const ipc = require('node-ipc');
+const MessagingService = require('./messaging-service');
+const messagingService = new MessagingService("platform");
 
 const services = {
     "app-manager": {
@@ -69,18 +70,9 @@ const ipcCallback = {
     }
 };
 
-// Create socket directory if not present
-fs.ensureDirSync(`${__dirname}/socket`);
-// ipc settings
-// Reference: http://riaevangelist.github.io/node-ipc/#ipc-config
-ipc.config.appspace = "gateway.";
-ipc.config.socketRoot = `${__dirname}/socket/`;
-ipc.config.id = 'platform';
-ipc.config.retry = 1500;
-ipc.config.silent = true;
-
 // ipc server for services
 // Reference: http://riaevangelist.github.io/node-ipc/#serve
+const ipc = messagingService.getIPCObject();
 ipc.serve(() => {
     // get the socket from services
     ipc.server.on("register-socket", ipcCallback["register-socket"]);
