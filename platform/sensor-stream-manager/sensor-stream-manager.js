@@ -5,16 +5,17 @@ const utils = require("../../utils");
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
 
+console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 // get gateway's ip
 const gatewayIp = utils.getIPAddress();
 if(!gatewayIp) {
-  console.error("No IP address found. Please ensure the config files are set properly.");
+  console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
   process.exit(1);
 }
-console.log(`gateway's ip is ${gatewayIp}`);
+console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 
 
 // sensorStream stores the sensor id and application topic mapping
@@ -36,10 +37,10 @@ mqttClient.on('connect', () => {
     // subscribe to localhost "gateway-data" topic
     mqttClient.subscribe("gateway-data", (err) => {
         if (err) {
-            console.error(`mqtt client subscribe ${mqttTopic} failed.`);
+            console.error(`[ERROR] MQTT client subscribe ${mqttTopic} failed.`);
             console.error(err);
         } else {
-            console.log(`subscribe to "gateway-data" topic successfully!`);
+            console.log(`[INFO] Subscribe to "gateway-data" topic successfully!`);
         }
     });
 });
@@ -76,36 +77,26 @@ messagingService.listenForEvent('app-deployment', message => {
     //     "metadataPath": "metadata-path"
     // };
     let appData = message.data;
-    if(appData["app"] && appData["metadataPath"]) {
+    if(appData["app"]) {
         // load application's metadata
-        let metadata = fs.readJsonSync(appData["metadataPath"]);
+        let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
         metadata = metadata["sensorMapping"];
         let topic = appData["app"]["topic"];
         // store application's sensor stream requirement in sensorStream
         for(let ip in metadata) {
             // store the sensor connected to local gateway
             if(ip === gatewayIp) {
-                // check if metadata[ip] is an array
-                if(Array.isArray(metadata[ip])) {
-                    for(let id of metadata[ip]) {
-                        if(id in sensorStream) {
-                            sensorStream[id].push(topic);
-                        } else {
-                            sensorStream[id] = [topic];
-                        }
-                    }
-                } else {
-                    // metadata[ip] is a string if it contains only 1 sensor
-                    if(metadata[ip] in sensorStream) {
-                        sensorStream[metadata[ip]].push(topic);
+                for(let id of metadata[ip]) {
+                    if(id in sensorStream) {
+                        sensorStream[id].push(topic);
                     } else {
-                        sensorStream[metadata[ip]] = [topic];
+                        sensorStream[id] = [topic];
                     }
                 }
             } else {
                 // TODO: send application's topic and sensor stream requirement to target gateway
             }
         }
-        console.log(`register application '${topic}' successfully!`);
+        console.log(`[INFO] Register application "${topic}" successfully!`);
     }
 });

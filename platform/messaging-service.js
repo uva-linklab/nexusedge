@@ -28,7 +28,7 @@ class MessagingService {
             // Connect to platform manager and send
             ipc.connectTo('platform', () => {
                 ipc.of.platform.on('connect', () => {
-                    console.log(`${serviceName} connected to platform`);
+                    console.log(`[INFO] ${serviceName} connected to platform`);
 
                     let message = {
                         "meta": {
@@ -39,7 +39,7 @@ class MessagingService {
                     ipc.of.platform.emit("register-socket", message);
                 });
                 ipc.of.platform.on('disconnect', () => {
-                    console.log(`${serviceName} disconnected from platform`);
+                    console.log(`[INFO] ${serviceName} disconnected from platform`);
                 });
             });
         }

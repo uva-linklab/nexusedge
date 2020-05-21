@@ -1,6 +1,8 @@
 const { fork } = require('child_process');
 const fs = require("fs-extra");
 const MessagingService = require('./messaging-service');
+
+console.log("[INFO] Initialize platform-manager...");
 const messagingService = new MessagingService("platform");
 
 const services = {
@@ -51,8 +53,10 @@ const ipcCallback = {
             ipc.server.emit(services[data["meta"]["recipient"]].socket,
                                             data["meta"]["event"],
                                             message);
-            console.log("[PLATFORM] Forwarded msg.");
-            console.log(`Event: ${data["meta"]["event"]} From: ${data["meta"]["sender"]} To: ${data["meta"]["recipient"]}`);
+            console.log("[INFO] Forwarded msg.");
+            console.log(`  Event: ${data["meta"]["event"]}`);
+            console.log(`   From: ${data["meta"]["sender"]}`);
+            console.log(`     To: ${data["meta"]["recipient"]}`);
         }
     },
     /**
@@ -65,7 +69,7 @@ const ipcCallback = {
         if("meta" in data && data["meta"]["sender"] in services) {
             // receive socket from services
             services[data["meta"]["sender"]].socket = socket;
-            console.log(`[PLATFORM] got a socket from ${data["meta"]["sender"]}`);
+            console.log(`[INFO] Got a socket from ${data["meta"]["sender"]}`);
         }
     }
 };
@@ -105,5 +109,5 @@ for(let serviceName in services) {
             "ipc"
         ]
     });
-    console.log(`${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
+    console.log(`[INFO] ${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
 }
