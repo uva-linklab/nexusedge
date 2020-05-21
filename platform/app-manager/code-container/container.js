@@ -16,7 +16,7 @@ exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 	const oracleSourcePath = `${__dirname}/oracle`;
 	const oracleTargetPath = `${dirPath}/oracle`;
 
-	console.log("[INFO] Copy application and metadata to executable directory.");
+	console.log("[INFO] Copied application and metadata to executable directory.");
 	fs.copySync(appPath, scriptTargetPath);
 	console.log(`  ${appPath} copied to ${scriptTargetPath}`);
 	fs.copySync(metadataPath, metadataTargetPath);
