@@ -1,17 +1,22 @@
 const utils = require("../../../utils");
 
+const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
+
 class GatewayScanner {
     constructor(groupKey) {
         this.groupKey = groupKey;
     }
 
     handlePeripheral(peripheral) {
-        const localName = peripheral.advertisement.localName;
-        if(typeof localName !== "undefined") {
-            const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
-            console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
-            console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
-            this.saveNeighborDataToDB(peripheral.address, discoveredIp);
+        // Use the TalkToManagerService uuid to filter only those peripherals with the service.
+        if(peripheral.advertisement.serviceUuids.includes(talkToManagerServiceUuid)) {
+            const localName = peripheral.advertisement.localName;
+            if(typeof localName !== "undefined") {
+                const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
+                console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
+                console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
+                this.saveNeighborDataToDB(peripheral.address, discoveredIp);
+            }
         }
     }
 

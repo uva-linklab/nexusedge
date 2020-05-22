@@ -8,6 +8,7 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 */
 const noble = require('@abandonware/noble');
 const bleno = require('@abandonware/bleno');
+const fs = require('fs');
 const debug = require('debug')('ble-receiver');
 const utils = require("../../utils");
 const MessagingService = require('../messaging-service');
