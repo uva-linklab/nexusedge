@@ -12,8 +12,10 @@ function __initialize() {
         // subscribe to application's topic
         mqttClient.subscribe(mqttTopic, (err) => {
             if (err) {
-                console.error(`mqtt client subscribe ${mqttTopic} failed.`);
+                console.error(`[ERROR] MQTT client failed to subscribe "${mqttTopic}".`);
                 console.error(err);
+            } else {
+                console.log(`[INFO] MQTT client subscribed "${mqttTopic}" succesfully.`)
             }
         });
     });

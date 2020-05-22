@@ -37,10 +37,10 @@ mqttClient.on('connect', () => {
     // subscribe to localhost "gateway-data" topic
     mqttClient.subscribe("gateway-data", (err) => {
         if (err) {
-            console.error(`[ERROR] MQTT client subscribe ${mqttTopic} failed.`);
+            console.error(`[ERROR] MQTT client failed to subscribe ${mqttTopic}.`);
             console.error(err);
         } else {
-            console.log(`[INFO] Subscribe to "gateway-data" topic successfully!`);
+            console.log(`[INFO] MQTT client subscribed to "gateway-data" topic successfully!`);
         }
     });
 });
@@ -70,18 +70,19 @@ messagingService.listenForEvent('connect-to-socket', (message) => {
 messagingService.listenForEvent('app-deployment', message => {
     // appData = {
     //     "app": {
-    //         "app": process-instance,
-    //         "topic": "app-topic",
-    //         "path": "app-path"
-    //     },
-    //     "metadataPath": "metadata-path"
+    //         "app": newApp, // instance of process,
+    //         "pid": newApp.pid,
+    //         "_id": appId,
+    //         "appPath": newAppPath,
+    //         "metadataPath": appData.metadataPath
+    //     }
     // };
     let appData = message.data;
     if(appData["app"]) {
         // load application's metadata
         let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
         metadata = metadata["sensorMapping"];
-        let topic = appData["app"]["topic"];
+        let topic = appData["app"]["_id"];
         // store application's sensor stream requirement in sensorStream
         for(let ip in metadata) {
             // store the sensor connected to local gateway
