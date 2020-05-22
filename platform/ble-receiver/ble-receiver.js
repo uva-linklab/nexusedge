@@ -18,7 +18,10 @@ const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 //Service and characteristic related
-const TalkToManagerService = require('./talk-to-manager-service');
+const talkToManagerServiceUuid = require('./services/talk-to-manager-service/talk-to-manager-service').uuid;
+const messageCharacteristicUuid = require('./services/talk-to-manager-service/message-characteristic').uuid;
+const  TalkToManagerService = require('./services/talk-to-manager-service/talk-to-manager-service').Service;
+
 const talkToManagerService = new TalkToManagerService(messagingService, function onWriteRequestFinished() {
     debug("[BLE] onWriteRequest to MessageCharacteristic complete.");
     /*
@@ -29,9 +32,6 @@ const talkToManagerService = new TalkToManagerService(messagingService, function
     debug("[BLE] Restarting Noble scan");
     startNobleScan();
 });
-
-const talkToManagerServiceUuid = '18338db15c5841cca00971c5fd792920';
-const messageCharacteristicUuid = '18338db15c5841cca00971c5fd792921';
 
 // get the group key for scanning and advertising the gateway as part of the platform
 const keyFileName = "group-key.json";
@@ -44,7 +44,6 @@ if(!groupKey) {
 }
 
 const ipAddress = utils.getIPAddress();
-
 if(!ipAddress) {
     console.log("No IP address found. Please ensure the config files are set properly.");
     process.exit(1);
