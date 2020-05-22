@@ -14,7 +14,7 @@ class LightingEstimoteScanner {
         this.mqttClient = mqtt.connect('mqtt://localhost');
         this.scanPaused = false;
 
-        this.startScan();
+        this._startScan();
     }
 
     //TODO: get actual data from the lighting sensors and not just its metadata
@@ -70,15 +70,15 @@ class LightingEstimoteScanner {
         }
     }
 
-    startScan() {
+    _startScan() {
         this.scanPaused = false;
-        setTimeout(this.stopScan, 60000); // scan for 1min
+        setTimeout(this._stopScan.bind(this), 60000); // scan for 1min
         console.log("Start handling peripherals");
     }
 
-    stopScan() {
+    _stopScan() {
         this.scanPaused = true;
-        setTimeout(this.startScan, 180000); // scan every 3mins
+        setTimeout(this._startScan.bind(this), 180000); // scan every 3mins
         console.log("Stopped handling peripherals");
     }
 }
