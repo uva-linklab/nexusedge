@@ -11,6 +11,7 @@ const noble = require('@abandonware/noble');
 const bleno = require('@abandonware/bleno');
 const fs = require('fs');
 const debug = require('debug')('ble-controller');
+const mongoClient = require('mongodb').MongoClient;
 const utils = require("../../utils");
 const MessagingService = require('../messaging-service');
 
@@ -58,6 +59,21 @@ const gatewayScanner = new GatewayScanner(groupKey);
 const lightingEstimoteScanner = new LightingEstimoteScanner();
 
 const peripheralHandlers = [gatewayScanner, lightingEstimoteScanner];
+
+const mongoUrl = 'mongodb://localhost:27017';
+const discoveryDbName = 'discovery';
+
+// Initialize db connection once
+var db;
+mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
+    if(err) throw err;
+
+    db = client.db(discoveryDbName);
+});
+
+// Stores any pending messages that need to be sent to a peripheral via BLE.
+// Type: ip-address -> [message]
+const pendingMessages = {};
 
 // start discovering BLE peripherals
 noble.on('stateChange', handleNobleStateChange);
@@ -187,17 +203,28 @@ function handleBlenoStateChange(state) {
 //     })
 // }
 
-// TODO: fix this
 function saveAddressesToDB(name, ip) {
-    // db.collection('self').updateOne(
-    //     { "_id" : name },
-    //     { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} },
-    //     { upsert: true },
-    //     function(err, result) {
-    //         debug("recorded id and IP of self to db");
-    //     }
-    // );
-    console.log("save address to db");
+    db.collection('self').updateOne(
+        { "_id" : name },
+        { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} },
+        { upsert: true },
+        function(err, result) {
+            debug("recorded id and IP of self to db");
+        }
+    );
 }
 
-// TODO: add ipc stuff here
+// when ble-controller obtains a message to be passed on to another gateway, it adds it to pendingMessages.
+messagingService.listenForEvent('talk-to-gateway', message => {
+    const messageToSend = message.data;
+
+    const gatewayIP = messageToSend["gateway-ip"];
+    const payload = messageToSend["gateway-msg-payload"];
+
+    //add to pendingMessages
+    if(pendingMessages.hasOwnProperty(gatewayIP)) {
+        pendingMessages[gatewayIP].append(payload);
+    } else {
+        pendingMessages[gatewayIP] = [payload];
+    }
+});

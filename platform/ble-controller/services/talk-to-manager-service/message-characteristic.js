@@ -29,7 +29,7 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
     } catch (e) {
         //if there's a JSON parse error,
         if(e instanceof SyntaxError) {
-            //notify gateway-scanner that the onWriteRequest is complete
+            //notify ble-controller that the onWriteRequest is complete
             this.onWriteRequestFinished();
 
             //throw an error message
@@ -54,10 +54,9 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const event = jsonData["_meta"]["event"];
         const payload = jsonData["payload"];
 
-        // TODO: this needs to be changed to the ble-controller
-        this.messagingService.forwardMessage("gateway-scanner", recipient, event, payload);
+        this.messagingService.forwardMessage("ble-controller", recipient, event, payload);
 
-        //notify gateway-scanner that the onWriteRequest is complete
+        //notify ble-controller that the onWriteRequest is complete
         this.onWriteRequestFinished();
 
         callback(this.RESULT_SUCCESS);

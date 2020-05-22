@@ -1,4 +1,4 @@
-// This BLE service passes a message to from a manager of one gateway to the manager of another via the gateway-scanner
+// This BLE service passes a message to from a manager of one gateway to the manager of another via the ble-controller
 const util = require('util');
 const bleno = require('@abandonware/bleno');
 
