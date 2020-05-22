@@ -16,6 +16,7 @@ const services = {
         socket: undefined,
         process: undefined
     },
+    // TODO update to ble-controller
     "gateway-scanner": {
         path: __dirname + "/gateway-scanner/gateway-scanner.js",
         socket: undefined,

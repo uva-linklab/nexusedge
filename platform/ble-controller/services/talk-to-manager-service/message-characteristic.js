@@ -54,7 +54,7 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const event = jsonData["_meta"]["event"];
         const payload = jsonData["payload"];
 
-        // TODO: this needs to be changed to the ble-receiver
+        // TODO: this needs to be changed to the ble-controller
         this.messagingService.forwardMessage("gateway-scanner", recipient, event, payload);
 
         //notify gateway-scanner that the onWriteRequest is complete

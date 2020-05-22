@@ -1,5 +1,5 @@
-const utils = require("../../../utils");
-const talkToManagerServiceUuid = require('../services/talk-to-manager-service/talk-to-manager-service').uuid;
+const utils = require("../../../../utils");
+const talkToManagerServiceUuid = require('../../services/talk-to-manager-service/talk-to-manager-service').uuid;
 
 class GatewayScanner {
     constructor(groupKey) {

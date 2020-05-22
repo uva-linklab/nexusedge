@@ -1,4 +1,5 @@
-// TODO: check if this is acutally of use. add documentation if yes.
+// For noble and bleno to work in tandem
+// Reference: https://github.com/noble/noble#bleno-compatibility
 process.env.NOBLE_MULTI_ROLE = 1;
 
 /*
@@ -9,7 +10,7 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 const noble = require('@abandonware/noble');
 const bleno = require('@abandonware/bleno');
 const fs = require('fs');
-const debug = require('debug')('ble-receiver');
+const debug = require('debug')('ble-controller');
 const utils = require("../../utils");
 const MessagingService = require('../messaging-service');
 
@@ -50,11 +51,13 @@ if(!ipAddress) {
 }
 
 // lists the peripheral handlers that are registered to handle peripherals
-// TODO: each handler should have a specific method called xxx which handles a discovered peripheral
-const GatewayScanner = require("./peripheral-handlers/gateway-scanner");
+// each handler should have a specific method called handlePeripheral which would be called by ble-controller
+const GatewayScanner = require("./peripheral-handlers/gateway-scanner/gateway-scanner");
+const LightingEstimoteScanner = require("./peripheral-handlers/lighting-estimote-scanner/lighting-estimote-scanner");
 const gatewayScanner = new GatewayScanner(groupKey);
+const lightingEstimoteScanner = new LightingEstimoteScanner();
 
-const peripheralHandlers = [gatewayScanner];
+const peripheralHandlers = [gatewayScanner, lightingEstimoteScanner];
 
 // start discovering BLE peripherals
 noble.on('stateChange', handleNobleStateChange);
@@ -137,7 +140,7 @@ function handleBlenoStateChange(state) {
     }
 }
 
-// TODO: move this to the ble-receiver
+// TODO: move this to the ble-controller
 // //check if there are any pending messages that need to be sent to this peripheral
 // if(pendingMessages.hasOwnProperty(discoveredIp)) {
 //     /*
