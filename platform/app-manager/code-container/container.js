@@ -1,7 +1,7 @@
 const fs = require('fs-extra');
 const path = require("path");
 
-exports.setApp = async function (appPath, metadataPath) {
+exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 	const executableDirPath = `${__dirname}/executables`;
 	//create "executables" directory if not present
 	fs.ensureDirSync(executableDirPath);
@@ -16,12 +16,13 @@ exports.setApp = async function (appPath, metadataPath) {
 	const oracleSourcePath = `${__dirname}/oracle`;
 	const oracleTargetPath = `${dirPath}/oracle`;
 
+	console.log("[INFO] Copied application and metadata to executable directory.");
 	fs.copySync(appPath, scriptTargetPath);
-	console.log(`${appPath} copied to ${scriptTargetPath}`);
+	console.log(`  ${appPath} copied to ${scriptTargetPath}`);
 	fs.copySync(metadataPath, metadataTargetPath);
-	console.log(`${metadataPath} copied to ${metadataTargetPath}`);
+	console.log(`  ${metadataPath} copied to ${metadataTargetPath}`);
 	fs.copySync(oracleSourcePath, oracleTargetPath);
-	console.log(`oracle library at ${oracleSourcePath} copied to ${oracleTargetPath}`);
+	console.log(`  Oracle library at ${oracleSourcePath} copied to ${oracleTargetPath}`);
 
 	// TODO: npm install here
 	return scriptTargetPath;
