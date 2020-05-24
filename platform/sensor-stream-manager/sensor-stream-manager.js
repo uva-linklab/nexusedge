@@ -1,6 +1,7 @@
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
 const utils = require("../../utils");
+const fetch = require('node-fetch');
 
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
@@ -23,42 +24,79 @@ console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 // SSM will use sensorStream to push data
 // check the example below
 // sensorStream = {
-//     "sensor1-id": [ '5ec23c4a30802a720dfea97d' ],
-//     "sensor2-id": [ '5ec23c4a30802a720dfea97d' ]
+//     "sensor1-id": {
+//         "gateway1-ip": [ "app1-topic", "app2-topic" ],
+//         "geteway2-ip": [ "app3-topic"]
+//     },
+//     "sensor2-id": {
+//         "gateway1-ip": [ "app1-topic" ],
+//         "geteway2-ip": [ "app3-topic"]
+//     }
 // }
 const sensorStream = {};
 
 // TODO: policy
 const policy = {};
 
-// connect to localhost mqtt broker
-const mqttClient = mqtt.connect("mqtt://localhost");
-mqttClient.on('connect', () => {
-    // subscribe to localhost "gateway-data" topic
-    mqttClient.subscribe("gateway-data", (err) => {
-        if (err) {
-            console.error(`[ERROR] MQTT client failed to subscribe ${mqttTopic}.`);
+// mqttClients = {
+//     "gateway-ip": client
+// }
+const mqttClients = {};
+
+function publishData(ip, topic, data) {
+    if(!mqttClients[ip]) {
+        console.error(`[ERROR] ${ip} has not been registered.`);
+        return;
+    }
+    const client = mqttClients[ip];
+    client.publish(topic, data, {}, err => {
+        if(err) {
+            console.error(`[ERROR] Failed to publish to ${ip}.`);
             console.error(err);
-        } else {
-            console.log(`[INFO] MQTT client subscribed to "gateway-data" topic successfully!`);
         }
     });
-});
+}
 
-// when sensor stream data is published to "gateway-data" topic
-// SSM will check policy and publish the data to application's topic
-mqttClient.on('message', (topic, message) => {
-    const payload = JSON.parse(message.toString());
-    const sensorId = payload["_meta"]["device_id"];
-    if(sensorId in sensorStream) {
-        for(let topic of sensorStream[sensorId]) {
-            // TODO: check policy
+function connectToMQTTBroker(ip, mqttTopic) {
+    const url = `mqtt://${ip}`;
+    const client = mqtt.connect(url);
+    // connect to mqtt broker
+    client.on('connect', () => {
+        // subscribe to mqtt topic
+        if(typeof mqttTopic != "undefined") {
+            client.subscribe(mqttTopic, (err) => {
+                if (err) {
+                    console.error(`[ERROR] MQTT client failed to subscribe "${mqttTopic}".`);
+                    console.error(err);
+                } else {
+                    console.log(`[INFO] MQTT client subscribed to "${mqttTopic}" topic successfully!`);
+                }
+            });
+            // when sensor stream data is published to "gateway-data" topic
+            // SSM will check policy and publish the data to application's topic
+            client.on('message', (topic, message) => {
+                const payload = JSON.parse(message.toString());
+                const sensorId = payload["_meta"]["device_id"];
+                if(sensorId in sensorStream) {
+                    for(const gatewayIp in sensorStream[sensorId]) {
+                        const topics = sensorStream[sensorId][gatewayIp];
+                        for(const topic of topics) {
+                            // TODO: check policy
 
-            // publish to application's topic
-            mqttClient.publish(topic, JSON.stringify(payload));
+                            // publish to application's topic
+                            publishData(gatewayIp, topic, JSON.stringify(payload));
+                        }
+                    }
+                }
+            });
         }
-    }
-});
+        console.log(`[INFO] Connected to ${ip} successfully`);
+    });
+    return client;
+}
+
+const localMQTTClient = connectToMQTTBroker("localhost", "gateway-data");
+mqttClients[gatewayIp] = localMQTTClient;
 
 messagingService.listenForEvent('connect-to-socket', (message) => {
     const payload = message.data;
@@ -77,27 +115,64 @@ messagingService.listenForEvent('app-deployment', message => {
     //         "metadataPath": appData.metadataPath
     //     }
     // };
-    let appData = message.data;
+    const appData = message.data;
     if(appData["app"]) {
         // load application's metadata
         let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
         metadata = metadata["sensorMapping"];
-        let topic = appData["app"]["_id"];
+        const topic = appData["app"]["_id"];
         // store application's sensor stream requirement in sensorStream
-        for(let ip in metadata) {
+        for(const ip in metadata) {
+            const sensorIds = metadata[ip];
             // store the sensor connected to local gateway
             if(ip === gatewayIp) {
-                for(let id of metadata[ip]) {
-                    if(id in sensorStream) {
-                        sensorStream[id].push(topic);
-                    } else {
-                        sensorStream[id] = [topic];
+                for(const id of sensorIds) {
+                    if(!sensorStream[id]) {
+                        sensorStream[id] = {};
                     }
+                    if(!sensorStream[id][ip]) {
+                        sensorStream[id][ip] = [];
+                    }
+                    sensorStream[id][ip].push(topic);
                 }
             } else {
-                // TODO: send application's topic and sensor stream requirement to target gateway
+                const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-reqruirement`;
+                fetch(gatewayUrl, {
+                    method: 'POST',
+                    body: {
+                        "topic": topic,
+                        "ip": gatewayIp,
+                        "sensors": sensorIds
+                    },
+                    timeout: 5000
+                }).catch(err => {
+                    console.error(`[ERROR] Failed to send "${topic} to ${ip}.`);
+                    console.error(err);
+                });
             }
         }
         console.log(`[INFO] Register application "${topic}" successfully!`);
     }
 });
+
+messagingService.listenForEvent("register-topic", message => {
+    // appData = {
+    //     "app": {
+    //         "topic": topic,
+    //         "ip": ip,
+    //         "sensors": sensorIds
+    //     }
+    // }
+    const appData = message.data;
+    if(appData["app"]) {
+        const sensorIds = appData["app"]["sensors"];
+        const topic = appData["app"]["topic"];
+        for(const id of sensorIds) {
+            if(id in sensorStream) {
+                sensorStream[id].push(topic);
+            } else {
+                sensorStream[id] = [topic];
+            }
+        }
+    }
+})
