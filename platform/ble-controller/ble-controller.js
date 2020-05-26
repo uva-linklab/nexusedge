@@ -55,10 +55,12 @@ if(!ipAddress) {
 // each handler should have a specific method called handlePeripheral which would be called by ble-controller
 const GatewayScanner = require("./peripheral-handlers/gateway-scanner/gateway-scanner");
 const LightingEstimoteScanner = require("./peripheral-handlers/lighting-estimote-scanner/lighting-estimote-scanner");
+const OortSocketHandler = require("./peripheral-handlers/oort-socket-handler/oort-socket-handler");
 const gatewayScanner = new GatewayScanner(groupKey);
 const lightingEstimoteScanner = new LightingEstimoteScanner();
+const oortSocketHandler = new OortSocketHandler();
 
-const peripheralHandlers = [gatewayScanner, lightingEstimoteScanner];
+const peripheralHandlers = [gatewayScanner, lightingEstimoteScanner, oortSocketHandler];
 
 const mongoUrl = 'mongodb://localhost:27017';
 const discoveryDbName = 'discovery';
