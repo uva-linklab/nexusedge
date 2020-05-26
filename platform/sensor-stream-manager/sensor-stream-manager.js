@@ -101,18 +101,3 @@ messagingService.listenForEvent('app-deployment', message => {
         console.log(`[INFO] Register application "${topic}" successfully!`);
     }
 });
-
-setTimeout(() => {
-    messagingService.forwardMessage(serviceName, "ble-controller", "talk-to-gateway", {
-        "gateway-ip": "",
-        "gateway-msg-payload": {
-            "_meta" : {
-                "recipient": "sensor-stream-manager",
-                "event": "connect-to-socket"
-            },
-            "payload": {
-                "ws-address": ""
-            }
-        }
-    })
-}, 5000);
