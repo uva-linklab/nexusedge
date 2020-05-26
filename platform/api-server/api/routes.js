@@ -24,6 +24,7 @@ module.exports = function(app) {
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
+    app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);

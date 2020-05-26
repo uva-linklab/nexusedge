@@ -1,4 +1,5 @@
 const mqtt = require("mqtt");
+const request = require('request-promise');
 
 let mqttTopic = undefined;
 const callbackMap = {};
@@ -32,10 +33,35 @@ function __initialize() {
     });
 }
 
-exports.register = function(sensorId, callback) {
+exports.receive = function(sensorId, callback) {
     if(!mqttTopic) {
         __initialize();
     }
     callbackMap[sensorId] = callback;
     console.log(`added callback for ${sensorId}`);
 };
+
+exports.send = function(deviceId, data) {
+    const execUrl = `http://localhost:5000/gateway/talk-to-manager`;
+    const talkToManagerData = {
+        "_meta" : {
+            "recipient": "ble-controller",
+            "event": "send-to-device"
+        },
+        "payload": {
+            "device-id": deviceId,
+            "send-api-data": data
+        }
+    };
+    sendPostRequest(execUrl, talkToManagerData);
+};
+
+function sendPostRequest(url, data) {
+    const options = {
+        method: 'POST',
+        uri: url,
+        body: data,
+        json: true // Automatically stringifies the body to JSON
+    };
+    request(options);
+}

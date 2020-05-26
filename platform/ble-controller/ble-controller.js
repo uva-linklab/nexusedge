@@ -230,3 +230,24 @@ messagingService.listenForEvent('talk-to-gateway', message => {
         pendingMessages[gatewayIP] = [payload];
     }
 });
+
+// TODO add implementation
+function getHandler(deviceId) {
+    return oortSocketHandler;
+}
+
+// Takes payload from the send API in the app which is relayed via api-server's talkToManager API
+messagingService.listenForEvent('send-to-device', message => {
+    const receivedData = message.data;
+
+    const deviceId = receivedData["device-id"];
+    const sendAPIData = receivedData["send-api-data"];
+
+    // from the device-id, figure out which handler
+    const handler = getHandler(deviceId);
+    handler.connectToPeripheral(deviceId, sendAPIData, function(){
+        stopNobleScan();
+    }, function(){
+        startNobleScan();
+    });
+});

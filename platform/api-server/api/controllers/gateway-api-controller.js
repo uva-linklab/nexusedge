@@ -58,3 +58,29 @@ exports.executeApp = async function(req, res) {
 
     res.send();
 };
+
+exports.talkToManager = async function(req, res) {
+    const jsonData = req.body;
+
+    if(jsonData != null) {
+        /*
+        Format:
+        {
+            "_meta" : {
+                "recipient": "manager-name-goes-here"
+                "event": "..."
+            },
+            "payload": {
+                ...
+            }
+        }
+        */
+        const recipient = jsonData["_meta"]["recipient"];
+        const event = jsonData["_meta"]["event"];
+        const payload = jsonData["payload"];
+
+        this.messagingService.forwardMessage(serviceName, recipient, event, payload);
+    }
+
+    res.send();
+};
