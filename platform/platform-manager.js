@@ -48,6 +48,7 @@ const ipcCallback = {
         if("meta" in data && data["meta"]["sender"] in services) {
             let message = {
                 sender: data["meta"]["sender"],
+                // TODO: since we call it "payload" in forwardMessage, this should also be called payload.
                 data: data["payload"]
             };
             ipc.server.emit(services[data["meta"]["recipient"]].socket,

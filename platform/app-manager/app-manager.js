@@ -25,8 +25,8 @@ mongoClient.connect(mongoUrl, { useNewUrlParser: true }, function(err, client) {
     db = client.db(appsDb);
 });
 
-// TODO: When initializing app-manager, app-manager checks database to see 
-// if any apps already existed (zombie process). This happens when app-manager crashed abnormally
+// TODO: When initializing app-manager, app-manager checks database to see
+//  if any apps already existed (zombie process). This happens when app-manager crashed abnormally
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);

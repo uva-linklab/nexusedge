@@ -5,7 +5,7 @@ const utils = require("../../utils");
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
 
-console.log("[INFO] Initialize app-manager...");
+console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
@@ -101,3 +101,18 @@ messagingService.listenForEvent('app-deployment', message => {
         console.log(`[INFO] Register application "${topic}" successfully!`);
     }
 });
+
+setTimeout(() => {
+    messagingService.forwardMessage(serviceName, "ble-controller", "talk-to-gateway", {
+        "gateway-ip": "",
+        "gateway-msg-payload": {
+            "_meta" : {
+                "recipient": "sensor-stream-manager",
+                "event": "connect-to-socket"
+            },
+            "payload": {
+                "ws-address": ""
+            }
+        }
+    })
+}, 5000);
