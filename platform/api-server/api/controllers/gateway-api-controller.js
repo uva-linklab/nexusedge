@@ -60,6 +60,7 @@ exports.executeApp = async function(req, res) {
     res.send();
 };
 
+// TODO: need to be changed to the general api.
 /**
  * This endpoint takes sensor requirement from the remote gateways and
  * passes the sensor requirement to sensor-stream-manager.
@@ -67,7 +68,7 @@ exports.executeApp = async function(req, res) {
  * @param res
  * @returns {Promise<void>}
  */
-exports.registerAppSensorReqruirement = async function(req, res) {
+exports.registerAppSensorRequirement = async function(req, res) {
     // Forward the application's sensor requirement to sensor-stream-manager
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", {
         "app": req.body

@@ -25,8 +25,9 @@ module.exports = function(app) {
     app.post('/gateway/execute-app',
              uploader.fields([{name: 'app'}, {name: 'metadata'}]),
              gatewayAPIController.executeApp);
+    // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-reqruirement',
-             gatewayAPIController.registerAppSensorReqruirement);
+             gatewayAPIController.registerAppSensorRequirement);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
