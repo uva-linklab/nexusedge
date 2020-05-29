@@ -7,20 +7,6 @@ const fetch = require('node-fetch');
 const MessagingService = require('../messaging-service');
 
 /**
- * This function gets the gateway's ip.
- * @returns {string} - gateway's ip
- */
-function getGatewayIp() {
-    let ip = utils.getIPAddress();
-    if(!ip) {
-        console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
-        process.exit(1);
-    }
-    console.log(`[INFO] Gateway's ip address is ${ip}`);
-    return ip;
-}
-
-/**
  * This function registers topic for local sensors.
  * @param {string} ip - gateway's ip
  * @param {string[]} sensorIds - an array of sensor id
@@ -46,7 +32,7 @@ function registerToLocalGateway(ip, sensorIds, topic) {
  */
 function registerToRemoteGateway(ip, sensorIds, topic) {
     // Remote gateway's register-topic url
-    const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-reqruirement`;
+    const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-requirement`;
     // Request body
     const body = {
         ip: gatewayIp,
@@ -81,7 +67,8 @@ function registerMQTTClient(ip) {
         const client = connectToMQTTBroker(ip);
         client.on('connect', () => {
             if(ip === gatewayIp) {
-                addLocalGatewayDataEvent(client);
+                subscribeToGatewayData(client);
+                routeSensorStreamsToApps(client);
             }
             client.on('disconnect', () => {
                 console.log(`[INFO] Disconnected to MQTT broker at ${ip}.`);
@@ -126,11 +113,10 @@ function publishData(ip, topic, data) {
 
 /**
  * This function lets the local MQTT client
- * subscribes to "gateway-data" topic and
- * publishes sensor stream data to application's topic
+ * subscribes to "gateway-data" topic
  * @param {Object} client - MQTT client
  */
-function addLocalGatewayDataEvent(client) {
+function subscribeToGatewayData(client) {
     const mqttTopic = "gateway-data";
     // Subscribe to "gateway-data"
     client.subscribe(mqttTopic, (err) => {
@@ -141,9 +127,13 @@ function addLocalGatewayDataEvent(client) {
             console.log(`[INFO] Subscribed to "${mqttTopic}" topic successfully!`);
         }
     });
-    // When sensor data is published to "gateway-data" topic
-    // sensor-stream-manager will check policy and
-    // publish the data to application's topic
+}
+/**
+ * This function lets the local MQTT client route
+ * the sensor stream to applications
+ * @param {Object} client - MQTT client
+ */
+function routeSensorStreamsToApps(client) {
     client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
         const sensorId = payload["_meta"]["device_id"];
@@ -166,8 +156,12 @@ console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-
-const gatewayIp = getGatewayIp();
+const gatewayIp = utils.getIPAddress();
+if(!gatewayIp) {
+    console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
+    process.exit(1);
+}
+console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 
 // sensorStream stores the sensor id and application topic mapping
 // the key is sensor id and the value is an object
