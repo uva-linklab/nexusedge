@@ -52,8 +52,8 @@ const ipcCallback = {
                 data: data["payload"]
             };
             ipc.server.emit(services[data["meta"]["recipient"]].socket,
-                                            data["meta"]["event"],
-                                            message);
+                            data["meta"]["event"],
+                            message);
             console.log("[INFO] Forwarded msg.");
             console.log(`  Event: ${data["meta"]["event"]}`);
             console.log(`   From: ${data["meta"]["sender"]}`);
