@@ -23,11 +23,11 @@ class MqttController {
         this.mqttClient = mqtt.connect('mqtt://localhost');
 
         this.mqttClient.on('message', (topic, message) => {
-            const data = JSON.parse(message.toString());
+            const messageStr = message.toString();
 
             if(subscriberCallbackMap.hasOwnProperty(topic)) {
                 subscriberCallbackMap[topic]
-                    .forEach(callback => callback(data));
+                    .forEach(callback => callback(messageStr));
             }
         });
     }
@@ -40,20 +40,20 @@ class MqttController {
     }
 
     /**
-     * publishes a data object to the topic specified
+     * publishes a message to the specified topic
      * @param topic
-     * @param data
+     * @param message message in string format
      */
-    publish(topic, data) {
-        this.mqttClient.publish(topic, JSON.stringify(data));
+    publish(topic, message) {
+        this.mqttClient.publish(topic, message);
     }
 
     /**
-     * publishes data to the PLATFORM_MQTT_TOPIC
-     * @param data
+     * publishes message to the PLATFORM_MQTT_TOPIC
+     * @param message message in string format
      */
-    publishToPlatformMqtt(data) {
-        this.publish(PLATFORM_MQTT_TOPIC, data);
+    publishToPlatformMqtt(message) {
+        this.publish(PLATFORM_MQTT_TOPIC, message);
     }
 
     /**
