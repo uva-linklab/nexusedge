@@ -42,7 +42,7 @@ class BleScanner {
     }
 
     _startNobleScan() {
-        noble.startScanning([], false);
+        noble.startScanning([], true);
     }
 
     _stopNobleScan() {
