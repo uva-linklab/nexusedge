@@ -13,7 +13,7 @@ class BleAdvertiser {
     constructor(groupKey, ipAddress, messagingService) {
         this.groupKey = groupKey;
         this.ipAddress = ipAddress;
-        this.talkToManagerService = new TalkToManagerService(messagingService);
+        this.messagingService = messagingService;
 
         // TODO move to common file
         this._initializeMongo();
@@ -33,8 +33,9 @@ class BleAdvertiser {
                     } else {
                         console.log(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service 
                         UUID ${talkToManagerServiceUuid}`);
+                        const talkToManagerService = new TalkToManagerService(this.messagingService);
                         bleno.setServices([
-                            this.talkToManagerService
+                            talkToManagerService
                         ]);
                     }
                 });
@@ -52,13 +53,13 @@ class BleAdvertiser {
         });
     }
 
-    _saveAddressesToDB(name, ip) {
+    _saveAddressesToDB(macAddress, ipAddress) {
         this.db.collection('self').updateOne(
-            {"_id": name},
-            {$set: {"_id": name, "IP_address": ip, "ts": Date.now()}},
+            {"_id": macAddress},
+            {$set: {"_id": macAddress, "IP_address": ipAddress, "ts": Date.now()}},
             {upsert: true},
             function(err, result) {
-                console.log("recorded id and IP of self to db");
+                console.log("recorded mac address and IP of self to db");
             }
         );
     }
