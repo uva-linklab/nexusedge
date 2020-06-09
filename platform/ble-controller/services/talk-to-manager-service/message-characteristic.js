@@ -3,7 +3,7 @@ const bleno = require('@abandonware/bleno');
 
 const characteristicUuid = '18338db15c5841cca00971c5fd792921';
 
-function MessageCharacteristic(messagingService, onWriteRequestFinished) {
+function MessageCharacteristic(messagingService) {
     bleno.Characteristic.call(this, {
         uuid: characteristicUuid,
         properties: ['write'],
@@ -15,7 +15,6 @@ function MessageCharacteristic(messagingService, onWriteRequestFinished) {
         ]
     });
     this.messagingService = messagingService;
-    this.onWriteRequestFinished = onWriteRequestFinished;
 }
 
 util.inherits(MessageCharacteristic, bleno.Characteristic);
@@ -27,12 +26,8 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
     try {
         jsonData = JSON.parse(strData);
     } catch (e) {
-        //if there's a JSON parse error,
+        // if there's a JSON parse error, throw an error message
         if(e instanceof SyntaxError) {
-            //notify ble-controller that the onWriteRequest is complete
-            this.onWriteRequestFinished();
-
-            //throw an error message
             callback(this.RESULT_UNLIKELY_ERROR); //best error message out of the given bunch
         }
     }
@@ -55,9 +50,6 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
         const payload = jsonData["payload"];
 
         this.messagingService.forwardMessage("ble-controller", recipient, event, payload);
-
-        //notify ble-controller that the onWriteRequest is complete
-        this.onWriteRequestFinished();
 
         callback(this.RESULT_SUCCESS);
     }

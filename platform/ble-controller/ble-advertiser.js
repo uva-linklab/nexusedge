@@ -6,12 +6,15 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 const bleno = require('@abandonware/bleno');
 const mongoClient = require('mongodb').MongoClient;
 const utils = require("../../utils");
-const talkToManagerService = require('./services/talk-to-manager-service/talk-to-manager-service').Service;
+const TalkToManagerService = require('./services/talk-to-manager-service/talk-to-manager-service').Service;
+const talkToManagerServiceUuid = require('./services/talk-to-manager-service/talk-to-manager-service').uuid;
 
 class BleAdvertiser {
-    constructor(groupKey, ipAddress) {
+    constructor(groupKey, ipAddress, messagingService) {
         this.groupKey = groupKey;
         this.ipAddress = ipAddress;
+        this.talkToManagerService = new TalkToManagerService(messagingService);
+
         // TODO move to common file
         this._initializeMongo();
     }
@@ -24,20 +27,21 @@ class BleAdvertiser {
 
                 const encryptedIp = utils.encryptAES(this.ipAddress, this.groupKey.key, this.groupKey.iv);
 
-                bleno.startAdvertising(encryptedIp, [talkToManagerService.uuid], function(err) {
+                bleno.startAdvertising(encryptedIp, [talkToManagerServiceUuid], function(err) {
                     if(err) {
                         console.log(err);
                     } else {
-                        debug(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service UUID ${talkToManagerService.uuid}`);
+                        console.log(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service 
+                        UUID ${talkToManagerServiceUuid}`);
                         bleno.setServices([
-                            talkToManagerService
+                            this.talkToManagerService
                         ]);
                     }
                 });
             } else if(state === 'poweredOff') {
                 bleno.stopAdvertising();
             } else {
-                debug("[BLE Radio] bleno state changed to " + state);
+                console.log("[BLE Radio] bleno state changed to " + state);
             }
         });
         bleno.on('advertisingStop', function() {
@@ -50,11 +54,11 @@ class BleAdvertiser {
 
     _saveAddressesToDB(name, ip) {
         this.db.collection('self').updateOne(
-            { "_id" : name },
-            { $set: { "_id": name, "IP_address": ip, "ts" : Date.now()} },
-            { upsert: true },
+            {"_id": name},
+            {$set: {"_id": name, "IP_address": ip, "ts": Date.now()}},
+            {upsert: true},
             function(err, result) {
-                debug("recorded id and IP of self to db");
+                console.log("recorded id and IP of self to db");
             }
         );
     }
@@ -64,7 +68,7 @@ class BleAdvertiser {
         const discoveryDbName = 'discovery';
 
         // Initialize db connection once
-        mongoClient.connect(mongoUrl, { useNewUrlParser: true }, (err, client) => {
+        mongoClient.connect(mongoUrl, {useNewUrlParser: true}, (err, client) => {
             if(err) throw err;
             this.db = client.db(discoveryDbName);
         });

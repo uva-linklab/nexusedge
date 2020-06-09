@@ -7,11 +7,11 @@ const MessageCharacteristic = require('./message-characteristic').Characteristic
 
 const serviceUUID = '18338db15c5841cca00971c5fd792920';
 
-function TalkToManagerService(messagingService, onWriteRequestFinished) {
+function TalkToManagerService(messagingService) {
     bleno.PrimaryService.call(this, {
         uuid: serviceUUID,
         characteristics: [
-            new MessageCharacteristic(messagingService, onWriteRequestFinished)
+            new MessageCharacteristic(messagingService)
         ]
     });
 }
