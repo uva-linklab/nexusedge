@@ -33,7 +33,7 @@ class LightingScanner {
             "gateway_id": noble.address
         };
 
-        this.mqttController.publish(JSON.stringify(data)); // publish to the platform's default MQTT topic
+        this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default MQTT topic
     }
 
     _startScan() {

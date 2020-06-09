@@ -40,7 +40,7 @@ class OortSocketHandler {
             "gateway_id": noble.address
         };
 
-        this.mqttController.publish(data); // publish to the platform's default topic
+        this.mqttController.publishToPlatformMqtt(data); // publish to the platform's default topic
 
         // TODO
         if(pendingMessages.hasOwnProperty(peripheral.id)) {

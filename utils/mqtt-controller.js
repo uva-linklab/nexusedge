@@ -40,26 +40,42 @@ class MqttController {
     }
 
     /**
-     * publishes a data object to the topic specified.
-     * @param topic defaults to the gateway-data MQTT topic
+     * publishes a data object to the topic specified
+     * @param topic
      * @param data
      */
-    publish(topic = PLATFORM_MQTT_TOPIC, data) {
+    publish(topic, data) {
         this.mqttClient.publish(topic, JSON.stringify(data));
     }
 
     /**
+     * publishes data to the PLATFORM_MQTT_TOPIC
+     * @param data
+     */
+    publishToPlatformMqtt(data) {
+        this.publish(PLATFORM_MQTT_TOPIC, data);
+    }
+
+    /**
      * receive callback when there is new data on a specified MQTT topic
-     * @param topic defaults to the gateway-data MQTT topic
+     * @param topic
      * @param callback
      */
-    subscribe(topic = PLATFORM_MQTT_TOPIC, callback) {
+    subscribe(topic, callback) {
         if(subscriberCallbackMap.hasOwnProperty(topic)) {
             subscriberCallbackMap[topic].append(callback);
         } else {
             subscriberCallbackMap[topic] = [callback];
             this.mqttClient.subscribe(topic);
         }
+    }
+
+    /**
+     * subscribe to the PLATFORM_MQTT_TOPIC
+     * @param callback
+     */
+    subscribeToPlatformMqtt(callback) {
+        this.subscribe(PLATFORM_MQTT_TOPIC, callback);
     }
 }
 

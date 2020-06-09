@@ -49,7 +49,7 @@ class EstimoteScanner {
             //concatenate data and telemetry packet objects
             Object.assign(data, telemetryPacket);
 
-            this.mqttController.publish(JSON.stringify(data));
+            this.mqttController.publishToPlatformMqtt(JSON.stringify(data));
         }
     }
 
