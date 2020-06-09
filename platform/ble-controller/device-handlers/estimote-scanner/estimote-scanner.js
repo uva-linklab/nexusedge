@@ -1,58 +1,43 @@
 /*
-// TODO add which make of lighting sensors we are using
-Parses BLE packets from Estimote and Lighting Sensors and publishes to the gateway-data MQTT topic
+Parses BLE packets from Estimote Sensors and publishes to the gateway-data MQTT topic
  */
-const mqtt  = require('mqtt');
-const MQTT_TOPIC_NAME = 'gateway-data';
 const estimoteParser = require("./estimote-telemetry-parser");
+const MqttController = require("../../../../utils/mqtt-controller");
 
 // Packets from the estimote family (Telemetry, Connectivity, etc.) are broadcast with the Service UUID 'fe9a'
 const ESTIMOTE_SERVICE_UUID = 'fe9a';
 
-class LightingEstimoteScanner {
-    constructor() {
-        this.mqttClient = mqtt.connect('mqtt://localhost');
+class EstimoteScanner {
+    constructor(bleScanner) {
+        this.deviceType = "Estimote";
+        this.bleScanner = bleScanner;
+        this.mqttController = MqttController.getInstance();
         this.scanPaused = false;
 
+        this.bleScanner.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
         this._startScan();
     }
 
-    //TODO: get actual data from the lighting sensors and not just its metadata
-    handlePeripheral(peripheral) {
+    _handlePeripheral(peripheral) {
         // handle peripherals only during the time periods define in startScan and stopScan
         if(this.scanPaused) {
             return;
         }
 
-        // detect lighting sensors
-        const localName = peripheral.advertisement.localName;
-        const isLightingSensor = localName && localName.includes("$L$");
-
-        // detect estimotes
+        // TODO check if this is needed
         const estimoteServiceData = peripheral.advertisement.serviceData.find(function(el) {
             return el.uuid === ESTIMOTE_SERVICE_UUID;
         });
-        const isEstimote = (estimoteServiceData !== undefined);
 
         const data = {};
-
-        if(isLightingSensor) {
-            data["device"] = "Lighting Sensor";
-            data["id"] = peripheral.id;
-            data["_meta"] = {
-                "received_time": new Date().toISOString(),
-                "device_id": peripheral.id,
-                "receiver": "ble-peripheral-scanner",
-                "gateway_id": noble.address
-            };
-        } else if(isEstimote) {
+        if((estimoteServiceData !== undefined)) {
             const telemetryData = estimoteServiceData.data;
             const telemetryPacket = estimoteParser.parseEstimoteTelemetryPacket(telemetryData);
 
             if(!telemetryPacket)
                 return;
 
-            data["device"] = "Estimote";
+            data["device"] = this.deviceType;
             data["id"] = telemetryPacket.shortIdentifier;
             data["_meta"] = {
                 "received_time": new Date().toISOString(),
@@ -63,10 +48,8 @@ class LightingEstimoteScanner {
 
             //concatenate data and telemetry packet objects
             Object.assign(data, telemetryPacket);
-        }
 
-        if(Object.keys(data).length !== 0) {
-            this.mqttClient.publish(MQTT_TOPIC_NAME, JSON.stringify(data));
+            this.mqttController.publish(JSON.stringify(data));
         }
     }
 
@@ -83,4 +66,4 @@ class LightingEstimoteScanner {
     }
 }
 
-module.exports = LightingEstimoteScanner;
+module.exports = EstimoteScanner;

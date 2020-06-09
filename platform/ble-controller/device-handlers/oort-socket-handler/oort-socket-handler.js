@@ -1,6 +1,7 @@
 /*
 Connects and controls the OORT/WiTenergy Smart Socket
  */
+const MqttController = require("../../../../utils/mqtt-controller");
 
 const OORT_SERVICE_INFO_UUID = '180a';
 const OORT_SERVICE_SENSOR_UUID = '0000fee0494c4f474943544543480000';
@@ -14,41 +15,46 @@ const OORT_CHAR_CONTROL_UUID = '0000fee2494c4f474943544543480000';
 let oortSensorCharacteristic = null;
 let oortClockCharacteristic = null;
 
+// Stores any pending messages that need to be sent to a peripheral via BLE.
+// Type: deviceId -> [data]
+const pendingMessages = {};
+
 class OortSocketHandler {
-    constructor() {
-        this.deviceId = null;
-        this.onDiscoveredPeripheral = null;
-        this.onFinish = null;
-        this.isConnecter = true;
-        this.scanPaused = false;
-        this.socketState = false;
+    constructor(bleScanner) {
+        this.deviceType = "OORT Smart Socket";
+        this.bleScanner = bleScanner;
+        this.mqttController = MqttController.getInstance();
+
+        this.bleScanner.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
     }
 
-    async handlePeripheral(peripheral) {
-        if(this.scanPaused) {
-            return;
-        }
+    // TODO check if we need an async method or not
+    async _handlePeripheral(peripheral) {
+        const data = {};
+        data["device"] = this.deviceType;
+        data["id"] = peripheral.id;
+        data["_meta"] = {
+            "received_time": new Date().toISOString(),
+            "device_id": peripheral.id,
+            "receiver": "ble-peripheral-scanner",
+            "gateway_id": noble.address
+        };
 
-        if(peripheral.advertisement.serviceUuids.includes(OORT_SERVICE_SENSOR_UUID) && peripheral.id === this.deviceId) {
-            this.scanPaused = true;
+        this.mqttController.publish(data); // publish to the platform's default topic
 
-            // notify the ble-controller that you have discovered the peripheral
-            this.onDiscoveredPeripheral();
+        // TODO
+        if(pendingMessages.hasOwnProperty(peripheral.id)) {
+            debug(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
 
-            // set the socket state to the one conveyed by ble-controller
+            //get the list of messages
+            // const messageList = pendingMessages[discoveredIp];
+
             await this._setOortState(peripheral, this.socketState);
-
-            // notify ble-controller that you've finished
-            this.onFinish();
-
-            this.scanPaused = false;
         }
     }
 
-    connectToPeripheral(deviceId, data, onDiscoveredPeripheral, onFinish) {
+    connectToDevice(deviceId, data) {
         this.deviceId = deviceId;
-        this.onDiscoveredPeripheral = onDiscoveredPeripheral;
-        this.onFinish = onFinish;
         // understand what to do with the peripheral
         /*
         {
