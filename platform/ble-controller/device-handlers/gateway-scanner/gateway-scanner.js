@@ -27,13 +27,13 @@ class GatewayScanner {
 
             // //check if there are any pending messages that need to be sent to this peripheral
             if(pendingMessages.hasOwnProperty(discoveredIp)) {
-                debug(`[BLE Radio] There are pending messages to be sent for ${discoveredIp}`);
+                console.log(`[gateway-scanner] There are pending messages to be sent for ${discoveredIp}`);
 
                 //get the list of messages
                 const messageList = pendingMessages[discoveredIp];
 
                 this.bleScanner.connectToPeripheral((err) => {
-                    debug(`[BLE Radio] Connected to peripheral at ${discoveredIp}`);
+                    console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
 
                     const serviceUUIDs = [talkToManagerServiceUuid];
                     const characteristicUUIDs = [messageCharacteristicUuid];
@@ -45,14 +45,14 @@ class GatewayScanner {
                             messageList.map(message => {
                                 const buff = Buffer.from(JSON.stringify(message), 'utf8');
 
-                                debug("[BLE Radio] Writing message to characteristic");
+                                console.log("[gateway-scanner] Writing message to characteristic");
                                 return this.bleScanner.writeCharacteristic(messageCharacteristic, buff);
                             });
 
                             // TODO add documentation
                             Promise.all(messageList).then((values) => {
                                 // delete the messages for this peripheral
-                                debug("[BLE Radio] Delete messages for peripheral");
+                                console.log("[gateway-scanner] Delete messages for peripheral");
                                 delete pendingMessages[discoveredIp];
 
                                 // disconnect peripheral once write requests are finished
@@ -80,10 +80,10 @@ class GatewayScanner {
         //     { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
         //     { upsert: true },
         //     function(err, result) {
-        //         debug("datapoint stored to db");
+        //         console.log("datapoint stored to db");
         //     }
         // );
-        console.log("[gateway-scanner] data point stored to db");
+        // console.log("[gateway-scanner] data point stored to db");
     }
 }
 

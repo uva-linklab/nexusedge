@@ -44,7 +44,7 @@ class OortSocketHandler {
 
         // TODO
         if(pendingMessages.hasOwnProperty(peripheral.id)) {
-            debug(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
+            console.log(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
 
             //get the list of messages
             // const messageList = pendingMessages[discoveredIp];
@@ -67,7 +67,7 @@ class OortSocketHandler {
 
     async _initializeOortSocket(peripheral) {
         await peripheral.connectAsync();
-        console.log("OORT connected");
+        console.log("[OORT] connected to peripheral");
         const services = await peripheral.discoverServicesAsync([OORT_SERVICE_INFO_UUID, OORT_SERVICE_SENSOR_UUID]);
 
         // parse through the services and figure out the "info" and "sensor" service indices
@@ -82,12 +82,12 @@ class OortSocketHandler {
         }
 
         if (infoIndex === -1) {
-            console.error('Could not find a device info service. Can\'t set date.');
+            console.error('[OORT] Could not find a device info service. Can\'t set date.');
             throw 'Could not find a device info service. Can\'t set date.';
         }
 
         if (sensorIndex === -1) {
-            console.error('Could not find sensor service for OORT.');
+            console.error('[OORT] Could not find sensor service for OORT.');
             throw 'Could not find sensor service for OORT.';
         }
 
@@ -95,12 +95,12 @@ class OortSocketHandler {
         const infoChars = await services[infoIndex].discoverCharacteristicsAsync([OORT_CHAR_SYSTEMID_UUID]);
 
         if (infoChars.length === 0) {
-            console.error('Could not get the System ID characteristic.');
+            console.error('[OORT] Could not get the System ID characteristic.');
             throw 'Could not get the System ID characteristic.';
         }
 
         const systemId = await infoChars[0].readAsync();
-        console.log(systemId);
+        console.log(`[OORT] systemId = ${systemId}`);
 
         // Get the characteristics of the sensor service
         const sensorChars = await services[sensorIndex]
@@ -140,7 +140,7 @@ class OortSocketHandler {
         // var data = new Buffer([0x03, 0xdf, 0x07, 0x05, 0x1c, 0x16, 0x10, 0x2f, 0x8c, 0x03]);
         // Set the clock on the device
         await oortClockCharacteristic.writeAsync(new Buffer(dataToSend), false);
-        console.log('Successfully set the OORT clock.');
+        console.log('[OORT] Successfully set the OORT clock.');
     }
 
     async _setOortState(peripheral, state) {
@@ -152,7 +152,7 @@ class OortSocketHandler {
 
         const val = (state) ? 0x1 : 0x0;
         await oortClockCharacteristic.writeAsync(new Buffer([0x4, val]), false);
-        console.log(`wrote ${state} to oort`);
+        console.log(`[OORT] wrote ${state} to oort`);
     }
 }
 
