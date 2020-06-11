@@ -110,7 +110,7 @@ class BleScanner {
     }
 
     writeCharacteristic(characteristic, data) {
-        return characteristic.writeAsync(new Buffer(data), false);
+        return characteristic.writeAsync(Buffer.from(data, 'utf8'), false);
     }
 }
 

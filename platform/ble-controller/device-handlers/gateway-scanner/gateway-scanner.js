@@ -32,21 +32,21 @@ class GatewayScanner {
                 //get the list of messages
                 const messageList = pendingMessages[discoveredIp];
 
-                this.bleScanner.connectToPeripheral((err) => {
+                this.bleScanner.connectToPeripheral(peripheral, (err) => {
                     console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
 
                     const serviceUUIDs = [talkToManagerServiceUuid];
                     const characteristicUUIDs = [messageCharacteristicUuid];
 
                     this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs)
-                        .then((services, characteristics) => {
+                        .then((servicesAndCharacteristics) => {
+                            const characteristics = servicesAndCharacteristics["characteristics"];
                             const messageCharacteristic = characteristics[0];
 
+                            // TODO add documentation
                             messageList.map(message => {
-                                const buff = Buffer.from(JSON.stringify(message), 'utf8');
-
                                 console.log("[gateway-scanner] Writing message to characteristic");
-                                return this.bleScanner.writeCharacteristic(messageCharacteristic, buff);
+                                return this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
                             });
 
                             // TODO add documentation
