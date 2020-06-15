@@ -31,6 +31,12 @@ class GatewayScanner {
 
                 //get the list of messages
                 const messageList = pendingMessages[discoveredIp];
+                /*
+                Remove the "head" of the list and returns it
+                Not the best performing. O(n). Since the queue size is small, it's reasonable.
+                Reference: https://stackoverflow.com/a/1590262/445964
+                 */
+                const message = messageList.shift();
 
                 this.bleScanner.connectToPeripheral(peripheral, (err) => {
                     console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
@@ -38,27 +44,17 @@ class GatewayScanner {
                     const serviceUUIDs = [talkToManagerServiceUuid];
                     const characteristicUUIDs = [messageCharacteristicUuid];
 
-                    this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs)
-                        .then((servicesAndCharacteristics) => {
-                            const characteristics = servicesAndCharacteristics["characteristics"];
+                    this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs,
+                        (err, services, characteristics) => {
                             const messageCharacteristic = characteristics[0];
 
-                            // TODO add documentation
-                            messageList.map(message => {
-                                console.log("[gateway-scanner] Writing message to characteristic");
-                                return this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
-                            });
+                            this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
 
-                            // TODO add documentation
-                            Promise.all(messageList).then((values) => {
-                                // delete the messages for this peripheral
-                                console.log("[gateway-scanner] Delete messages for peripheral");
+                            if(messageList.length === 0) {
                                 delete pendingMessages[discoveredIp];
-
-                                // disconnect peripheral once write requests are finished
-                                this.bleScanner.disconnectPeripheral(peripheral);
-                            });
-                        })
+                                console.log("[BLE Radio] Deleted messages for peripheral");
+                            }
+                        });
                 })
             }
         }
@@ -67,7 +63,7 @@ class GatewayScanner {
     connectToDevice(gatewayIP, data) {
         // add to pendingMessages
         if(pendingMessages.hasOwnProperty(gatewayIP)) {
-            pendingMessages[gatewayIP].append(data);
+            pendingMessages[gatewayIP].push(data);
         } else {
             pendingMessages[gatewayIP] = [data];
         }

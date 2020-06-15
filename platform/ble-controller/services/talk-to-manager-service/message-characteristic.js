@@ -3,7 +3,7 @@ const bleno = require('@abandonware/bleno');
 
 const characteristicUuid = '18338db15c5841cca00971c5fd792921';
 
-function MessageCharacteristic(messagingService) {
+function MessageCharacteristic(messagingService, onWriteRequestFinished) {
     bleno.Characteristic.call(this, {
         uuid: characteristicUuid,
         properties: ['write'],
@@ -15,6 +15,7 @@ function MessageCharacteristic(messagingService) {
         ]
     });
     this.messagingService = messagingService;
+    this.onWriteRequestFinished = onWriteRequestFinished;
 }
 
 util.inherits(MessageCharacteristic, bleno.Characteristic);
@@ -28,7 +29,12 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
     } catch (e) {
         // if there's a JSON parse error, throw an error message
         if(e instanceof SyntaxError) {
-            callback(this.RESULT_UNLIKELY_ERROR); //best error message out of the given bunch
+            // notify bleAdvertiser that onWriteRequest is complete
+            this.onWriteRequestFinished();
+
+            // "callback" is needed only when notify=true in central's writeCharacteristic. But with that option set
+            // the peripheral keeps disconnecting
+            // callback(this.RESULT_UNLIKELY_ERROR);
         }
     }
 
@@ -51,7 +57,10 @@ MessageCharacteristic.prototype.onWriteRequest = function(bufferData, offset, wi
 
         this.messagingService.forwardMessage("ble-controller", recipient, event, payload);
 
-        callback(this.RESULT_SUCCESS);
+        // notify bleAdvertiser that onWriteRequest is complete
+        this.onWriteRequestFinished();
+
+        // callback(this.RESULT_SUCCESS);
     }
 };
 

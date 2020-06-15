@@ -10,30 +10,41 @@ const TalkToManagerService = require('./services/talk-to-manager-service/talk-to
 const talkToManagerServiceUuid = require('./services/talk-to-manager-service/talk-to-manager-service').uuid;
 
 class BleAdvertiser {
-    constructor(groupKey, ipAddress, messagingService) {
+    constructor(groupKey, ipAddress, messagingService, bleScanner) {
         this.groupKey = groupKey;
         this.ipAddress = ipAddress;
         this.messagingService = messagingService;
+        this.bleScanner = bleScanner;
+
+        /*
+         bleScanner is required here because if a central writes to this gateway's characteristic, then the noble scan
+         stops.
+         Reference: https://github.com/noble/noble/issues/223
+         So as a workaround, the bleAdvertiser will ask the bleScanner to restart noble scan.
+         */
 
         // TODO move to common file
         this._initializeMongo();
     }
 
-    advertise() {
+    startAdvertising() {
         bleno.on('stateChange', (state) => {
             if(state === 'poweredOn') {
                 console.log("[BLE Radio] BLE MAC Address = " + bleno.address);
                 this._saveAddressesToDB(bleno.address, this.ipAddress);
 
                 const encryptedIp = utils.encryptAES(this.ipAddress, this.groupKey.key, this.groupKey.iv);
+                const talkToManagerService = new TalkToManagerService(this.messagingService, () => {
+                    // restart ble scan once the write to the characteristic is complete
+                    this.bleScanner.startScanning();
+                });
 
                 bleno.startAdvertising(encryptedIp, [talkToManagerServiceUuid], function(err) {
                     if(err) {
                         console.log(err);
                     } else {
-                        console.log(`[BLE Radio] Started Advertising with data = ${encryptedIp} and service 
-                        UUID ${talkToManagerServiceUuid}`);
-                        const talkToManagerService = new TalkToManagerService(this.messagingService);
+                        console.log(`[BLE Radio] Started Advertising with data = ${encryptedIp}`);
+
                         bleno.setServices([
                             talkToManagerService
                         ]);

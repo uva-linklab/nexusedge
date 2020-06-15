@@ -15,23 +15,26 @@ const connectionQueue = new Map();
 
 class BleScanner {
     constructor() {
-        this._initializeNoble();
+        this.initialized = false;
         this.isConnectedToPeripheral = false;
     }
 
-    _initializeNoble() {
-        noble.on('stateChange', function (state) {
-            console.log('BLE state change: ' + state);
-            if (state === 'poweredOn') {
-                this._startNobleScan();
-            } else if (state === 'poweredOff') {
-                console.log('BLE appears to be disabled.');
-            } else {
-                console.log('Unable to use BLE.');
+    _initialize() {
+        noble.on('stateChange', state => {
+            console.log('[ble-scanner] BLE state change: ' + state);
+            if(state === 'poweredOn') {
+                console.log('[ble-scanner] BLE is powered on.');
+                this.startScanning();
+            } else if(state === 'poweredOff') {
+                console.log('[ble-scanner] BLE appears to be disabled.');
+            } else if(state === 'scanStop') {
+                console.log('[ble-scanner] BLE scan stopped.');
+            } else if(state === 'scanStart') {
+                console.log('[ble-scanner] BLE scan started.');
             }
-        }.bind(this));
+        });
 
-        noble.on('discover', function (peripheral) {
+        noble.on('discover', function(peripheral) {
             const serviceUuids = peripheral.advertisement.serviceUuids;
             if(serviceUuids) {
                 Object.keys(subscriberCallbackMap) // get all UUIDs of the subscribers
@@ -39,13 +42,19 @@ class BleScanner {
                     .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
             }
         });
+
+        this.initialized = true;
     }
 
-    _startNobleScan() {
-        noble.startScanning([], true);
+    startScanning() {
+        if(!this.initialized) {
+            this._initialize(); // initializes noble and starts scanning once the noble state changes to poweredOn
+        } else {
+            noble.startScanning([], true);
+        }
     }
 
-    _stopNobleScan() {
+    stopScanning() {
         noble.stopScanning();
     }
 
@@ -60,22 +69,22 @@ class BleScanner {
         if(!this.isConnectedToPeripheral) {
             this.isConnectedToPeripheral = true;
 
-            // For some reason, noble scan stops after a device connects and writes to a peripheral's characteristic.
-            // Reference: https://github.com/noble/noble/issues/223
-            // So turn off noble scan before connecting. Resume scan after peripheral disconnects.
-            console.log("stop noble scan before connect");
-            this._stopNobleScan();
-            peripheral.connectAsync()
-                .then(err => callback(err));
-        } else {
-            // If already connected, add to the connectionQueue. Process next peripheral when there is a disconnection.
-            connectionQueue.set(peripheral, callback);
-        }
-    }
+            /*
+            If the peripheral scan continues while we are performing operations on characteristics, there could be
+            race conditions. So we stop the scan, perform the operations and then restart the noble scan.
+            */
+            console.log("[ble-scanner] Stopping noble scan before connect.");
+            this.stopScanning();
 
-    disconnectPeripheral(peripheral) {
-        peripheral.disconnectAsync()
-            .then(_ => {
+            peripheral.connect(callback);
+
+            /*
+            Generally after a write request completes, the connection automatically disconnects after 1-2 seconds.
+            So we wait till the disconnection event occurs, and then connect to a peripheral that is in queue.
+            If there are no peripherals in queue, we resume BLE scanning.
+            */
+            peripheral.once('disconnect', () => {
+                console.log("[ble-scanner] Peripheral disconnected");
                 this.isConnectedToPeripheral = false;
 
                 // check if there are other peripheral connection requests
@@ -83,34 +92,51 @@ class BleScanner {
                     const nextEntry = connectionQueue.entries().next().value; // get next [peripheral, callback]
                     connectionQueue.delete(nextEntry[0]); // remove from queue
                     this.connectToPeripheral(nextEntry[0], nextEntry[1]);
+
+                    console.log("[ble-scanner] Picked up next peripheral to connect to.");
                 } else {
                     // resume noble scan after disconnect
-                    console.log("No pending connection requests. Resuming noble scan after disconnect.");
-                    this._startNobleScan();
+                    console.log("[ble-scanner] No pending connection requests. Resuming noble scan after disconnect.");
+                    this.startScanning();
                 }
             });
+        } else {
+            console.log("[ble-scanner] BLE already connected to some peripheral. Added to connectionQueue");
+
+            // If already connected, add to the connectionQueue. Process next peripheral when there is a disconnection.
+            connectionQueue.set(peripheral, callback);
+        }
     }
 
-    discoverServices(peripheral, uuids) {
-        return peripheral.discoverServicesAsync(uuids);
+    disconnectPeripheral(peripheral, callback) {
+        peripheral.disconnectAsync()
+            .then(callback);
     }
 
-    discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs) {
-        return peripheral.discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs, characteristicUUIDs);
+    discoverServices(peripheral, uuids, callback) {
+        peripheral.discoverServicesAsync(uuids)
+            .then(callback);
     }
 
-    discoverCharacteristics(service, uuids) {
-        return service.discoverCharacteristicsAsync(uuids);
+    discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs, callback) {
+        peripheral.discoverSomeServicesAndCharacteristics(serviceUUIDs, characteristicUUIDs, callback);
     }
 
-    // TODO check if this works
+    discoverCharacteristics(service, uuids, callback) {
+        service.discoverCharacteristicsAsync(uuids)
+            .then(callback);
+    }
+
+    // TODO only async implementation. check if this works.
     readCharacteristic(characteristic) {
         return characteristic.readAsync()
             .then(buffer => Array.prototype.slice.call(buffer));
     }
 
     writeCharacteristic(characteristic, data) {
-        return characteristic.writeAsync(Buffer.from(data, 'utf8'), false);
+        // this callback is used only if the notify flag is set to true
+        characteristic.write(Buffer.from(data, 'utf8'), false, () => {
+        });
     }
 }
 

@@ -30,8 +30,9 @@ const messagingService = new MessagingService(serviceName);
 
 // initialize BLE Scanner and Advertiser
 const bleScanner = new BleScanner();
-const bleAdvertiser = new BleAdvertiser(groupKey, ipAddress, messagingService);
-bleAdvertiser.advertise();
+bleScanner.startScanning();
+const bleAdvertiser = new BleAdvertiser(groupKey, ipAddress, messagingService, bleScanner);
+bleAdvertiser.startAdvertising();
 
 // initialize device handlers that are registered to handle peripherals using the BleScanner object
 const GatewayScanner = require("./device-handlers/gateway-scanner/gateway-scanner");
