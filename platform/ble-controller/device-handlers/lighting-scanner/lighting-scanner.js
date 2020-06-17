@@ -30,7 +30,7 @@ class LightingScanner {
             "received_time": new Date().toISOString(),
             "device_id": peripheral.id,
             "receiver": "ble-peripheral-scanner",
-            "gateway_id": noble.address
+            "gateway_id": this.bleScanner.getMacAddress()
         };
 
         this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default MQTT topic

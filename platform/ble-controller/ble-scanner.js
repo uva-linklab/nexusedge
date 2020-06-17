@@ -46,6 +46,12 @@ class BleScanner {
         this.initialized = true;
     }
 
+    // TODO this does not work if initialize is not complete. Also, rather than picking up the gateway address from ble-scanner
+    //  for the gateway address, the handlers should be asking the platform directly
+    getMacAddress() {
+        return noble.address;
+    }
+
     startScanning() {
         if(!this.initialized) {
             this._initialize(); // initializes noble and starts scanning once the noble state changes to poweredOn

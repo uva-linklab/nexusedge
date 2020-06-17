@@ -43,7 +43,7 @@ class EstimoteScanner {
                 "received_time": new Date().toISOString(),
                 "device_id": telemetryPacket.shortIdentifier,
                 "receiver": "ble-peripheral-scanner",
-                "gateway_id": noble.address
+                "gateway_id": this.bleScanner.getMacAddress()
             };
 
             //concatenate data and telemetry packet objects

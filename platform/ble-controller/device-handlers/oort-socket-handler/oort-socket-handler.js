@@ -37,32 +37,36 @@ class OortSocketHandler {
             "received_time": new Date().toISOString(),
             "device_id": peripheral.id,
             "receiver": "ble-peripheral-scanner",
-            "gateway_id": noble.address
+            "gateway_id": this.bleScanner.getMacAddress()
         };
 
         this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default topic
 
-        // TODO
         if(pendingMessages.hasOwnProperty(peripheral.id)) {
             console.log(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
 
             //get the list of messages
-            // const messageList = pendingMessages[discoveredIp];
+            const messageList = pendingMessages[peripheral.id];
+            const message = messageList.shift();
 
-            await this._setOortState(peripheral, this.socketState);
+            const state = message["state"] === "on";
+            await this._setOortState(peripheral, state);
         }
     }
 
     connectToDevice(deviceId, data) {
-        this.deviceId = deviceId;
-        // understand what to do with the peripheral
+        // currently, the only type of data we support is state = T/F
         /*
         {
             "state": "on"
         }
          */
-        // keep track of which state the device needs to be in
-        this.socketState = (data["state"] === "on");
+        // add to pendingMessages
+        if(pendingMessages.hasOwnProperty(deviceId)) {
+            pendingMessages[deviceId].push(data);
+        } else {
+            pendingMessages[deviceId] = [data];
+        }
     }
 
     async _initializeOortSocket(peripheral) {
