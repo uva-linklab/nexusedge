@@ -1,7 +1,12 @@
 const request = require('request-promise');
 const mqtt = require('mqtt');
 const utils = require('../../../../utils/utils');
+const MessagingService = require('../../../messaging-service');
+
 const mqttTopic = 'platform-data';
+
+const serviceName = process.env.SERVICE_NAME;
+const messagingService = new MessagingService(serviceName);
 
 exports.disseminateAll = async function (req, res) {
     return platformAPICallHelper(req, res, sendDisseminateAllRequest);
@@ -100,3 +105,18 @@ function publishOnMQTT(url, topic, msg) {
         });
     });
 }
+
+/**
+ * This endpoint takes the privacy policy and
+ * passes the policy to sensor-stream-manager.
+ * @param req
+ * @param res
+ * @returns {Promise<void>}
+ */
+exports.updatePrivacyPolicy = async function(req, res) {
+    // Forward the privacy policy to sensor-stream-manager
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "update-policy", {
+        "policy": req.body
+    });
+    res.send();
+};

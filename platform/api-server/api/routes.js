@@ -32,6 +32,8 @@ module.exports = function(app) {
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
     app.post('/platform/query-all', platformAPIController.queryAll);
+    app.post('/platform/update-privacy-policy',
+             platformAPIController.updatePrivacyPolicy);
 };
 
 /**

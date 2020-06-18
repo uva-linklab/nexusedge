@@ -1,7 +1,9 @@
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
-const utils = require("../../utils");
+const utils = require("../../utils/utils");
 const fetch = require('node-fetch');
+const cronParser = require('cron-parser');
+const cronJob = require('cron').CronJob;
 
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
@@ -14,13 +16,13 @@ const MessagingService = require('../messaging-service');
  */
 function registerToLocalGateway(ip, sensorIds, topic) {
     for(const id of sensorIds) {
-        if(!sensorStream[id]) {
-            sensorStream[id] = {};
+        if(!sensorStreamRouteTable[id]) {
+            sensorStreamRouteTable[id] = {};
         }
-        if(!sensorStream[id][ip]) {
-            sensorStream[id][ip] = [];
+        if(!sensorStreamRouteTable[id][ip]) {
+            sensorStreamRouteTable[id][ip] = [];
         }
-        sensorStream[id][ip].push(topic);
+        sensorStreamRouteTable[id][ip].push(topic);
     }
 }
 
@@ -80,7 +82,7 @@ function registerMQTTClient(ip) {
 }
 
 /**
- * This function publishes data to application's topic.
+ * This function connects to MQTT broker
  * @param {string} ip - MQTT broker's ip
  * @returns {Object} - MQTT client
  */
@@ -88,6 +90,168 @@ function connectToMQTTBroker(ip) {
     const url = `mqtt://${ip}`;
     // Connect to mqtt broker
     return mqtt.connect(url);
+}
+
+/**
+ * This function updates the privacyPolicy
+ * @param {string} type - app-specific, sensor-specific, app-sensor
+ * @param {string} sensorId
+ * @param {string} ip - MQTT broker's ip
+ * @param {string} topic - application's topic
+ * @param {object} policy
+ */
+function updatePolicy(type, sensorId, ip, topic, policy) {
+    if(type === "app-sensor") {
+        if(!privacyPolicy[type][sensorId]) privacyPolicy[type][sensorId] = {};
+        if(!privacyPolicy[type][sensorId][ip]) privacyPolicy[type][sensorId][ip] = {};
+        privacyPolicy[type][sensorId][ip][topic] = policy;
+    } else if(type === "sensor-specific") {
+        if(!privacyPolicy[type][sensorId]) privacyPolicy[type][sensorId] = {};
+        privacyPolicy[type][sensorId] = policy;
+    } else if(type === "app-specific") {
+        if(!privacyPolicy[type][ip]) privacyPolicy[type][ip] = {};
+        privacyPolicy[type][ip][topic] = policy;
+    }
+}
+
+/**
+ * This function updates the privacyPolicyInMinute
+ */
+function updatePolicyMinute() {
+    const now = new Date();
+    privacyPolicyInMinute = {
+        "sensor-specific": [],
+        "app-specific": {},
+        "app-sensor": {}
+    };
+    let type = "sensor-specific";
+    let sensorIds = privacyPolicy[type];
+    for(const sensorId in sensorIds) {
+        const sensorPolicy = sensorIds[sensorId];
+        const currentDate = new Date(now);
+        currentDate.setSeconds(-10);
+        const options = {
+            "currentDate": currentDate,
+            "tz": timeZone
+        }
+        const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
+        const nextExecuteTime = interval.next();
+        const checkRange = now.getTime() - nextExecuteTime.getTime();
+        if(checkRange >= 0) {
+            if(sensorPolicy["block"]) {
+                privacyPolicyInMinute["sensor-specific"].push(sensorId);
+            }
+        } else {
+            if(!sensorPolicy["block"]) {
+                privacyPolicyInMinute["sensor-specific"].push(sensorId);
+            }
+        }
+    }
+    type = "app-specific";
+    let gatewayIps = privacyPolicy[type];
+    for(const gatewayIp in gatewayIps) {
+        const topics = gatewayIps[gatewayIp];
+        for(const topic in topics) {
+            const sensorPolicy = topics[topic];
+            const currentDate = new Date(now);
+            currentDate.setSeconds(-10);
+            const options = {
+                "currentDate": currentDate,
+                "tz": timeZone
+            }
+            const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
+            const nextExecuteTime = interval.next();
+            const checkRange = now.getTime() - nextExecuteTime.getTime();
+            if(checkRange >= 0) {
+                if(sensorPolicy["block"]) {
+                    if(!privacyPolicyInMinute["app-specific"][gatewayIp]) {
+                        privacyPolicyInMinute["app-specific"][gatewayIp] = [];
+                    }
+                    privacyPolicyInMinute["app-specific"][gatewayIp].push(topic);
+                }
+            } else {
+                if(!sensorPolicy["block"]) {
+                    if(!privacyPolicyInMinute["app-specific"][gatewayIp]) {
+                        privacyPolicyInMinute["app-specific"][gatewayIp] = [];
+                    }
+                    privacyPolicyInMinute["app-specific"][gatewayIp].push(topic);
+                }
+            }
+        }
+    }
+    type = "app-sensor"
+    sensorIds = privacyPolicy[type];
+    for(const sensorId in sensorIds) {
+        if(privacyPolicyInMinute["sensor-specific"].includes(sensorId)) {
+            continue;
+        }
+        const gatewayIps = sensorIds[sensorId];
+        for(const gatewayIp in gatewayIps) {
+            const topics = gatewayIps[gatewayIp];
+            for(const topic in topics) {
+                if(privacyPolicyInMinute["app-specific"][gatewayIp] &&
+                   privacyPolicyInMinute["app-specific"][gatewayIp].includes(topic)) {
+                    continue;
+                }
+                const sensorPolicy = topics[topic];
+                const currentDate = new Date(now);
+                currentDate.setSeconds(-10);
+                const options = {
+                    "currentDate": currentDate,
+                    "tz": timeZone
+                }
+                const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
+                const nextExecuteTime = interval.next();
+                const checkRange = now.getTime() - nextExecuteTime.getTime();
+                if(checkRange >= 0) {
+                    if(sensorPolicy["block"]) {
+                        if(!privacyPolicyInMinute[type][sensorId]) {
+                            privacyPolicyInMinute[type][sensorId] = {};
+                        }
+                        if(!privacyPolicyInMinute[type][sensorId][gatewayIp]) {
+                            privacyPolicyInMinute[type][sensorId][gatewayIp] = [];
+                        }
+                        privacyPolicyInMinute[type][sensorId][gatewayIp].push(topic);
+                    }
+                } else {
+                    if(!sensorPolicy["block"]) {
+                        if(!privacyPolicyInMinute[type][sensorId]) {
+                            privacyPolicyInMinute[type][sensorId] = {};
+                        }
+                        if(!privacyPolicyInMinute[type][sensorId][gatewayIp]) {
+                            privacyPolicyInMinute[type][sensorId][gatewayIp] = [];
+                        }
+                        privacyPolicyInMinute[type][sensorId][gatewayIp].push(topic);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * This function checks the policyMinute
+ * if sensorId - ip - topic exists in the Policy,
+ * the data should be blocked (return true).
+ * @param {string} sensorId
+ * @param {string} ip - MQTT broker's ip
+ * @param {string} topic - application's topic
+ * @returns {bool} - if the sensor is blocked
+ */
+function checkPolicy(sensorId, ip, topic) {
+    if(privacyPolicyInMinute["sensor-specific"].includes(sensorId)) {
+        return true;
+    }
+    if(privacyPolicyInMinute["app-specific"][ip] &&
+       privacyPolicyInMinute["app-specific"][ip].includes(topic)) {
+           return true;
+    }
+    if(privacyPolicyInMinute["app-sensor"][sensorId] &&
+       privacyPolicyInMinute["app-sensor"][sensorId][ip] &&
+       privacyPolicyInMinute["app-sensor"][sensorId][ip].includes(topic)) {
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -137,15 +301,16 @@ function routeSensorStreamsToApps(client) {
     client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
         const sensorId = payload["_meta"]["device_id"];
-        if(sensorId in sensorStream) {
-            for(const gatewayIp in sensorStream[sensorId]) {
-                const topics = sensorStream[sensorId][gatewayIp];
+        if(sensorId in sensorStreamRouteTable) {
+            for(const gatewayIp in sensorStreamRouteTable[sensorId]) {
+                const topics = sensorStreamRouteTable[sensorId][gatewayIp];
                 for(const topic of topics) {
-
-                    // TODO: check policy
-
-                    // Publish to application's topic
-                    publishData(gatewayIp, topic, JSON.stringify(payload));
+                    // Check policy
+                    if(!checkPolicy(sensorId, gatewayIp, topic)) {
+                        // Publish to application's topic
+                        publishData(gatewayIp, topic, JSON.stringify(payload));
+                        console.log(`published to ${gatewayIp}  ${topic}`)
+                    }
                 }
             }
         }
@@ -156,19 +321,20 @@ console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
+// get gateway's ip
 const gatewayIp = utils.getIPAddress();
 if(!gatewayIp) {
-    console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
-    process.exit(1);
+  console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
+  process.exit(1);
 }
 console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 
-// sensorStream stores the sensor id and application topic mapping
+// sensorStreamRouteTable stores the sensor id and application topic mapping
 // the key is sensor id and the value is an object
 // with the key is gateway ip and the value is an array of application's topics
-// sensor-stream-manager uses sensorStream to publish sensor stream data
+// sensor-stream-manager uses sensorStreamRouteTable to publish sensor stream data
 // check the example below
-// sensorStream = {
+// sensorStreamRouteTable = {
 //     "sensor1-id": {
 //         "gateway1-ip": [ "app1-topic", "app2-topic" ],
 //         "geteway2-ip": [ "app3-topic"]
@@ -178,10 +344,66 @@ console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 //         "geteway2-ip": [ "app3-topic"]
 //     }
 // }
-const sensorStream = {};
+const sensorStreamRouteTable = {};
 
-// TODO: policy
-const policy = {};
+// |---------------------------------------------|
+// |               Privacy Policy                |
+// |--------|------|---------------|-------------|
+// | sensor | app  | interval      | block/allow |
+// |--------|------|---------------|-------------|
+// | s1     | app1 | * 06-07 * * * | true        |
+// | *      | app2 | * 08-17 * * * | true        |
+// | s2,s3  | *    | * 0-12 * * *  | false       |
+// |--------|------|---------------|-------------|
+
+// cron format
+// *    *    *    *    *    *
+// ┬    ┬    ┬    ┬    ┬    ┬
+// │    │    │    │    │    |
+// │    │    │    │    │    └ day of week (0 - 7) (0 or 7 is Sun)
+// │    │    │    │    └───── month (1 - 12)
+// │    │    │    └────────── day of month (1 - 31)
+// │    │    └─────────────── hour (0 - 23)
+// │    └──────────────────── minute (0 - 59)
+// └───────────────────────── second (0 - 59, optional)
+
+// privacyPolicy = {
+//     "app-specific": {
+//         "app1": {
+//             "block": true,
+//             "cron": "* 09-10,13-15 * * *",
+//         }
+//     },
+//     "sensor-specific": {
+//         "sensor1-id": {
+//             "block": false,
+//             "cron": "* 09-10,13-15 * * *",
+//         }
+//     },
+//     "app-sensor": {
+//         "sensor1-id": {
+//             "gateway1-ip": {
+//                 "app1-topic": {
+//                     "block": false,
+//                     "cron": "* 09-10,13-15 * * *",
+//                 }
+//             }
+//         }
+//     }
+// }
+const privacyPolicy = {
+    "app-specific": {},
+    "sensor-specific": {},
+    "app-sensor": {}
+};
+
+// privacyPolicyInMinute stores the blocked sensor-app mapping within this minute.
+// privacyPolicyInMinute = {
+//     sensor1: {
+//         gateway1: [topic1]
+//     }
+// }
+let privacyPolicyInMinute = {};
 
 // mqttClients = {
 //     "gateway-ip": client
@@ -204,7 +426,7 @@ messagingService.listenForEvent('app-deployment', message => {
     //         "pid": newApp.pid,
     //         "_id": appId,
     //         "appPath": newAppPath,
-    //         "metadataPath": appData.metadataPath
+    //         "metadataPath": metadataPath,
     //     }
     // };
     const appData = message.data;
@@ -213,7 +435,7 @@ messagingService.listenForEvent('app-deployment', message => {
         let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
         metadata = metadata["sensorMapping"];
         const topic = appData["app"]["_id"];
-        // store application's sensor stream requirement in sensorStream
+        // store application's sensor stream requirement in sensorStreamRouteTable
         for(const ip in metadata) {
             const sensorIds = metadata[ip];
             // store the sensor connected to local gateway
@@ -244,3 +466,79 @@ messagingService.listenForEvent("register-topic", message => {
         registerToLocalGateway(ip, sensorIds, topic);
     }
 });
+
+messagingService.listenForEvent("update-policy", message => {
+    // data = {
+    //     "policy": {
+    //         "app-specific": {
+    //             "app1": {
+    //                 "block": true,
+    //                 "cron": "* 09-10,13-15 * * *",
+    //             }
+    //         },
+    //         "sensor-specific": {
+    //             "sensor1-id": {
+    //                 "block": false,
+    //                 "cron": "* 09-10,13-15 * * *",
+    //             }
+    //         },
+    //         "app-sensor": {
+    //             "sensor1-id": {
+    //                 "gateway1-ip": {
+    //                     "app1-topic": {
+    //                         "block": false,
+    //                         "cron": "* 09-10,13-15 * * *",
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // };
+    const data = message.data;
+    if(data["policy"]) {
+        const policy = data["policy"];
+        for(const type in policy) {
+            if(type === "app-sensor") {
+                const sensorIds = policy[type];
+                for(const sensorId in sensorIds) {
+                    const gatewayIps = sensorIds[sensorId];
+                    for(const gatewayIp in gatewayIps) {
+                        const topics = gatewayIps[gatewayIp]
+                        for(const topic in topics) {
+                            updatePolicy(type, sensorId, gatewayIp, topic, topics[topic]);
+                        }
+                    }
+                }
+            } else if(type === "sensor-specific") {
+                const sensorIds = policy[type];
+                for(const sensorId in sensorIds) {
+                    updatePolicy(type, sensorId, undefined, undefined, sensorIds[sensorId]);
+                }
+            } else if(type === "app-specific") {
+                const gatewayIps = policy[type];
+                for(const gatewayIp in gatewayIps) {
+                    const topics = gatewayIps[gatewayIp]
+                    for(const topic in topics) {
+                        updatePolicy(type, undefined, gatewayIp, topic, topics[topic]);
+                    }
+                }
+            }
+        }
+        console.log(`update policy: ${JSON.stringify(privacyPolicy)}`);
+    }
+});
+const timeZone = "Asia/Taipei";
+const updatePolicyJob = new cronJob({
+    "cronTime": '0 * * * * *',
+    "onTick": () => {
+        console.log(`[INFO] Updated privacyPolicyInMinute at ${Date.now()}`);
+        console.time("updatePolicyMinute");
+        updatePolicyMinute();
+        console.timeEnd("updatePolicyMinute");
+        console.log(`update pulicy in minute: ${JSON.stringify(privacyPolicyInMinute)}`);
+    },
+    "timeZone": timeZone
+});
+
+console.log(`[INFO] Started to update privacy policy cron job.`);
+updatePolicyJob.start();
