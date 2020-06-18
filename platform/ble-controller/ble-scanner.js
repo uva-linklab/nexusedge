@@ -8,10 +8,8 @@ const noble = require('@abandonware/noble');
 // uuid -> callback function
 const subscriberCallbackMap = {};
 
-// This stores pending connection requests when the ble device is already connected to a peripheral.
-// We store (peripheral, callback) pairs in a Map, as Maps remember the insertion order. So they can be used as a
-// "queue" without needing an external module.
-const connectionQueue = new Map();
+// This stores pending connection requests if BLE is already connected to a peripheral.
+const connectionQueue = []; // [peripheral]
 
 class BleScanner {
     constructor() {
@@ -48,10 +46,17 @@ class BleScanner {
 
     // TODO this does not work if initialize is not complete. Also, rather than picking up the gateway address from ble-scanner
     //  for the gateway address, the handlers should be asking the platform directly
+    /**
+     * Obtain the MAC address of the ble chip
+     * @returns MAC address of the BLE chip
+     */
     getMacAddress() {
         return noble.address;
     }
 
+    /**
+     * Start the BLE scan if the scanner is already initialized. If not, performs initialization, and then starts scan.
+     */
     startScanning() {
         if(!this.initialized) {
             this._initialize(); // initializes noble and starts scanning once the noble state changes to poweredOn
@@ -64,85 +69,131 @@ class BleScanner {
         noble.stopScanning();
     }
 
+    /**
+     * Get a callback when there is an advertisement for the specified UUID
+     * @param uuid
+     * @param callback
+     */
     subscribeToAdvertisements(uuid, callback) {
         if(!subscriberCallbackMap.hasOwnProperty(uuid)) {
             subscriberCallbackMap[uuid] = callback;
         }
     }
 
-    connectToPeripheral(peripheral, callback) {
-        // check if the ble module is already connected to a peripheral
-        if(!this.isConnectedToPeripheral) {
-            this.isConnectedToPeripheral = true;
+    /**
+     * Connect to a specified peripheral. If BLE is already connected to a peripheral, add this peripheral to a queue.
+     * @param peripheral
+     * @returns {Promise<void>} Returns a promise which resolves after a connection is established
+     */
+    connectToPeripheralAsync(peripheral) {
+        return new Promise( (resolve, reject) => {
+            // check if the ble module is already connected to a peripheral
+            if(!this.isConnectedToPeripheral) {
+                this.isConnectedToPeripheral = true;
 
-            /*
-            If the peripheral scan continues while we are performing operations on characteristics, there could be
-            race conditions. So we stop the scan, perform the operations and then restart the noble scan.
-            */
-            console.log("[ble-scanner] Stopping noble scan before connect.");
-            this.stopScanning();
+                /*
+                If the peripheral scan continues while we are performing operations on characteristics, there could be
+                race conditions. So we stop the scan, perform the operations and then restart the noble scan.
+                */
+                console.log("[ble-scanner] Stopping noble scan before connect.");
+                this.stopScanning();
 
-            peripheral.connect(callback);
+                peripheral.connect(err => {
+                   if(err) {
+                       reject(err);
+                   } else {
+                       resolve();
+                   }
+                });
 
-            /*
-            Generally after a write request completes, the connection automatically disconnects after 1-2 seconds.
-            So we wait till the disconnection event occurs, and then connect to a peripheral that is in queue.
-            If there are no peripherals in queue, we resume BLE scanning.
-            */
-            peripheral.once('disconnect', () => {
-                console.log("[ble-scanner] Peripheral disconnected");
-                this.isConnectedToPeripheral = false;
+                /*
+                Generally after a write request completes, the connection automatically disconnects after 1-2 seconds.
+                So we wait till the disconnection event occurs, and then connect to a peripheral that is in queue.
+                If there are no peripherals in queue, we resume BLE scanning.
+                */
+                peripheral.once('disconnect', () => {
+                    console.log("[ble-scanner] Peripheral disconnected");
+                    this.isConnectedToPeripheral = false;
 
-                // check if there are other peripheral connection requests
-                if(connectionQueue.size > 0) {
-                    const nextEntry = connectionQueue.entries().next().value; // get next [peripheral, callback]
-                    connectionQueue.delete(nextEntry[0]); // remove from queue
-                    this.connectToPeripheral(nextEntry[0], nextEntry[1]);
-
-                    console.log("[ble-scanner] Picked up next peripheral to connect to.");
-                } else {
-                    // resume noble scan after disconnect
-                    console.log("[ble-scanner] No pending connection requests. Resuming noble scan after disconnect.");
-                    this.startScanning();
-                }
-            });
-        } else {
-            console.log("[ble-scanner] BLE already connected to some peripheral. Added to connectionQueue");
-
-            // If already connected, add to the connectionQueue. Process next peripheral when there is a disconnection.
-            connectionQueue.set(peripheral, callback);
-        }
+                    // check if there are other peripheral connection requests
+                    if(connectionQueue.length > 0) {
+                        // TODO check if this is a bottleneck
+                        const nextPeripheral = connectionQueue.shift(); // get next peripheral
+                        console.log("[ble-scanner] Picked up next peripheral to connect to.");
+                        return this.connectToPeripheral(nextPeripheral);
+                    } else {
+                        // resume noble scan after disconnect
+                        console.log("[ble-scanner] No pending connection requests. Resuming noble scan after disconnect.");
+                        this.startScanning();
+                    }
+                });
+            } else {
+                // If already connected, add to the connectionQueue. Process next peripheral when there is a disconnection.
+                connectionQueue.push(peripheral);
+                console.log("[ble-scanner] BLE already connected to some peripheral. Added to connectionQueue");
+            }
+        });
     }
 
-    disconnectPeripheral(peripheral, callback) {
-        peripheral.disconnectAsync()
-            .then(callback);
+    /**
+     * Disconnects the peripheral
+     * @param peripheral
+     * @returns {Promise<void>}
+     */
+    disconnectPeripheral(peripheral) {
+        return peripheral.disconnectAsync();
     }
 
-    discoverServices(peripheral, uuids, callback) {
-        peripheral.discoverServicesAsync(uuids)
-            .then(callback);
+    /**
+     * Discover services for the peripheral with specified service UUIDs
+     * @param peripheral
+     * @param uuids
+     * @returns {Promise<Service[]>}
+     */
+    discoverServices(peripheral, uuids) {
+        return peripheral.discoverServicesAsync(uuids);
     }
 
-    discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs, callback) {
-        peripheral.discoverSomeServicesAndCharacteristics(serviceUUIDs, characteristicUUIDs, callback);
+    /**
+     * Discover services and characteristics for the peripheral with the specified service and characteristic UUIDs
+     * @param peripheral
+     * @param serviceUUIDs
+     * @param characteristicUUIDs
+     * @returns {Promise<ServicesAndCharacteristics>} type -> {services: [], characteristics: []}
+     */
+    discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs) {
+        return peripheral.discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs, characteristicUUIDs);
     }
 
-    discoverCharacteristics(service, uuids, callback) {
-        service.discoverCharacteristicsAsync(uuids)
-            .then(callback);
+    /**
+     * Discover characteristics for a given service
+     * @param service
+     * @param uuids
+     * @returns {Promise<Characteristic[]>}
+     */
+    discoverCharacteristics(service, uuids) {
+        return service.discoverCharacteristicsAsync(uuids);
     }
 
-    // TODO only async implementation. check if this works.
+    /**
+     * Read the given characteristic and return the value
+     * @param characteristic
+     * @returns {Promise<value[]>}
+     */
     readCharacteristic(characteristic) {
         return characteristic.readAsync()
-            .then(buffer => Array.prototype.slice.call(buffer));
+            .then(buffer => Array.prototype.slice.call(buffer)); // convert buffer to array
+        // Reference: https://stackoverflow.com/a/42953533
     }
 
+    /**
+     * Writes data to the specified characteristic
+     * @param characteristic
+     * @param data
+     */
     writeCharacteristic(characteristic, data) {
-        // this callback is used only if the notify flag is set to true
-        characteristic.write(Buffer.from(data, 'utf8'), false, () => {
-        });
+        // Note: For some reason, this promise never gets resolved. So we do not want to wait for the resolution.
+        characteristic.writeAsync(Buffer.from(data, 'utf8'), false);
     }
 }
 

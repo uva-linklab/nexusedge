@@ -16,7 +16,7 @@ class GatewayScanner {
         this.bleScanner.subscribeToAdvertisements(talkToManagerServiceUuid, this._handlePeripheral.bind(this))
     }
 
-    _handlePeripheral(peripheral) {
+    async _handlePeripheral(peripheral) {
         const localName = peripheral.advertisement.localName;
         if(typeof localName !== "undefined") {
             const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
@@ -38,24 +38,25 @@ class GatewayScanner {
                  */
                 const message = messageList.shift();
 
-                this.bleScanner.connectToPeripheral(peripheral, (err) => {
-                    console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
+                await this.bleScanner.connectToPeripheralAsync(peripheral);
+                console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
 
-                    const serviceUUIDs = [talkToManagerServiceUuid];
-                    const characteristicUUIDs = [messageCharacteristicUuid];
+                const serviceUUIDs = [talkToManagerServiceUuid];
+                const characteristicUUIDs = [messageCharacteristicUuid];
 
-                    this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs,
-                        (err, services, characteristics) => {
-                            const messageCharacteristic = characteristics[0];
+                const servicesAndCharacteristics =
+                    await this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs);
 
-                            this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
+                const characteristics = servicesAndCharacteristics["characteristics"];
+                const messageCharacteristic = characteristics[0];
 
-                            if(messageList.length === 0) {
-                                delete pendingMessages[discoveredIp];
-                                console.log("[BLE Radio] Deleted messages for peripheral");
-                            }
-                        });
-                })
+                this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
+                console.log(`[gateway-scanner] Message sent to peripheral`);
+
+                if(messageList.length === 0) {
+                    delete pendingMessages[discoveredIp];
+                    console.log("[gateway-scanner] Deleted messages for peripheral");
+                }
             }
         }
     }
