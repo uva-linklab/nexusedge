@@ -24,6 +24,7 @@ class OortSocketHandler {
         this.deviceType = "OORT Smart Socket";
         this.bleScanner = bleScanner;
         this.mqttController = MqttController.getInstance();
+        this.isHandlingMessages = false;
 
         this.bleScanner.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
     }
@@ -41,7 +42,14 @@ class OortSocketHandler {
 
         this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default topic
 
-        if(pendingMessages.hasOwnProperty(peripheral.id)) {
+        /*
+         There were instances where two async callbacks would both try to handle the pendingMessages leading to issues.
+         isHandlingMessages is a naive way to implement a critical section to ensure that two handlers don't handle
+         pendingMessages at the same time.
+         */
+        if(pendingMessages.hasOwnProperty(peripheral.id) && !this.isHandlingMessages) {
+            this.isHandlingMessages = true;
+
             console.log(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
 
             //get the list of messages
@@ -55,6 +63,7 @@ class OortSocketHandler {
                 delete pendingMessages[peripheral.id];
                 console.log("[oort-socket-handler] Deleted messages for peripheral");
             }
+            this.isHandlingMessages = false;
         }
     }
 
