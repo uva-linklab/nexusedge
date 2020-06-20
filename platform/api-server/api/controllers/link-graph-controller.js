@@ -1,8 +1,8 @@
 const request = require('request-promise');
-var Queue = require('queue-fifo');
+const Queue = require('queue-fifo');
 const utils = require("../../../../utils");
-const discoveryModel = require('../models/discovery-model');
-var queue = new Queue();
+const daoHelper = require('../../../dao/dao-helper');
+const queue = new Queue();
 
 /**
  * Generates the link graph by traversing through the entire gateway network one neighbor at a time.
@@ -16,7 +16,7 @@ exports.getLinkGraphData = async function(req, res) {
 	var neighborsDict = {};
 
 	//pick up self's mac address (_id) and ip address from db
-	const selfDetails = await discoveryModel.getSelfData();
+	const selfDetails = await daoHelper.selfDao.getLatestEntry();
 
 	if(selfDetails !== null){
 		queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});

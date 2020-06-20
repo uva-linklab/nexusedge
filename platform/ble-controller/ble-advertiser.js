@@ -4,7 +4,7 @@ versions 8 and above.
 https://github.com/noble/node-bluetooth-hci-socket/issues/84
 */
 const bleno = require('@abandonware/bleno');
-const mongoClient = require('mongodb').MongoClient;
+const daoHelper = require('../dao/dao-helper');
 const utils = require("../../utils");
 const TalkToManagerService = require('./services/talk-to-manager-service/talk-to-manager-service').Service;
 const talkToManagerServiceUuid = require('./services/talk-to-manager-service/talk-to-manager-service').uuid;
@@ -22,16 +22,13 @@ class BleAdvertiser {
          Reference: https://github.com/noble/noble/issues/223
          So as a workaround, the bleAdvertiser will ask the bleScanner to restart noble scan.
          */
-
-        // TODO move to common file
-        this._initializeMongo();
     }
 
     startAdvertising() {
         bleno.on('stateChange', (state) => {
             if(state === 'poweredOn') {
                 console.log("[BLE Radio] BLE MAC Address = " + bleno.address);
-                this._saveAddressesToDB(bleno.address, this.ipAddress);
+                daoHelper.selfDao.upsertAddresses(bleno.address, this.ipAddress); // upsert to database
 
                 const encryptedIp = utils.encryptAES(this.ipAddress, this.groupKey.key, this.groupKey.iv);
                 const talkToManagerService = new TalkToManagerService(this.messagingService, () => {
@@ -61,28 +58,6 @@ class BleAdvertiser {
         });
         bleno.on('advertisingStartError', function(error) {
             console.log("[BLE Radio] Bleno advertisingStartError:");
-        });
-    }
-
-    _saveAddressesToDB(macAddress, ipAddress) {
-        this.db.collection('self').updateOne(
-            {"_id": macAddress},
-            {$set: {"_id": macAddress, "IP_address": ipAddress, "ts": Date.now()}},
-            {upsert: true},
-            function(err, result) {
-                console.log("recorded mac address and IP of self to db");
-            }
-        );
-    }
-
-    _initializeMongo() {
-        const mongoUrl = 'mongodb://localhost:27017';
-        const discoveryDbName = 'discovery';
-
-        // Initialize db connection once
-        mongoClient.connect(mongoUrl, {useNewUrlParser: true}, (err, client) => {
-            if(err) throw err;
-            this.db = client.db(discoveryDbName);
         });
     }
 }

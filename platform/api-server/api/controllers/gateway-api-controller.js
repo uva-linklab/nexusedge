@@ -1,4 +1,4 @@
-const discoveryModel = require('../models/discovery-model');
+const daoHelper = require('../../../dao/dao-helper');
 const MessagingService = require('../../../messaging-service');
 
 const serviceName = process.env.SERVICE_NAME;
@@ -11,7 +11,7 @@ const messagingService = new MessagingService(serviceName);
  * @returns {Promise<*>}
  */
 exports.getNeighbors = async function(req, res) {
-    const neighborData = await discoveryModel.getNeighborData(300000);
+    const neighborData = await daoHelper.neighborsDao.getNeighborDataSince(300000);
     return res.json(neighborData);
 };
 
@@ -22,8 +22,7 @@ exports.getNeighbors = async function(req, res) {
  * @returns {Promise<*>}
  */
 exports.getSensors = async function(req, res) {
-
-    const sensorData = await discoveryModel.getSensorData(300000);
+    const sensorData = await daoHelper.sensorsDao.getSensorDataSince(300000);
     return res.json(sensorData);
 };
 

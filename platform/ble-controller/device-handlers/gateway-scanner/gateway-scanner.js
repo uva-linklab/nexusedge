@@ -1,4 +1,5 @@
 const utils = require("../../../../utils");
+const daoHelper = require('../../../dao/dao-helper');
 
 const talkToManagerServiceUuid = require('../../services/talk-to-manager-service/talk-to-manager-service').uuid;
 const messageCharacteristicUuid = require('../../services/talk-to-manager-service/message-characteristic').uuid;
@@ -23,7 +24,7 @@ class GatewayScanner {
             console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
             console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
 
-            this.saveNeighborDataToDB(peripheral.address, discoveredIp);
+            daoHelper.neighborsDao.upsertNeighborData(peripheral.address, discoveredIp);
 
             // //check if there are any pending messages that need to be sent to this peripheral
             if(pendingMessages.hasOwnProperty(discoveredIp)) {
@@ -68,19 +69,6 @@ class GatewayScanner {
         } else {
             pendingMessages[gatewayIP] = [data];
         }
-    }
-
-    // TODO do we need to have one single DB handler somewhere else?
-    saveNeighborDataToDB(peripheralName, peripheralIp) {
-        // db.collection('neighbors').updateOne(
-        //     { "_id" : peripheralName },
-        //     { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
-        //     { upsert: true },
-        //     function(err, result) {
-        //         console.log("datapoint stored to db");
-        //     }
-        // );
-        // console.log("[gateway-scanner] data point stored to db");
     }
 }
 

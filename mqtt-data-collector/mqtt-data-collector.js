@@ -1,18 +1,6 @@
 const MqttController = require('../utils/mqtt-controller');
-const mongoClient = require('mongodb').MongoClient;
+const daoHelper = require('platform/dao/dao-helper');
 const debug = require('debug')('mqtt-data-collector');
-
-const mongoUrl = 'mongodb://localhost:27017';
-const discoveryDbName = 'discovery';
-const sensorsCollection = 'sensors';
-
-// Initialize database connection once
-var db;
-mongoClient.connect(mongoUrl, {useNewUrlParser: true}, function(err, client) {
-    if(err) throw err;
-
-    db = client.db(discoveryDbName);
-});
 
 const mqttController = MqttController.getInstance();
 mqttController.subscribeToPlatformMqtt(message => {
@@ -23,16 +11,6 @@ mqttController.subscribeToPlatformMqtt(message => {
     const gatewayId = data._meta.gateway_id;
     const receiver = data._meta.receiver;
 
-    saveSensorDataToDB(sensorId, sensorDevice, gatewayId, receiver);
+    daoHelper.sensorsDao.upsertSensorData(sensorId, sensorDevice, gatewayId, receiver);
+    debug("datapoint stored to db");
 });
-
-function saveSensorDataToDB(sensorId, device, gatewayId, receiver) {
-    db.collection(sensorsCollection).updateOne(
-        {"_id": sensorId},
-        {$set: {"_id": sensorId, "device": device, "gateway_id": gatewayId, "receiver": receiver, "ts": Date.now()}},
-        {upsert: true},
-        function(err, result) {
-            debug("datapoint stored to db");
-        }
-    );
-}
