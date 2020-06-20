@@ -29,6 +29,6 @@ exports.upsertNeighborData = function(peripheralName, peripheralIp) {
                 { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
                 { upsert: true })
                 .then(() => {})
-                .catch(err => throw err);
+                .catch(err => console.error(err.message));
         });
 };

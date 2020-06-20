@@ -1,5 +1,5 @@
 const MqttController = require('../utils/mqtt-controller');
-const daoHelper = require('platform/dao/dao-helper');
+const daoHelper = require('../platform/dao/dao-helper');
 const debug = require('debug')('mqtt-data-collector');
 
 const mqttController = MqttController.getInstance();

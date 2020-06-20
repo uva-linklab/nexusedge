@@ -26,6 +26,6 @@ exports.upsertAddresses = function(macAddress, ipAddress) {
                 {$set: {"_id": macAddress, "IP_address": ipAddress, "ts": Date.now()}},
                 {upsert: true})
                 .then(() => {})
-                .catch(err => throw err);
+                .catch(err => console.error(err.message));
         });
 };

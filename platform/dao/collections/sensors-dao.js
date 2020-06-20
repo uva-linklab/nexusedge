@@ -31,6 +31,6 @@ exports.upsertSensorData = function(sensorId, device, gatewayId, receiver) {
                 {$set: {"_id": sensorId, "device": device, "gateway_id": gatewayId, "receiver": receiver, "ts": Date.now()}},
                 {upsert: true})
                 .then(() => {})
-                .catch(err => throw err);
+                .catch(err => console.error(err.message));
         });
 };

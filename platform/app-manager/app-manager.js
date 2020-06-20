@@ -3,7 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const { fork } = require('child_process');
 const crypto = require('crypto');
-const daoHelper = require('platform/dao/dao-helper');
+const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');
 
 console.log("[INFO] Initialize app-manager...");

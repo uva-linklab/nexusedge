@@ -21,7 +21,7 @@ exports.saveAppInfo = function(appId, appName, appPath, metadataPath, pid) {
                     "pid": pid
                 })
                 .then(() => {})
-                .catch(err => throw err);
+                .catch(err => console.error(err.message));
         });
 };
 
