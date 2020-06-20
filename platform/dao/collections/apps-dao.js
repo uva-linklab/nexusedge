@@ -5,21 +5,23 @@ const appsCollectionName = 'apps';
 /**
  * Saves the app info to DB
  * @param {string} appId application's id
+ * @param {string} appName application's name
  * @param {string} appPath application executable path
  * @param {string} metadataPath metadata path
  * @param {string} pid application's pid
- * @returns {Promise<status>}
  */
-exports.saveAppInfo = function(appId, appPath, metadataPath, pid) {
-    return mongoDbService.getCollection(appsCollectionName)
+exports.saveAppInfo = function(appId, appName, appPath, metadataPath, pid) {
+    mongoDbService.getCollection(appsCollectionName)
         .then(collection => {
-            return collection.insertOne({
+            collection.insertOne({
                     "_id": appId,
-                    "name": appPath,
-                    "pid": pid,
+                    "name": appName,
                     "appPath": appPath,
-                    "metadataPath": metadataPath
-                });
+                    "metadataPath": metadataPath,
+                    "pid": pid
+                })
+                .then(() => {})
+                .catch(err => throw err);
         });
 };
 

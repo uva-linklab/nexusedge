@@ -7,7 +7,7 @@ const neighborsCollectionName = 'neighbors';
  * @param timeMillis
  * @returns {Promise<neighbors>}
  */
-exports.getActiveNeighborsSince = function(timeMillis) {
+exports.getNeighborDataSince = function(timeMillis) {
     return mongoDbService.getCollection(neighborsCollectionName)
         .then(collection => {
             return collection.find({"ts": {$gt: Date.now() - timeMillis}})
@@ -20,14 +20,15 @@ exports.getActiveNeighborsSince = function(timeMillis) {
  *
  * @param peripheralName
  * @param peripheralIp
- * @returns {Promise<status>}
  */
 exports.upsertNeighborData = function(peripheralName, peripheralIp) {
-    return mongoDbService.getCollection(neighborsCollectionName)
+    mongoDbService.getCollection(neighborsCollectionName)
         .then(collection => {
-            return collection.updateOne(
+            collection.updateOne(
                 { "_id" : peripheralName },
                 { $set: { "_id": peripheralName, "IP_address": peripheralIp, "ts" : Date.now()} },
-                { upsert: true });
+                { upsert: true })
+                .then(() => {})
+                .catch(err => throw err);
         });
 };

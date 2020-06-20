@@ -22,14 +22,15 @@ exports.getSensorDataSince = function(timeMillis) {
  * @param device
  * @param gatewayId
  * @param receiver
- * @returns {Promise<err | status>}
  */
 exports.upsertSensorData = function(sensorId, device, gatewayId, receiver) {
-    return mongoDbService.getCollection(sensorCollectionName)
+    mongoDbService.getCollection(sensorCollectionName)
         .then(collection => {
             collection.updateOne(
                 {"_id": sensorId},
                 {$set: {"_id": sensorId, "device": device, "gateway_id": gatewayId, "receiver": receiver, "ts": Date.now()}},
-                {upsert: true});
+                {upsert: true})
+                .then(() => {})
+                .catch(err => throw err);
         });
 };

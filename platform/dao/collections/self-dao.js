@@ -17,14 +17,15 @@ exports.getLatestEntry = function() {
  * Upsert macAddress and ipAddress to DB
  * @param macAddress
  * @param ipAddress
- * @returns {Promise<status>}
  */
 exports.upsertAddresses = function(macAddress, ipAddress) {
-    return mongoDbService.getCollection(selfCollectionName)
+    mongoDbService.getCollection(selfCollectionName)
         .then(collection => {
-            return collection.updateOne(
+            collection.updateOne(
                 {"_id": macAddress},
                 {$set: {"_id": macAddress, "IP_address": ipAddress, "ts": Date.now()}},
-                {upsert: true});
+                {upsert: true})
+                .then(() => {})
+                .catch(err => throw err);
         });
 };
