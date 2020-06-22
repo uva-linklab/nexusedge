@@ -2,7 +2,8 @@ const mqtt = require('mqtt');
 const PLATFORM_MQTT_TOPIC = 'gateway-data';
 
 /**
- * This is a singleton class which is used to operate on MQTT.
+ * MqttController is a singleton that maintains state of multiple MQTT clients.
+ * It ensures that only one MQTT client object is created for a connection with an MQTT broker.
  * Singleton reference: https://blog.logrocket.com/design-patterns-in-node-js/
  *
  * Usage:
@@ -14,22 +15,15 @@ const PLATFORM_MQTT_TOPIC = 'gateway-data';
 
 let instance = null;
 
-// topic -> [callback1, callback2, ...]
-const subscriberCallbackMap = {};
-
 class MqttController {
 
     constructor() {
-        this.mqttClient = mqtt.connect('mqtt://localhost');
+        // mapping from an ip address to the corresponding MQTT client object
+        this.mqttClientMap = {}; // ip -> client
 
-        this.mqttClient.on('message', (topic, message) => {
-            const messageStr = message.toString();
-
-            if(subscriberCallbackMap.hasOwnProperty(topic)) {
-                subscriberCallbackMap[topic]
-                    .forEach(callback => callback(messageStr));
-            }
-        });
+        // mapping from an ip address to the corresponding callbackMap
+        // The callbackMap for a given ip address is a mapping from topic -> [callback1, callback2, ..]
+        this.callbackMapDirectory = {}; // ip -> callbackMap
     }
 
     static getInstance() {
@@ -40,42 +34,105 @@ class MqttController {
     }
 
     /**
-     * publishes a message to the specified topic
+     * publishes a message to the specified topic on a broker at the specified ip
+     * @param ip mqtt broker's ip
      * @param topic
      * @param message message in string format
      */
-    publish(topic, message) {
-        this.mqttClient.publish(topic, message);
+    publish(ip, topic, message) {
+        const client = this._getMqttClient(ip);
+        client.publish(topic, message);
     }
 
     /**
-     * publishes message to the PLATFORM_MQTT_TOPIC
+     * publishes message to the localhost's PLATFORM_MQTT_TOPIC
      * @param message message in string format
      */
     publishToPlatformMqtt(message) {
-        this.publish(PLATFORM_MQTT_TOPIC, message);
+        this.publish("localhost", PLATFORM_MQTT_TOPIC, message);
     }
 
     /**
-     * receive callback when there is new data on a specified MQTT topic
-     * @param topic
-     * @param callback
+     * receive callback when there is new data on a specified MQTT topic at a given ip address
+     * @param ip broker's ip address
+     * @param topic mqtt topic
+     * @param callback callback function
      */
-    subscribe(topic, callback) {
-        if(subscriberCallbackMap.hasOwnProperty(topic)) {
-            subscriberCallbackMap[topic].append(callback);
+    subscribe(ip, topic, callback) {
+        const client = this._getMqttClient(ip);
+
+        const callbackMap = this._getCallbackMap(ip);
+
+        // if there is a callback list for the topic, append this callback to it
+        if(callbackMap.hasOwnProperty(topic)) {
+            callbackMap[topic].push(callback);
         } else {
-            subscriberCallbackMap[topic] = [callback];
-            this.mqttClient.subscribe(topic);
+            // otherwise, add a new callback list
+            callbackMap[topic] = [callback];
+
+            // subscribe to the mqtt topic
+            client.subscribe(topic);
         }
     }
 
     /**
-     * subscribe to the PLATFORM_MQTT_TOPIC
+     * subscribe to the localhost's PLATFORM_MQTT_TOPIC
      * @param callback
      */
     subscribeToPlatformMqtt(callback) {
-        this.subscribe(PLATFORM_MQTT_TOPIC, callback);
+        this.subscribe("localhost", PLATFORM_MQTT_TOPIC, callback);
+    }
+
+    /**
+     * Internal method to return the MQTT client object for the specified ip.
+     * If the ip address is not present, creates a new mqtt client object.
+     * @param ip
+     * @return {mqttClient}
+     * @private
+     */
+    _getMqttClient(ip) {
+        // if there is no mqtt client already present, create a new client
+        if(!this.mqttClientMap.hasOwnProperty(ip)) {
+            this._createMqttClient(ip);
+        }
+        return this.mqttClientMap[ip];
+    }
+
+    /**
+     * connect to the mqtt broker at the ip address specified and add it to the mqttClientMap
+     * @param ip broker's ip address
+     * @private
+     */
+    _createMqttClient(ip) {
+        const client = mqtt.connect(`mqtt://${ip}`);
+
+        // add the client to the mqttClient map
+        this.mqttClientMap[ip] = client;
+
+        // for that client, notify listeners for any messages
+        client.on('message', (topic, message) => {
+            const messageStr = message.toString();
+
+            const callbackMap = this._getCallbackMap(ip);
+            if(callbackMap.hasOwnProperty(topic)) {
+                callbackMap[topic]
+                    .forEach(callback => callback(messageStr));
+            }
+        });
+    }
+
+    /**
+     * returns the callbackMap for a given ip address.
+     * @param ip
+     * @return {*}
+     * @private
+     */
+    _getCallbackMap(ip) {
+        if(!this.callbackMapDirectory.hasOwnProperty(ip)) {
+            // if there is no callback map for ip, add a new entry in the directory
+            this.callbackMapDirectory[ip] = {};
+        }
+        return this.callbackMapDirectory[ip];
     }
 }
 

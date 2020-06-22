@@ -39,8 +39,8 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
             .forEach(gatewayIP => platformAPIFunction(gatewayIP, data)); //call the platform API function
 
     } else {
-        //if it is a request from some other gateway, then publish it on mqtt
-        mqttController.publish(mqttTopic, JSON.stringify(data));
+        // if it is a request from some other gateway, then publish it on local mqtt
+        mqttController.publish("localhost", mqttTopic, JSON.stringify(data));
     }
     res.sendStatus(200);
 }
