@@ -22,6 +22,7 @@ module.exports = function(app) {
     app.get('/gateway/neighbors', gatewayAPIController.getNeighbors);
     app.get('/gateway/sensors', gatewayAPIController.getSensors);
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
+    app.get('/gateway/self-details', gatewayAPIController.getServerStatus);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);

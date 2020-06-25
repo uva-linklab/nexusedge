@@ -1,24 +1,19 @@
 const mqtt = require("mqtt");
-const request = require('request-promise');
+const fetch = require('node-fetch');
 
-let mqttTopic = undefined;
+let applicationTopic = undefined; // this is obtained from app-manager as an environment variable
+let platformApiTopic = 'platform-data'; // this topic is used for disseminate and query apis
+
+let selfDetails = undefined;
 const callbackMap = {};
 
 function __initialize() {
-    mqttTopic = process.env.TOPIC;
+    applicationTopic = process.env.TOPIC; // receive the application's topic as an environment variable
 
-    // connect to mqtt broker
     const mqttClient = mqtt.connect("mqtt://localhost");
     mqttClient.on('connect', () => {
-        // subscribe to application's topic
-        mqttClient.subscribe(mqttTopic, (err) => {
-            if (err) {
-                console.error(`[ERROR] MQTT client failed to subscribe "${mqttTopic}".`);
-                console.error(err);
-            } else {
-                console.log(`[INFO] MQTT client subscribed "${mqttTopic}" succesfully.`)
-            }
-        });
+        subscribeToMqttTopic(mqttClient, applicationTopic);
+        subscribeToMqttTopic(mqttClient, platformApiTopic);
     });
 
     // if a new data is published in the topic,
@@ -34,7 +29,7 @@ function __initialize() {
 }
 
 exports.receive = function(sensorId, callback) {
-    if(!mqttTopic) {
+    if(!applicationTopic) {
         __initialize();
     }
     callbackMap[sensorId] = callback;
@@ -56,12 +51,79 @@ exports.send = function(deviceId, data) {
     sendPostRequest(execUrl, talkToManagerData);
 };
 
-function sendPostRequest(url, data) {
-    const options = {
-        method: 'POST',
-        uri: url,
-        body: data,
-        json: true // Automatically stringifies the body to JSON
-    };
-    request(options);
+exports.disseminateAll = function(tag, data) {
+    getIPAddress().then(ipAddress => {
+        const metadata = {
+            "origin-address": ipAddress,
+            "api": "disseminate-all",
+            "tag": tag
+        };
+        const fullData = {"_meta": metadata, "data": data};
+        sendPostRequest(`http://localhost:5000/platform/disseminate-all`, fullData);
+    });
+};
+
+exports.queryAll = function(tag, replyTag, data) {
+    getIPAddress().then(ipAddress => {
+        const metadata = {
+            "origin-address": ipAddress,
+            "api": "query-all",
+            "tag": tag,
+            "reply-tag": replyTag
+        };
+        const fullData = {"_meta": metadata, "data": data};
+        sendPostRequest(`http://localhost:5000/platform/query-all`, fullData);
+    });
+};
+
+function subscribeToMqttTopic(mqttClient, topic) {
+    mqttClient.subscribe(topic, (err) => {
+        if (err) {
+            console.error(`[oracle] MQTT client failed to subscribe "${topic}".`);
+            console.error(err);
+        } else {
+            console.log(`[oracle] MQTT client subscribed "${topic}" successfully.`)
+        }
+    });
 }
+
+function sendGetRequest(url) {
+    return fetch(url, {
+        method: 'GET'
+    });
+}
+
+function sendPostRequest(url, data) {
+    fetch(url, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {'Content-Type': 'application/json'},
+        timeout: 5000
+    }).then(res => {
+        if(res.status === 200) {
+            console.log(`[oracle] Request to ${url} completed successfully!`);
+        } else {
+            console.log(`[oracle] Request to ${url} failed. HTTP status code = ${res.status}`);
+        }
+    }).catch(err => {
+        console.error(`[oracle] Failed request for url ${url}.`);
+        console.error(err);
+    });
+}
+
+module.exports.getIPAddress = function() {
+    return new Promise((resolve, reject)  => {
+        if(!selfDetails) {
+            sendGetRequest('http://localhost:5000/gateway/self-details')
+                .then(response => {
+                    if(response.status === 200) {
+                        resolve(response.body.IP_address);
+                    } else {
+                        reject(`Received jabaa`);
+                    }
+                });
+        } else {
+            resolve(selfDetails.IP_address);
+        }
+    })
+};

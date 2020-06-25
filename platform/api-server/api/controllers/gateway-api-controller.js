@@ -40,6 +40,17 @@ exports.getServerStatus = async function(req, res) {
 };
 
 /**
+ * This call retrieves the self details of the gateway.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getSelfDetails = async function(req, res) {
+    const selfDetails = await daoHelper.selfDao.getLatestEntry();
+    return res.json(selfDetails);
+};
+
+/**
  * This endpoint takes the uploaded code and metadata and
  * executes it using the code-container module.
  * @param req
