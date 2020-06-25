@@ -106,7 +106,7 @@ exports.talkToManager = async function(req, res) {
         const event = jsonData["_meta"]["event"];
         const payload = jsonData["payload"];
 
-        this.messagingService.forwardMessage(serviceName, recipient, event, payload);
+        messagingService.forwardMessage(serviceName, recipient, event, payload);
     }
 
     res.send();
