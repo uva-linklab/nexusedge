@@ -1,129 +1,110 @@
-const mqtt = require("mqtt");
-const fetch = require('node-fetch');
-
-let applicationTopic = undefined; // this is obtained from app-manager as an environment variable
-let platformApiTopic = 'platform-data'; // this topic is used for disseminate and query apis
+const EventEmitter = require('events');
+const MqttController = require('./mqtt-controller');
+const mqttController = MqttController.getInstance();
+const httpUtils = require('./http-utils');
 
 let selfDetails = undefined;
 const callbackMap = {};
 
-function __initialize() {
-    applicationTopic = process.env.TOPIC; // receive the application's topic as an environment variable
+class Oracle extends EventEmitter {
+    constructor() {
+        super();
+        const platformApiTopic = 'platform-data'; // this topic is used for disseminate and query apis
+        const applicationTopic = process.env.TOPIC; // receive the application's topic as an environment variable
 
-    const mqttClient = mqtt.connect("mqtt://localhost");
-    mqttClient.on('connect', () => {
-        subscribeToMqttTopic(mqttClient, applicationTopic);
-        subscribeToMqttTopic(mqttClient, platformApiTopic);
-    });
-
-    // if a new data is published in the topic,
-    // oracle wil check if the application listens to the topic or not
-    // if so, oracle will send the payload to the callback function
-    mqttClient.on('message', (topic, message) => {
-        const payload = JSON.parse(message.toString());
-        const sensorId = payload["_meta"]["device_id"];
-        if(sensorId in callbackMap) {
-            callbackMap[sensorId](payload);
+        if(!applicationTopic) {
+            console.error("Application did not receive a topic from App Manager. Exiting.");
+            process.exit(1);
         }
-    });
-}
 
-exports.receive = function(sensorId, callback) {
-    if(!applicationTopic) {
-        __initialize();
+        // if a new data is published in the topic, oracle will check if the application is listening for that deviceId
+        // if so, it sends the message to the callback function
+        mqttController.subscribe("localhost", applicationTopic, message => {
+            const messageJson = JSON.parse(message);
+            const deviceId = messageJson["_meta"]["device_id"];
+            if(deviceId in callbackMap) {
+                callbackMap[deviceId](messageJson);
+            }
+        });
+
+        mqttController.subscribe("localhost", platformApiTopic, message => {
+            const messageJson = JSON.parse(message);
+            const api = messageJson._meta.api;
+            const tag = messageJson._meta.tag;
+            this.emit(api, tag, messageJson);
+        });
     }
-    callbackMap[sensorId] = callback;
-    console.log(`added callback for ${sensorId}`);
-};
 
-exports.send = function(deviceId, data) {
-    const execUrl = `http://localhost:5000/gateway/talk-to-manager`;
-    const talkToManagerData = {
-        "_meta" : {
-            "recipient": "ble-controller",
-            "event": "send-to-device"
-        },
-        "payload": {
-            "device-id": deviceId,
-            "send-api-data": data
-        }
+    receive(deviceId, callback) {
+        callbackMap[deviceId] = callback;
+        console.log(`[oracle] added callback for ${deviceId}`);
     };
-    sendPostRequest(execUrl, talkToManagerData);
-};
 
-exports.disseminateAll = function(tag, data) {
-    getIPAddress().then(ipAddress => {
-        const metadata = {
-            "origin-address": ipAddress,
-            "api": "disseminate-all",
-            "tag": tag
+    send(deviceId, data) {
+        const execUrl = `http://localhost:5000/gateway/talk-to-manager`;
+        const talkToManagerData = {
+            "_meta": {
+                "recipient": "ble-controller",
+                "event": "send-to-device"
+            },
+            "payload": {
+                "device-id": deviceId,
+                "send-api-data": data
+            }
         };
-        const fullData = {"_meta": metadata, "data": data};
-        sendPostRequest(`http://localhost:5000/platform/disseminate-all`, fullData);
-    });
-};
+        httpUtils.sendPostRequest(execUrl, talkToManagerData);
+    };
 
-exports.queryAll = function(tag, replyTag, data) {
-    getIPAddress().then(ipAddress => {
-        const metadata = {
-            "origin-address": ipAddress,
-            "api": "query-all",
-            "tag": tag,
-            "reply-tag": replyTag
-        };
-        const fullData = {"_meta": metadata, "data": data};
-        sendPostRequest(`http://localhost:5000/platform/query-all`, fullData);
-    });
-};
+    disseminateAll(tag, data) {
+        this._getIPAddress()
+            .then(ipAddress => {
+                const metadata = {
+                    "origin-address": ipAddress,
+                    "api": "disseminate-all",
+                    "tag": tag
+                };
+                const fullData = {"_meta": metadata, "data": data};
+                httpUtils.sendPostRequest(`http://localhost:5000/platform/disseminate-all`, fullData);
+            })
+            .catch(err => {
+                console.err(err);
+            });
+    };
 
-function subscribeToMqttTopic(mqttClient, topic) {
-    mqttClient.subscribe(topic, (err) => {
-        if (err) {
-            console.error(`[oracle] MQTT client failed to subscribe "${topic}".`);
-            console.error(err);
-        } else {
-            console.log(`[oracle] MQTT client subscribed "${topic}" successfully.`)
-        }
-    });
+    queryAll(tag, replyTag, data) {
+        this._getIPAddress()
+            .then(ipAddress => {
+                const metadata = {
+                    "origin-address": ipAddress,
+                    "api": "query-all",
+                    "tag": tag,
+                    "reply-tag": replyTag
+                };
+                const fullData = {"_meta": metadata, "data": data};
+                httpUtils.sendPostRequest(`http://localhost:5000/platform/query-all`, fullData);
+            })
+            .catch(err => {
+                console.err(err);
+            });
+    };
+
+    _getIPAddress() {
+        return new Promise((resolve, reject) => {
+            if(!selfDetails) {
+                httpUtils.sendGetRequest('http://localhost:5000/gateway/self-details')
+                    .then(res => res.json())
+                    .then(selfDetailsJson => {
+                        selfDetails = selfDetailsJson;
+                        resolve(selfDetailsJson.IP_address);
+                    })
+                    .catch(err => {
+                        reject(err)
+                    });
+            } else {
+                resolve(selfDetails.IP_address);
+            }
+        })
+    }
 }
 
-function sendGetRequest(url) {
-    return fetch(url, {
-        method: 'GET'
-    });
-}
-
-function sendPostRequest(url, data) {
-    fetch(url, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: {'Content-Type': 'application/json'},
-        timeout: 5000
-    }).then(res => {
-        if(res.status === 200) {
-            console.log(`[oracle] Request to ${url} completed successfully!`);
-        } else {
-            console.log(`[oracle] Request to ${url} failed. HTTP status code = ${res.status}`);
-        }
-    }).catch(err => {
-        console.error(`[oracle] Failed request for url ${url}.`);
-        console.error(err);
-    });
-}
-
-module.exports.getIPAddress = function() {
-    return new Promise((resolve, reject)  => {
-        if(!selfDetails) {
-            sendGetRequest('http://localhost:5000/gateway/self-details')
-                .then(response => {
-                    if(response.status === 200) {
-                        resolve(response.body.IP_address);
-                    } else {
-                        reject(`Received jabaa`);
-                    }
-                });
-        } else {
-            resolve(selfDetails.IP_address);
-        }
-    })
-};
+module.exports = Oracle;
