@@ -1,4 +1,4 @@
-const Oracle = require('../../index');
+const Oracle = require('../../oracle');
 const oracle = new Oracle();
 
 oracle.on('query-all', function(tag, data) {

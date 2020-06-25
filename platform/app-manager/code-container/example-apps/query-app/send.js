@@ -1,4 +1,4 @@
-const Oracle = require('../../index');
+const Oracle = require('../../oracle');
 const oracle = new Oracle();
 
 // Send a query with the tag queryData. Wait for its response with the tag queryDataResponse.

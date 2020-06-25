@@ -1,4 +1,4 @@
-const Oracle = require('../../index');
+const Oracle = require('../../oracle');
 const oracle = new Oracle();
 
 // to subscribe for sensor data from a specific device
