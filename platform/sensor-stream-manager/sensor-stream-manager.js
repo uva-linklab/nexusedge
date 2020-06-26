@@ -115,17 +115,18 @@ function updatePolicy(type, sensorId, ip, topic, policy) {
 }
 
 /**
- * This function updates the privacyPolicyInMinute
+ * This function updates the privacyPolicyInterval
  */
-function updatePolicyMinute() {
+function findInterval() {
     const now = new Date();
-    privacyPolicyInMinute = {
+    privacyPolicyInterval = {
         "sensor-specific": [],
         "app-specific": {},
         "app-sensor": {}
     };
     let type = "sensor-specific";
     let sensorIds = privacyPolicy[type];
+    let nextInterval = undefined;
     for(const sensorId in sensorIds) {
         const sensorPolicy = sensorIds[sensorId];
         const currentDate = new Date(now);
@@ -139,12 +140,18 @@ function updatePolicyMinute() {
         const checkRange = now.getTime() - nextExecuteTime.getTime();
         if(checkRange >= 0) {
             if(sensorPolicy["block"]) {
-                privacyPolicyInMinute["sensor-specific"].push(sensorId);
+                privacyPolicyInterval["sensor-specific"].push(sensorId);
             }
         } else {
             if(!sensorPolicy["block"]) {
-                privacyPolicyInMinute["sensor-specific"].push(sensorId);
+                privacyPolicyInterval["sensor-specific"].push(sensorId);
             }
+        }
+        let tempNextInterval = interval.next();
+        if(nextInterval) {
+            if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
+        } else {
+            nextInterval = tempNextInterval;
         }
     }
     type = "app-specific";
@@ -164,33 +171,39 @@ function updatePolicyMinute() {
             const checkRange = now.getTime() - nextExecuteTime.getTime();
             if(checkRange >= 0) {
                 if(sensorPolicy["block"]) {
-                    if(!privacyPolicyInMinute["app-specific"][gatewayIp]) {
-                        privacyPolicyInMinute["app-specific"][gatewayIp] = [];
+                    if(!privacyPolicyInterval["app-specific"][gatewayIp]) {
+                        privacyPolicyInterval["app-specific"][gatewayIp] = [];
                     }
-                    privacyPolicyInMinute["app-specific"][gatewayIp].push(topic);
+                    privacyPolicyInterval["app-specific"][gatewayIp].push(topic);
                 }
             } else {
                 if(!sensorPolicy["block"]) {
-                    if(!privacyPolicyInMinute["app-specific"][gatewayIp]) {
-                        privacyPolicyInMinute["app-specific"][gatewayIp] = [];
+                    if(!privacyPolicyInterval["app-specific"][gatewayIp]) {
+                        privacyPolicyInterval["app-specific"][gatewayIp] = [];
                     }
-                    privacyPolicyInMinute["app-specific"][gatewayIp].push(topic);
+                    privacyPolicyInterval["app-specific"][gatewayIp].push(topic);
                 }
+            }
+            let tempNextInterval = interval.next();
+            if(nextInterval) {
+                if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
+            } else {
+                nextInterval = tempNextInterval;
             }
         }
     }
     type = "app-sensor"
     sensorIds = privacyPolicy[type];
     for(const sensorId in sensorIds) {
-        if(privacyPolicyInMinute["sensor-specific"].includes(sensorId)) {
+        if(privacyPolicyInterval["sensor-specific"].includes(sensorId)) {
             continue;
         }
         const gatewayIps = sensorIds[sensorId];
         for(const gatewayIp in gatewayIps) {
             const topics = gatewayIps[gatewayIp];
             for(const topic in topics) {
-                if(privacyPolicyInMinute["app-specific"][gatewayIp] &&
-                   privacyPolicyInMinute["app-specific"][gatewayIp].includes(topic)) {
+                if(privacyPolicyInterval["app-specific"][gatewayIp] &&
+                   privacyPolicyInterval["app-specific"][gatewayIp].includes(topic)) {
                     continue;
                 }
                 const sensorPolicy = topics[topic];
@@ -205,28 +218,36 @@ function updatePolicyMinute() {
                 const checkRange = now.getTime() - nextExecuteTime.getTime();
                 if(checkRange >= 0) {
                     if(sensorPolicy["block"]) {
-                        if(!privacyPolicyInMinute[type][sensorId]) {
-                            privacyPolicyInMinute[type][sensorId] = {};
+                        if(!privacyPolicyInterval[type][sensorId]) {
+                            privacyPolicyInterval[type][sensorId] = {};
                         }
-                        if(!privacyPolicyInMinute[type][sensorId][gatewayIp]) {
-                            privacyPolicyInMinute[type][sensorId][gatewayIp] = [];
+                        if(!privacyPolicyInterval[type][sensorId][gatewayIp]) {
+                            privacyPolicyInterval[type][sensorId][gatewayIp] = [];
                         }
-                        privacyPolicyInMinute[type][sensorId][gatewayIp].push(topic);
+                        privacyPolicyInterval[type][sensorId][gatewayIp].push(topic);
                     }
                 } else {
                     if(!sensorPolicy["block"]) {
-                        if(!privacyPolicyInMinute[type][sensorId]) {
-                            privacyPolicyInMinute[type][sensorId] = {};
+                        if(!privacyPolicyInterval[type][sensorId]) {
+                            privacyPolicyInterval[type][sensorId] = {};
                         }
-                        if(!privacyPolicyInMinute[type][sensorId][gatewayIp]) {
-                            privacyPolicyInMinute[type][sensorId][gatewayIp] = [];
+                        if(!privacyPolicyInterval[type][sensorId][gatewayIp]) {
+                            privacyPolicyInterval[type][sensorId][gatewayIp] = [];
                         }
-                        privacyPolicyInMinute[type][sensorId][gatewayIp].push(topic);
+                        privacyPolicyInterval[type][sensorId][gatewayIp].push(topic);
                     }
+                }
+                let tempNextInterval = interval.next();
+                if(nextInterval) {
+                    if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
+                } else {
+                    nextInterval = tempNextInterval;
                 }
             }
         }
     }
+    if(nextInterval) console.log("next update time:", nextInterval.toString())
+    return nextInterval;
 }
 
 /**
@@ -239,16 +260,16 @@ function updatePolicyMinute() {
  * @returns {bool} - if the sensor is blocked
  */
 function checkPolicy(sensorId, ip, topic) {
-    if(privacyPolicyInMinute["sensor-specific"].includes(sensorId)) {
+    if(privacyPolicyInterval["sensor-specific"].includes(sensorId)) {
         return true;
     }
-    if(privacyPolicyInMinute["app-specific"][ip] &&
-       privacyPolicyInMinute["app-specific"][ip].includes(topic)) {
+    if(privacyPolicyInterval["app-specific"][ip] &&
+       privacyPolicyInterval["app-specific"][ip].includes(topic)) {
            return true;
     }
-    if(privacyPolicyInMinute["app-sensor"][sensorId] &&
-       privacyPolicyInMinute["app-sensor"][sensorId][ip] &&
-       privacyPolicyInMinute["app-sensor"][sensorId][ip].includes(topic)) {
+    if(privacyPolicyInterval["app-sensor"][sensorId] &&
+       privacyPolicyInterval["app-sensor"][sensorId][ip] &&
+       privacyPolicyInterval["app-sensor"][sensorId][ip].includes(topic)) {
         return true;
     }
     return false;
@@ -292,6 +313,7 @@ function subscribeToGatewayData(client) {
         }
     });
 }
+
 /**
  * This function lets the local MQTT client route
  * the sensor stream to applications
@@ -397,13 +419,13 @@ const privacyPolicy = {
     "app-sensor": {}
 };
 
-// privacyPolicyInMinute stores the blocked sensor-app mapping within this minute.
-// privacyPolicyInMinute = {
+// privacyPolicyInterval stores the blocked sensor-app mapping within this minute.
+// privacyPolicyInterval = {
 //     sensor1: {
 //         gateway1: [topic1]
 //     }
 // }
-let privacyPolicyInMinute = {};
+let privacyPolicyInterval = {};
 
 // mqttClients = {
 //     "gateway-ip": client
@@ -525,20 +547,42 @@ messagingService.listenForEvent("update-policy", message => {
             }
         }
         console.log(`update policy: ${JSON.stringify(privacyPolicy)}`);
+        nextInterval = findInterval();
+        console.log(nextInterval);
+        updatePolicyJob();
     }
 });
-const timeZone = "Asia/Taipei";
-const updatePolicyJob = new cronJob({
-    "cronTime": '0 * * * * *',
-    "onTick": () => {
-        console.log(`[INFO] Updated privacyPolicyInMinute at ${Date.now()}`);
-        console.time("updatePolicyMinute");
-        updatePolicyMinute();
-        console.timeEnd("updatePolicyMinute");
-        console.log(`update pulicy in minute: ${JSON.stringify(privacyPolicyInMinute)}`);
-    },
-    "timeZone": timeZone
-});
 
-console.log(`[INFO] Started to update privacy policy cron job.`);
-updatePolicyJob.start();
+const timeZone = "Asia/Taipei";
+// const updatePolicyJob = new cronJob({
+//     "cronTime": '0 * * * * *',
+//     "onTick": () => {
+//         console.log(`[INFO] Updated privacyPolicyInterval at ${Date.now()}`);
+//         console.time("updatePolicyMinute");
+//         updatePolicyMinute();
+//         console.timeEnd("updatePolicyMinute");
+//         console.log(`update pulicy in minute: ${JSON.stringify(privacyPolicyInterval)}`);
+//     },
+//     "timeZone": timeZone
+// });
+
+// console.log(`[INFO] Started to update privacy policy cron job.`);
+// updatePolicyJob.start();
+let nextInterval = findInterval();
+let policyTimeout = undefined;
+updatePolicyJob();
+function updatePolicyJob() {
+    if(nextInterval) {
+        if(policyTimeout) {
+            clearTimeout(policyTimeout);
+        }
+        let now = new Date();
+        let nextIntervalTime = nextInterval.getTime() - now.getTime();
+        console.log(`${now}, next interval: ${nextIntervalTime}`);
+        policyTimeout = setTimeout(() => {
+            nextInterval = findInterval();
+            console.log(new Date(), "next interval: ", nextIntervalTime);
+            updatePolicyJob()
+        }, nextIntervalTime);
+    }
+}
