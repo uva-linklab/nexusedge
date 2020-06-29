@@ -115,85 +115,148 @@ function updatePolicy(type, sensorId, ip, topic, policy) {
 }
 
 /**
- * This function updates the privacyPolicyInterval
+ * This function compare the next execute time and update.
+ * @param {object} orgNextExecTime - CronDate object
+ * @param {object} cmpNextExecTime - CronDate object
+ * @returns {object} nextExecTime - CronDate object
  */
-function findInterval() {
-    const now = new Date();
-    privacyPolicyInterval = {
-        "sensor-specific": [],
-        "app-specific": {},
-        "app-sensor": {}
-    };
-    let type = "sensor-specific";
-    let sensorIds = privacyPolicy[type];
-    let nextInterval = undefined;
-    for(const sensorId in sensorIds) {
-        const sensorPolicy = sensorIds[sensorId];
-        const currentDate = new Date(now);
-        currentDate.setSeconds(-10);
-        const options = {
-            "currentDate": currentDate,
-            "tz": timeZone
+function updateNextExecTime(orgNextExecTime, cmpNextExecTime) {
+    if(orgNextExecTime) {
+        if(cmpNextExecTime.getTime() < orgNextExecTime.getTime()) {
+            return cmpNextExecTime;
         }
-        const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
-        const nextExecuteTime = interval.next();
-        const checkRange = now.getTime() - nextExecuteTime.getTime();
-        if(checkRange >= 0) {
-            if(sensorPolicy["block"]) {
-                privacyPolicyInterval["sensor-specific"].push(sensorId);
-            }
-        } else {
-            if(!sensorPolicy["block"]) {
-                privacyPolicyInterval["sensor-specific"].push(sensorId);
-            }
+    } else {
+        return cmpNextExecTime;
+    }
+    return orgNextExecTime
+}
+
+/**
+ * This function compile the cron like policy to the execute time
+ * @param {object} policy - cron like policy
+ * @param {object} currentDate - Date object
+ * @returns {object} intervals - CronDate object pointer
+ */
+function compilePolicyToIntervals(policy, currentDate) {
+    currentDate.setSeconds(-10);
+    const options = {
+        "currentDate": currentDate,
+        "tz": timeZone
+    }
+    return cronParser.parseExpression(policy["cron"], options);
+}
+
+/**
+ * This function pushes the topic to policyInterval.
+ * It first checks if the sensorId or gatewayIp in the policyInterval. If they do
+ * not exist, the function will creates them.
+ * @param {string} blockTarget - app topic or sensor id
+ * @param {object} type - privacyPolicyInterval[type]
+ * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
+ * @param {...string} restkeys - sensorId, gatewayIp
+ */
+function checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys) {
+    if(!key1) {
+        // sensor-specific goes here
+        // push blockTarget to inerval policy
+        policyInterval.push(blockTarget);
+    } else if(restKeys.length === 0) {
+        if(!policyInterval.hasOwnProperty(key1)) {
+            policyInterval[key1] = [];
+            // push blockTarget to inerval policy
+            policyInterval[key1].push(blockTarget);
         }
-        let tempNextInterval = interval.next();
-        if(nextInterval) {
-            if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
-        } else {
-            nextInterval = tempNextInterval;
+    } else {
+        if(!policyInterval.hasOwnProperty(key1)) {
+            policyInterval[key1] = {};
+        }
+        checkKeysInNestedAndPush(blockTarget, policyInterval[key1], ...restKeys)
+    }
+}
+
+/**
+ * This function checks if the key in the object. If the key does
+ * not exist, it creates the key.
+ * @param {number} interval - time interval
+ * @param {bool} block
+ * @param {string} blockTarget - app topic or sensor id
+ * @param {Object} policyInterval
+ * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
+ * @param {...string} restkeys - sensorId, gatewayIp
+ */
+function checkIntervalAndBlock(interval, block, blockTarget, policyInterval, key1, ...restKeys) {
+    if(interval >= 0) {
+        if(block) {
+            checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys);
+        }
+    } else {
+        if(!block) {
+            checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys);
         }
     }
-    type = "app-specific";
-    let gatewayIps = privacyPolicy[type];
+}
+
+/**
+ * This function calculate the time interval in milliseconds.
+ * @param {Object} date1 - Date or CronDate
+ * @param {Object} date2 - Date or CronDate
+ */
+function getMSInterval(date1, date2) {
+    return date1.getTime() - date2.getTime();
+}
+
+/**
+ * This function updates sensor-specific interval privacy policy
+ * @param {Object} now - Date
+ * @param {Object} privacyPolicyInterval
+ * @param {Object} nextExecTime - CronDate
+ */
+function checkSensorSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
+    const type = `sensor-specific`;
+    const sensorIds = privacyPolicy[type];
+    for(const sensorId in sensorIds) {
+        const sensorPolicy = sensorIds[sensorId];
+        const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
+        const execTime = intervals.next();
+        const checkInterval = getMSInterval(now, execTime);
+        checkIntervalAndBlock(checkInterval, sensorPolicy["block"], sensorId, privacyPolicyInterval[type]);
+        nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
+    }
+    return nextExecTime;
+}
+
+/**
+ * This function updates app-specific interval privacy policy
+ * @param {Object} now - Date
+ * @param {Object} privacyPolicyInterval
+ * @param {Object} nextExecTime - CronDate
+ */
+function checkAppSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
+    const type = `app-specific`;
+    const gatewayIps = privacyPolicy[type];
     for(const gatewayIp in gatewayIps) {
         const topics = gatewayIps[gatewayIp];
         for(const topic in topics) {
             const sensorPolicy = topics[topic];
-            const currentDate = new Date(now);
-            currentDate.setSeconds(-10);
-            const options = {
-                "currentDate": currentDate,
-                "tz": timeZone
-            }
-            const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
-            const nextExecuteTime = interval.next();
-            const checkRange = now.getTime() - nextExecuteTime.getTime();
-            if(checkRange >= 0) {
-                if(sensorPolicy["block"]) {
-                    if(!privacyPolicyInterval["app-specific"][gatewayIp]) {
-                        privacyPolicyInterval["app-specific"][gatewayIp] = [];
-                    }
-                    privacyPolicyInterval["app-specific"][gatewayIp].push(topic);
-                }
-            } else {
-                if(!sensorPolicy["block"]) {
-                    if(!privacyPolicyInterval["app-specific"][gatewayIp]) {
-                        privacyPolicyInterval["app-specific"][gatewayIp] = [];
-                    }
-                    privacyPolicyInterval["app-specific"][gatewayIp].push(topic);
-                }
-            }
-            let tempNextInterval = interval.next();
-            if(nextInterval) {
-                if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
-            } else {
-                nextInterval = tempNextInterval;
-            }
+            const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
+            const execTime = intervals.next();
+            const checkInterval = getMSInterval(now, execTime);
+            checkIntervalAndBlock(checkInterval, sensorPolicy["block"], topic, privacyPolicyInterval[type], gatewayIp);
+            nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
         }
     }
-    type = "app-sensor"
-    sensorIds = privacyPolicy[type];
+    return nextExecTime;
+}
+
+/**
+ * This function updates app-sensor interval privacy policy
+ * @param {Object} now - Date
+ * @param {Object} privacyPolicyInterval
+ * @param {Object} nextExecTime - CronDate
+ */
+function checkAppSensorPolicy(now, privacyPolicyInterval, nextExecTime) {
+    const type = `app-sensor`;
+    const sensorIds = privacyPolicy[type];
     for(const sensorId in sensorIds) {
         if(privacyPolicyInterval["sensor-specific"].includes(sensorId)) {
             continue;
@@ -207,47 +270,37 @@ function findInterval() {
                     continue;
                 }
                 const sensorPolicy = topics[topic];
-                const currentDate = new Date(now);
-                currentDate.setSeconds(-10);
-                const options = {
-                    "currentDate": currentDate,
-                    "tz": timeZone
-                }
-                const interval = cronParser.parseExpression(sensorPolicy["cron"], options);
-                const nextExecuteTime = interval.next();
-                const checkRange = now.getTime() - nextExecuteTime.getTime();
-                if(checkRange >= 0) {
-                    if(sensorPolicy["block"]) {
-                        if(!privacyPolicyInterval[type][sensorId]) {
-                            privacyPolicyInterval[type][sensorId] = {};
-                        }
-                        if(!privacyPolicyInterval[type][sensorId][gatewayIp]) {
-                            privacyPolicyInterval[type][sensorId][gatewayIp] = [];
-                        }
-                        privacyPolicyInterval[type][sensorId][gatewayIp].push(topic);
-                    }
-                } else {
-                    if(!sensorPolicy["block"]) {
-                        if(!privacyPolicyInterval[type][sensorId]) {
-                            privacyPolicyInterval[type][sensorId] = {};
-                        }
-                        if(!privacyPolicyInterval[type][sensorId][gatewayIp]) {
-                            privacyPolicyInterval[type][sensorId][gatewayIp] = [];
-                        }
-                        privacyPolicyInterval[type][sensorId][gatewayIp].push(topic);
-                    }
-                }
-                let tempNextInterval = interval.next();
-                if(nextInterval) {
-                    if(tempNextInterval.getTime() < nextInterval.getTime()) nextInterval = tempNextInterval;
-                } else {
-                    nextInterval = tempNextInterval;
-                }
+                const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
+                const execTime = intervals.next();
+                const checkInterval = getMSInterval(now, execTime);
+                checkIntervalAndBlock(checkInterval,
+                                      sensorPolicy["block"],
+                                      topic,
+                                      privacyPolicyInterval[type],
+                                      sensorId, gatewayIp);
+                nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
             }
         }
     }
-    if(nextInterval) console.log("next update time:", nextInterval.toString())
-    return nextInterval;
+    return nextExecTime;
+}
+
+/**
+ * This function updates the privacyPolicyInterval.
+ */
+function findInterval() {
+    const now = new Date();
+    privacyPolicyInterval = {
+        "sensor-specific": [],
+        "app-specific": {},
+        "app-sensor": {}
+    };
+    let nextExecTime = undefined;
+    nextExecTime = checkSensorSpecificPolicy(now, privacyPolicyInterval, nextExecTime);
+    nextExecTime = checkAppSpecificPolicy(now, privacyPolicyInterval, nextExecTime);
+    nextExecTime = checkAppSensorPolicy(now, privacyPolicyInterval, nextExecTime);
+    console.log(`[INFO] Updated interval policy: ${JSON.stringify(privacyPolicyInterval)}`);
+    return nextExecTime;
 }
 
 /**
@@ -546,43 +599,35 @@ messagingService.listenForEvent("update-policy", message => {
                 }
             }
         }
-        console.log(`update policy: ${JSON.stringify(privacyPolicy)}`);
-        nextInterval = findInterval();
-        console.log(nextInterval);
-        updatePolicyJob();
+        console.log(`[INFO] Updated policy: ${JSON.stringify(privacyPolicy)}`);
+        updatePolicyIntervalJob();
     }
 });
 
 const timeZone = "Asia/Taipei";
-// const updatePolicyJob = new cronJob({
-//     "cronTime": '0 * * * * *',
-//     "onTick": () => {
-//         console.log(`[INFO] Updated privacyPolicyInterval at ${Date.now()}`);
-//         console.time("updatePolicyMinute");
-//         updatePolicyMinute();
-//         console.timeEnd("updatePolicyMinute");
-//         console.log(`update pulicy in minute: ${JSON.stringify(privacyPolicyInterval)}`);
-//     },
-//     "timeZone": timeZone
-// });
 
-// console.log(`[INFO] Started to update privacy policy cron job.`);
-// updatePolicyJob.start();
-let nextInterval = findInterval();
+let nextInterval = undefined;
 let policyTimeout = undefined;
-updatePolicyJob();
-function updatePolicyJob() {
+updatePolicyIntervalJob();
+
+function updatePolicyInterval() {
+    // check if next interval exists
     if(nextInterval) {
         if(policyTimeout) {
+            // clear setTimeout when update policy
             clearTimeout(policyTimeout);
         }
-        let now = new Date();
-        let nextIntervalTime = nextInterval.getTime() - now.getTime();
-        console.log(`${now}, next interval: ${nextIntervalTime}`);
+        const now = new Date();
+        // calculate the interval for next execution
+        const nextIntervalTime = getMSInterval(nextInterval, now);
+        console.log(`[INFO] Next update time: ${nextInterval}, interval: ${nextIntervalTime}`);
         policyTimeout = setTimeout(() => {
-            nextInterval = findInterval();
-            console.log(new Date(), "next interval: ", nextIntervalTime);
-            updatePolicyJob()
+            updatePolicyIntervalJob();
         }, nextIntervalTime);
     }
+}
+
+function updatePolicyIntervalJob() {
+    nextInterval = findInterval();
+    updatePolicyInterval();
 }
