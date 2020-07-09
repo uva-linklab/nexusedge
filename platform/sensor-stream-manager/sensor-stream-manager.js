@@ -3,7 +3,6 @@ const mqtt = require("mqtt");
 const utils = require("../../utils/utils");
 const fetch = require('node-fetch');
 const cronParser = require('cron-parser');
-const cronJob = require('cron').CronJob;
 
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require('../messaging-service');
@@ -98,7 +97,7 @@ function connectToMQTTBroker(ip) {
  * @param {string} sensorId
  * @param {string} ip - MQTT broker's ip
  * @param {string} topic - application's topic
- * @param {object} policy
+ * @param {Object} policy
  */
 function updatePolicy(type, sensorId, ip, topic, policy) {
     if(type === "app-sensor") {
@@ -115,27 +114,46 @@ function updatePolicy(type, sensorId, ip, topic, policy) {
 }
 
 /**
- * This function compare the next execute time and update.
- * @param {object} orgNextExecTime - CronDate object
- * @param {object} cmpNextExecTime - CronDate object
- * @returns {object} nextExecTime - CronDate object
+ * This function finds the nearest next execution time
+ * @param {string} cron - cron rule
+ * @param {Object} now - Date object
+ * @param {Object} orgNextExecTime - CronDate object
+ * @param {Object} execTime - CronDate object
+ * @param {Object} intervals - CronDate object pointer
+ * @returns {Object} CronDate object
  */
-function updateNextExecTime(orgNextExecTime, cmpNextExecTime) {
-    if(orgNextExecTime) {
-        if(cmpNextExecTime.getTime() < orgNextExecTime.getTime()) {
-            return cmpNextExecTime;
+function updateNextExecTime(cron, now, orgNextExecTime, execTime, intervals) {
+    // if the present time is ruled by cron rule
+    if(getMSInterval(now, execTime) >= 0) {
+        const cronRules = cron.split(' ');
+        // if the cron rule includes `seconds`
+        if(cronRules.length === 6) {
+            execTime = intervals.next();
+        } else {
+            // find the nearest time
+            let nextExecTime = intervals.next();
+            let interval = getMSInterval(nextExecTime, execTime);
+            while(interval <= 60000) {
+                execTime = nextExecTime;
+                nextExecTime = intervals.next();
+                interval = getMSInterval(nextExecTime, execTime);
+            }
+            execTime.addMinute();
         }
-    } else {
-        return cmpNextExecTime;
+    }
+    // if orgNextExecTime is undefined or
+    // compare the nearest time with orgNextExecTime
+    if(!orgNextExecTime || execTime.getTime() < orgNextExecTime.getTime()) {
+        return execTime;
     }
     return orgNextExecTime
 }
 
 /**
  * This function compile the cron like policy to the execute time
- * @param {object} policy - cron like policy
- * @param {object} currentDate - Date object
- * @returns {object} intervals - CronDate object pointer
+ * @param {Object} policy - cron like policy
+ * @param {Object} currentDate - Date object
+ * @returns {Object} CronDate object pointer
  */
 function compilePolicyToIntervals(policy, currentDate) {
     currentDate.setSeconds(-10);
@@ -151,11 +169,11 @@ function compilePolicyToIntervals(policy, currentDate) {
  * It first checks if the sensorId or gatewayIp in the policyInterval. If they do
  * not exist, the function will creates them.
  * @param {string} blockTarget - app topic or sensor id
- * @param {object} type - privacyPolicyInterval[type]
+ * @param {Object} type - privacyPolicyInterval[type]
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
  * @param {...string} restkeys - sensorId, gatewayIp
  */
-function checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys) {
+function pushKeysToPolicyInterval(blockTarget, policyInterval, key1, ...restKeys) {
     if(!key1) {
         // sensor-specific goes here
         // push blockTarget to inerval policy
@@ -170,7 +188,7 @@ function checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys
         if(!policyInterval.hasOwnProperty(key1)) {
             policyInterval[key1] = {};
         }
-        checkKeysInNestedAndPush(blockTarget, policyInterval[key1], ...restKeys)
+        pushKeysToPolicyInterval(blockTarget, policyInterval[key1], ...restKeys)
     }
 }
 
@@ -184,14 +202,14 @@ function checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
  * @param {...string} restkeys - sensorId, gatewayIp
  */
-function checkIntervalAndBlock(interval, block, blockTarget, policyInterval, key1, ...restKeys) {
+function checkPolicyInterval(interval, block, blockTarget, policyInterval, key1, ...restKeys) {
     if(interval >= 0) {
         if(block) {
-            checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys);
+            pushKeysToPolicyInterval(blockTarget, policyInterval, key1, ...restKeys);
         }
     } else {
         if(!block) {
-            checkKeysInNestedAndPush(blockTarget, policyInterval, key1, ...restKeys);
+            pushKeysToPolicyInterval(blockTarget, policyInterval, key1, ...restKeys);
         }
     }
 }
@@ -200,6 +218,7 @@ function checkIntervalAndBlock(interval, block, blockTarget, policyInterval, key
  * This function calculate the time interval in milliseconds.
  * @param {Object} date1 - Date or CronDate
  * @param {Object} date2 - Date or CronDate
+ * @returns {number} time in millisecond
  */
 function getMSInterval(date1, date2) {
     return date1.getTime() - date2.getTime();
@@ -210,6 +229,7 @@ function getMSInterval(date1, date2) {
  * @param {Object} now - Date
  * @param {Object} privacyPolicyInterval
  * @param {Object} nextExecTime - CronDate
+ * @returns {Object} CronDate object pointer
  */
 function checkSensorSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
     const type = `sensor-specific`;
@@ -219,8 +239,8 @@ function checkSensorSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
         const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
         const execTime = intervals.next();
         const checkInterval = getMSInterval(now, execTime);
-        checkIntervalAndBlock(checkInterval, sensorPolicy["block"], sensorId, privacyPolicyInterval[type]);
-        nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
+        checkPolicyInterval(checkInterval, sensorPolicy["block"], sensorId, privacyPolicyInterval[type]);
+        nextExecTime = updateNextExecTime(sensorPolicy["cron"], now, nextExecTime, execTime, intervals);
     }
     return nextExecTime;
 }
@@ -230,6 +250,7 @@ function checkSensorSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
  * @param {Object} now - Date
  * @param {Object} privacyPolicyInterval
  * @param {Object} nextExecTime - CronDate
+ * @returns {Object} CronDate object
  */
 function checkAppSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
     const type = `app-specific`;
@@ -241,8 +262,8 @@ function checkAppSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
             const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
             const execTime = intervals.next();
             const checkInterval = getMSInterval(now, execTime);
-            checkIntervalAndBlock(checkInterval, sensorPolicy["block"], topic, privacyPolicyInterval[type], gatewayIp);
-            nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
+            checkPolicyInterval(checkInterval, sensorPolicy["block"], topic, privacyPolicyInterval[type], gatewayIp);
+            nextExecTime = updateNextExecTime(sensorPolicy["cron"], now, nextExecTime, execTime, intervals);
         }
     }
     return nextExecTime;
@@ -253,6 +274,7 @@ function checkAppSpecificPolicy(now, privacyPolicyInterval, nextExecTime) {
  * @param {Object} now - Date
  * @param {Object} privacyPolicyInterval
  * @param {Object} nextExecTime - CronDate
+ * @returns {Object} CronDate object
  */
 function checkAppSensorPolicy(now, privacyPolicyInterval, nextExecTime) {
     const type = `app-sensor`;
@@ -273,12 +295,12 @@ function checkAppSensorPolicy(now, privacyPolicyInterval, nextExecTime) {
                 const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
                 const execTime = intervals.next();
                 const checkInterval = getMSInterval(now, execTime);
-                checkIntervalAndBlock(checkInterval,
+                checkPolicyInterval(checkInterval,
                                       sensorPolicy["block"],
                                       topic,
                                       privacyPolicyInterval[type],
                                       sensorId, gatewayIp);
-                nextExecTime = updateNextExecTime(nextExecTime, intervals.next());
+                nextExecTime = updateNextExecTime(sensorPolicy["cron"], now, nextExecTime, execTime, intervals);
             }
         }
     }
@@ -287,6 +309,7 @@ function checkAppSensorPolicy(now, privacyPolicyInterval, nextExecTime) {
 
 /**
  * This function updates the privacyPolicyInterval.
+ * @returns {Object} CronDate object
  */
 function findInterval() {
     const now = new Date();
@@ -318,7 +341,7 @@ function checkPolicy(sensorId, ip, topic) {
     }
     if(privacyPolicyInterval["app-specific"][ip] &&
        privacyPolicyInterval["app-specific"][ip].includes(topic)) {
-           return true;
+        return true;
     }
     if(privacyPolicyInterval["app-sensor"][sensorId] &&
        privacyPolicyInterval["app-sensor"][sensorId][ip] &&
