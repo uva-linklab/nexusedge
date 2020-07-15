@@ -1,10 +1,12 @@
+const fs = require('fs');
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 const utils = require('../../utils');
-const MessagingService = require('../messaging-service');
-const TalkToManagerService = require('../gateway-scanner/talk-to-manager-service/talk-to-manager-service').Service;
-const talkToManagerServiceUuid = require('../gateway-scanner/talk-to-manager-service/talk-to-manager-service').uuid;
 const daoHelper = require('../dao/dao-helper');
+const MessagingService = require('../messaging-service');
+const TalkToManagerService = require('./talk-to-manager-service/talk-to-manager-service').Service;
+const talkToManagerServiceUuid = require('./talk-to-manager-service/talk-to-manager-service').uuid;
+const messageCharacteristicUuid = require('./talk-to-manager-service/message-characteristic').uuid;
 
 /**
  * Reads the group key from the specified key file.
@@ -43,14 +45,14 @@ const pendingMessages = {};
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
+// wait for bleController to initialize
 bleController.initialize().then(() => {
-
     // store the IP address and BLE MAC address for future use
-    daoHelper.selfDao.upsertAddresses(bleController.getMacAddress(), this.ipAddress);
+    daoHelper.selfDao.upsertAddresses(bleController.getMacAddress(), ipAddress);
 
     // Use the group key to encrypt the IP address. We use this encrypted IP as the localName for the advertisement.
-    const encryptedIp = utils.encryptAES(this.ipAddress, this.groupKey.key, this.groupKey.iv);
-    const talkToManagerService = new TalkToManagerService(this.messagingService, () => {
+    const encryptedIp = utils.encryptAES(ipAddress, groupKey.key, groupKey.iv);
+    const talkToManagerService = new TalkToManagerService(messagingService, () => {
         // restart ble scan once the write to the characteristic is complete
         bleController.startScanning();
     });
@@ -64,7 +66,7 @@ bleController.initialize().then(() => {
 async function handlePeripheral(peripheral) {
     const localName = peripheral.advertisement.localName;
     if(typeof localName !== "undefined") {
-        const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
+        const discoveredIp = utils.decryptAES(localName.toString('utf8'), groupKey.key, groupKey.iv);
         console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
         console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
 
@@ -83,19 +85,19 @@ async function handlePeripheral(peripheral) {
              */
             const message = messageList.shift();
 
-            await this.bleScanner.connectToPeripheralAsync(peripheral);
+            await bleController.connectToPeripheralAsync(peripheral);
             console.log(`[gateway-scanner] Connected to peripheral at ${discoveredIp}`);
 
             const serviceUUIDs = [talkToManagerServiceUuid];
             const characteristicUUIDs = [messageCharacteristicUuid];
 
             const servicesAndCharacteristics =
-                await this.bleScanner.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs);
+                await bleController.discoverServicesAndCharacteristics(peripheral, serviceUUIDs, characteristicUUIDs);
 
             const characteristics = servicesAndCharacteristics["characteristics"];
             const messageCharacteristic = characteristics[0];
 
-            this.bleScanner.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
+            bleController.writeCharacteristic(messageCharacteristic, JSON.stringify(message));
             console.log(`[gateway-scanner] Message sent to peripheral`);
 
             if(messageList.length === 0) {

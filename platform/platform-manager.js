@@ -16,8 +16,8 @@ const services = {
         socket: undefined,
         process: undefined
     },
-    "ble-controller": {
-        path: __dirname + "/ble-controller/ble-controller.js",
+    "gateway-scanner": {
+        path: __dirname + "/gateway-scanner/gateway-scanner.js",
         socket: undefined,
         process: undefined
     },
