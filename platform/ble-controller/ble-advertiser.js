@@ -6,8 +6,8 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 const bleno = require('@abandonware/bleno');
 const daoHelper = require('../dao/dao-helper');
 const utils = require("../../utils");
-const TalkToManagerService = require('./services/talk-to-manager-service/talk-to-manager-service').Service;
-const talkToManagerServiceUuid = require('./services/talk-to-manager-service/talk-to-manager-service').uuid;
+const TalkToManagerService = require('../gateway-scanner/talk-to-manager-service/talk-to-manager-service').Service;
+const talkToManagerServiceUuid = require('../gateway-scanner/talk-to-manager-service/talk-to-manager-service').uuid;
 
 class BleAdvertiser {
     constructor(groupKey, ipAddress, messagingService, bleScanner) {

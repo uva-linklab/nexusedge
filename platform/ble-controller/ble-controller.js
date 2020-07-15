@@ -35,7 +35,7 @@ const bleAdvertiser = new BleAdvertiser(groupKey, ipAddress, messagingService, b
 bleAdvertiser.startAdvertising();
 
 // initialize device handlers that are registered to handle peripherals using the BleScanner object
-const GatewayScanner = require("./device-handlers/gateway-scanner/gateway-scanner");
+const GatewayScanner = require("../gateway-scanner/gateway-scanner");
 const EstimoteScanner = require("./device-handlers/estimote-scanner/estimote-scanner");
 const LightingScanner = require("./device-handlers/lighting-scanner/lighting-scanner");
 const OortSocketHandler = require("./device-handlers/oort-socket-handler/oort-socket-handler");
