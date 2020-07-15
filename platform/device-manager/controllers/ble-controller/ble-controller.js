@@ -1,3 +1,7 @@
+// For noble and bleno to work in tandem
+// Reference: https://github.com/noble/noble#bleno-compatibility
+process.env.NOBLE_MULTI_ROLE = 1;
+
 /*
 use abandonware forks of noble and bleno because the original repos are not maintained and do not work with node.js
 versions 8 and above.
