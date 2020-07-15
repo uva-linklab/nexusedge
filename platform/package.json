@@ -4,8 +4,7 @@
   "description": "platform",
   "main": "platform-manager.js",
   "dependencies": {
-    "@abandonware/bleno": "^0.5.1-2",
-    "@abandonware/noble": "^1.9.2-8",
+    "ble-controller": "^1.0.0",
     "body-parser": "latest",
     "cors": "^2.8.5",
     "debug": "^4.1.1",
