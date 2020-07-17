@@ -5,15 +5,17 @@ Parses BLE packets from Lighting Sensor and publishes to the gateway-data MQTT t
 const MqttController = require('../../../../utils/mqtt-controller');
 
 class LightingScanner {
-    constructor(bleScanner) {
+    constructor(platformCallback) {
         this.deviceType = "Lighting Sensor";
-        this.bleScanner = bleScanner;
+        this.bleScanner = platformCallback;
         this.mqttController = MqttController.getInstance();
         this.scanPaused = false;
 
         // TODO uncomment once the UUID for the lighting sensors are figured out
         // this.bleScanner.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
         // this._startScan();
+
+        console.log(`in lighting-scanner -> received platformCallback ${platformCallback}`);
     }
 
     //TODO: get actual data from the lighting sensors and not just its metadata

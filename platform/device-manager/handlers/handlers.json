@@ -1,0 +1,14 @@
+{
+    "estimote-scanner": {
+        "main": "estimote-scanner.js",
+        "controller": "ble-controller"
+    },
+    "lighting-scanner": {
+        "main": "lighting-scanner.js",
+        "controller": "ble-controller"
+    },
+    "oort-socket-handler": {
+        "main": "oort-socket-handler.js",
+        "controller": "ble-controller"
+    }
+}

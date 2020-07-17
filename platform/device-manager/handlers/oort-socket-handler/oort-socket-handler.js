@@ -20,13 +20,14 @@ let oortClockCharacteristic = null;
 const pendingMessages = {};
 
 class OortSocketHandler {
-    constructor(bleScanner) {
+    constructor(platformCallback) {
         this.deviceType = "OORT Smart Socket";
-        this.bleScanner = bleScanner;
+        this.bleScanner = platformCallback;
         this.mqttController = MqttController.getInstance();
         this.isHandlingMessages = false;
 
-        this.bleScanner.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
+        // this.bleScanner.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
+        console.log(`in oort-handler -> received platformCallback ${platformCallback}`);
     }
 
     async _handlePeripheral(peripheral) {

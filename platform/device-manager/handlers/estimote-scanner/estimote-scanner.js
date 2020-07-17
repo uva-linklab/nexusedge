@@ -8,14 +8,15 @@ const MqttController = require("../../../../utils/mqtt-controller");
 const ESTIMOTE_SERVICE_UUID = 'fe9a';
 
 class EstimoteScanner {
-    constructor(bleScanner) {
+    constructor(platformCallback) {
         this.deviceType = "Estimote";
-        this.bleScanner = bleScanner;
+        this.bleScanner = platformCallback;
         this.mqttController = MqttController.getInstance();
         this.scanPaused = false;
 
-        this.bleScanner.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
-        this._startScan();
+        // this.bleScanner.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
+        // this._startScan();
+        console.log(`in estimote-scanner -> received platformCallback ${platformCallback}`);
     }
 
     _handlePeripheral(peripheral) {
