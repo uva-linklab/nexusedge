@@ -1,9 +1,8 @@
-module.exports.getIPAddress = getIPAddress;
-
+const crypto = require('crypto');
 const pcap = require('pcap');
 const config = require('./config.json');
 
-function getIPAddress() {
+exports.getIPAddress =  function() {
 	const networkInterface = config.network.interface;
 	if(!networkInterface) {
 		console.log("interface not found in config file");
@@ -16,4 +15,20 @@ function getIPAddress() {
 				.addresses
 				.find(addrElem => addrElem && regex.test(addrElem.addr))
 				.addr;
-}
+};
+
+const algorithm = 'aes-256-ctr';
+
+exports.encryptAES = function(text, password, iv) {
+	const cipher = crypto.createCipheriv(algorithm, password, iv);
+	var encrypted = cipher.update(text, 'utf8', 'base64');
+	encrypted += cipher.final('base64');
+	return encrypted;
+};
+
+exports.decryptAES = function(encrypted, password, iv) {
+	const decipher = crypto.createDecipheriv(algorithm, password, iv);
+	var dec = decipher.update(encrypted, 'base64', 'utf8');
+	dec += decipher.final('utf8');
+	return dec;
+};

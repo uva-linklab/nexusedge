@@ -1,9 +1,9 @@
 const request = require('request-promise');
-const mqtt = require('mqtt');
 const utils = require('../../../../utils/utils');
-const MessagingService = require('../../../messaging-service');
-
+const MqttController = require('../../../../utils/mqtt-controller');
+const mqttController = MqttController.getInstance();
 const mqttTopic = 'platform-data';
+const MessagingService = require('../../../messaging-service');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -43,8 +43,8 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
             .forEach(gatewayIP => platformAPIFunction(gatewayIP, data)); //call the platform API function
 
     } else {
-        //if it is a request from some other gateway, then publish it on mqtt
-        publishOnMQTT("mqtt://localhost", mqttTopic, JSON.stringify(data));
+        // if it is a request from some other gateway, then publish it on local mqtt
+        mqttController.publish("localhost", mqttTopic, JSON.stringify(data));
     }
     res.sendStatus(200);
 }
@@ -93,17 +93,6 @@ function sendPostRequest(url, data) {
         json: true // Automatically stringifies the body to JSON
     };
     request(options);
-}
-
-function publishOnMQTT(url, topic, msg) {
-    const mqttClient = mqtt.connect(url);
-    mqttClient.on('connect', () => {
-        console.log("connected to mqtt");
-        mqttClient.publish(topic, msg, function (err) {
-            console.log("publish complete");
-            mqttClient.end();
-        });
-    });
 }
 
 /**

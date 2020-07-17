@@ -1,4 +1,4 @@
-module.exports.parseEstimoteTelemetryPacket = parseEstimoteTelemetryPacket;
+// Reference: https://github.com/Estimote/estimote-specs/blob/master/estimote-telemetry.js
 
 // Once you obtain the "Estimote" Service Data, here's how to check if it's
 // a Telemetry packet, and if so, how to parse it.
@@ -241,3 +241,5 @@ function parseEstimoteTelemetryPacket(data) { // data is a 0-indexed byte array/
     };
   }
 }
+
+module.exports.parseEstimoteTelemetryPacket = parseEstimoteTelemetryPacket;

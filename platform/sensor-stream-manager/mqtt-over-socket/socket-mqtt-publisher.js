@@ -9,7 +9,8 @@
 const {
     workerData
 } = require('worker_threads');
-const mqtt = require('mqtt');
+const MqttController = require('../../../utils/mqtt-controller');
+const mqttController = MqttController.getInstance();
 const WebSocket = require('ws');
 
 //Ensure that we get a web socket address from parent. If not, exit.
@@ -88,23 +89,12 @@ This function initializes MQTT and listens for the given sensorIds. If new data 
 callback.
  */
 function notifyForSensorData(sensorIds, callback) {
-    //connect to MQTT
-    const MQTT_TOPIC_NAME = 'gateway-data';
-    const client = mqtt.connect('mqtt://localhost');
+    mqttController.subscribeToPlatformMqtt(message => {
+        const data = JSON.parse(message);
+        const sensorId = data._meta.device_id;
 
-    client.on('connect', () => {
-        client.subscribe(MQTT_TOPIC_NAME);
-        console.log("connected to mqtt");
-    });
-
-    client.on('message', (topic, message) => {
-        if(topic === MQTT_TOPIC_NAME) {
-            const data = JSON.parse(message.toString());
-            const sensorId = data._meta.device_id;
-
-            if(sensorIds.includes(sensorId)) {
-                callback(sensorId, data);
-            }
+        if(sensorIds.includes(sensorId)) {
+            callback(sensorId, data);
         }
     });
 }

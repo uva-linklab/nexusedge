@@ -147,7 +147,7 @@
                     sensorType = "estimote";
                 } else if (sensorData.receiver === "enocean-generic-gateway") {
                     sensorType = "enocean";
-                } else if (sensorData.receiver === "ble-gateway") {
+                } else if (sensorData.receiver === "ble-peripheral-scanner") {
                     sensorType = "ble";
                 } else {
                     console.log(`unknown device type ${sensorData.device}, ${sensorData.receiver}`);
