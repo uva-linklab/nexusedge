@@ -415,6 +415,35 @@ function routeSensorStreamsToApps(client) {
     });
 }
 
+/**
+ * This function updates the policyInterval
+ */
+function updatePolicyInterval() {
+    // check if next interval exists
+    if(nextInterval) {
+        if(policyTimeout) {
+            // clear setTimeout when update policy
+            clearTimeout(policyTimeout);
+        }
+        const now = new Date();
+        // calculate the interval for next execution
+        const nextIntervalTime = getMSInterval(nextInterval, now);
+        console.log(`[INFO] Next update time: ${nextInterval}, interval: ${nextIntervalTime}`);
+        policyTimeout = setTimeout(() => {
+            updatePolicyIntervalJob();
+        }, nextIntervalTime);
+    }
+}
+
+/**
+ * This function finds the next interval for updating the policy,
+ * and updates the policyInterval.
+ */
+function updatePolicyIntervalJob() {
+    nextInterval = findInterval();
+    updatePolicyInterval();
+}
+
 console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -627,30 +656,11 @@ messagingService.listenForEvent("update-policy", message => {
     }
 });
 
-const timeZone = "Asia/Taipei";
+const timeZone = "America/New_York";
 
+// nextInterval is the time in the setTimeout() to update the policy.
 let nextInterval = undefined;
+// setTimeout object
 let policyTimeout = undefined;
+// start update the policy
 updatePolicyIntervalJob();
-
-function updatePolicyInterval() {
-    // check if next interval exists
-    if(nextInterval) {
-        if(policyTimeout) {
-            // clear setTimeout when update policy
-            clearTimeout(policyTimeout);
-        }
-        const now = new Date();
-        // calculate the interval for next execution
-        const nextIntervalTime = getMSInterval(nextInterval, now);
-        console.log(`[INFO] Next update time: ${nextInterval}, interval: ${nextIntervalTime}`);
-        policyTimeout = setTimeout(() => {
-            updatePolicyIntervalJob();
-        }, nextIntervalTime);
-    }
-}
-
-function updatePolicyIntervalJob() {
-    nextInterval = findInterval();
-    updatePolicyInterval();
-}
