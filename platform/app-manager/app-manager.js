@@ -60,6 +60,9 @@ messagingService.listenForEvent('app-deployment', message => {
                 // Using fork() not spawn() is because fork is a special instance of spawn for creating a Nodejs child process.
                 // Reference:
                 // https://stackoverflow.com/questions/17861362/node-js-child-process-difference-between-spawn-fork
+
+                // use "ipc" in options.stdio to setup ipc between the parent process and the child process
+                // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
                 const newApp = fork(newAppPath, [], {
                     env: { TOPIC: appId },
                     stdio: [
