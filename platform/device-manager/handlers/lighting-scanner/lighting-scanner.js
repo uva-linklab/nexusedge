@@ -12,7 +12,7 @@ class LightingScanner {
         this.scanPaused = false;
     }
 
-    start(platform) {
+    execute(platform) {
         this.platform = platform;
 
         // TODO uncomment once the UUID for the lighting sensors are figured out

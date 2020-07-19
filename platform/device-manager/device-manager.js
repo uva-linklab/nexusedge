@@ -38,6 +38,7 @@ handlerUtils.loadHandlers().then(handlerMap => {
     if(!handlerMap) {
     }
 
+    // TODO check if execute exists before performing execute: typeof handlerObj.execute
     // execute each handler object
     // pass the platformCallback object with callback functions that handlers can use
     Object.values(handlerMap).forEach(handlerObj => handlerObj.execute(platformCallback));
