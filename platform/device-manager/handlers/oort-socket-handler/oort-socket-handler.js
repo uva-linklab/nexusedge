@@ -1,7 +1,8 @@
 /*
 Connects and controls the OORT/WiTenergy Smart Socket
  */
-const MqttController = require("../../../../utils/mqtt-controller");
+const BleController = require('ble-controller');
+const bleController = BleController.getInstance();
 
 const OORT_SERVICE_INFO_UUID = '180a';
 const OORT_SERVICE_SENSOR_UUID = '0000fee0494c4f474943544543480000';
@@ -20,14 +21,15 @@ let oortClockCharacteristic = null;
 const pendingMessages = {};
 
 class OortSocketHandler {
-    constructor(platformCallback) {
+    constructor(handlerId) {
+        this.handlerId = handlerId;
         this.deviceType = "OORT Smart Socket";
-        this.bleScanner = platformCallback;
-        this.mqttController = MqttController.getInstance();
         this.isHandlingMessages = false;
-
-        // this.bleScanner.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
-        console.log(`in oort-handler -> received platformCallback ${platformCallback}`);
+    }
+    
+    execute(platform) {
+        this.platform = platform;
+        bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
     }
 
     async _handlePeripheral(peripheral) {
@@ -38,10 +40,10 @@ class OortSocketHandler {
             "received_time": new Date().toISOString(),
             "device_id": peripheral.id,
             "receiver": "ble-peripheral-scanner",
-            "gateway_id": this.bleScanner.getMacAddress()
+            "gateway_id": bleController.getMacAddress()
         };
 
-        this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default topic
+        this.platform.deliver(this.handlerId, data);
 
         /*
          There were instances where two async callbacks would both try to handle the pendingMessages leading to issues.
@@ -68,7 +70,7 @@ class OortSocketHandler {
         }
     }
 
-    connectToDevice(deviceId, data) {
+    dispatch(deviceId, data) {
         // currently, the only type of data we support is state = T/F
         /*
         {
@@ -85,9 +87,9 @@ class OortSocketHandler {
 
     // Reference: https://github.com/lab11/accessor-files/blob/master/accessors/sensor/power/oortSmartSocket.js
     async _initializeOortSocket(peripheral) {
-        await this.bleScanner.connectToPeripheralAsync(peripheral);
+        await bleController.connectToPeripheralAsync(peripheral);
         console.log("[OORT] connected to peripheral");
-        const services = await this.bleScanner.discoverServices(peripheral, [OORT_SERVICE_INFO_UUID, OORT_SERVICE_SENSOR_UUID]);
+        const services = await bleController.discoverServices(peripheral, [OORT_SERVICE_INFO_UUID, OORT_SERVICE_SENSOR_UUID]);
 
         // parse through the services and figure out the "info" and "sensor" service indices
         let infoIndex = -1;
@@ -111,17 +113,17 @@ class OortSocketHandler {
         }
 
         //get the info characteristics
-        const infoChars = await this.bleScanner.discoverCharacteristics(services[infoIndex], [OORT_CHAR_SYSTEMID_UUID]);
+        const infoChars = await bleController.discoverCharacteristics(services[infoIndex], [OORT_CHAR_SYSTEMID_UUID]);
 
         if (infoChars.length === 0) {
             console.error('[OORT] Could not get the System ID characteristic.');
             throw 'Could not get the System ID characteristic.';
         }
 
-        const systemId = await this.bleScanner.readCharacteristic(infoChars[0]);
+        const systemId = await bleController.readCharacteristic(infoChars[0]);
 
         // Get the characteristics of the sensor service
-        const sensorChars = await this.bleScanner.discoverCharacteristics(services[sensorIndex],
+        const sensorChars = await bleController.discoverCharacteristics(services[sensorIndex],
             [OORT_CHAR_CLOCK_UUID, OORT_CHAR_SENSOR_UUID]);
 
         for (let i = 0; i < sensorChars.length; i++) {
@@ -157,7 +159,7 @@ class OortSocketHandler {
 
         // var data = new Buffer([0x03, 0xdf, 0x07, 0x05, 0x1c, 0x16, 0x10, 0x2f, 0x8c, 0x03]);
         // Set the clock on the device
-        this.bleScanner.writeCharacteristic(oortClockCharacteristic, dataToSend);
+        bleController.writeCharacteristic(oortClockCharacteristic, dataToSend);
         console.log('[OORT] Successfully set the OORT clock.');
     }
 
@@ -170,7 +172,7 @@ class OortSocketHandler {
 
         const val = (state) ? 0x1 : 0x0;
 
-        this.bleScanner.writeCharacteristic(oortClockCharacteristic, [0x4, val]);
+        bleController.writeCharacteristic(oortClockCharacteristic, [0x4, val]);
         console.log(`[OORT] sent state = ${state} to oort`);
     }
 }

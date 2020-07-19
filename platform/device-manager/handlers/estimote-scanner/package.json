@@ -1,0 +1,14 @@
+{
+  "name": "estimote-scanner",
+  "version": "1.0.0",
+  "description": "Handler for obtaining data from estimotes.",
+  "main": "estimote-scanner.js",
+  "dependencies": {
+    "ble-controller": "^1.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC"
+}

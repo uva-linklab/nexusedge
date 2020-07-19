@@ -1,22 +1,24 @@
 /*
 Parses BLE packets from Estimote Sensors and publishes to the gateway-data MQTT topic
  */
+const BleController = require('ble-controller');
+const bleController = BleController.getInstance();
 const estimoteParser = require("./estimote-telemetry-parser");
-const MqttController = require("../../../../utils/mqtt-controller");
 
 // Packets from the estimote family (Telemetry, Connectivity, etc.) are broadcast with the Service UUID 'fe9a'
 const ESTIMOTE_SERVICE_UUID = 'fe9a';
 
 class EstimoteScanner {
-    constructor(platformCallback) {
+    constructor(handlerId) {
+        this.handlerId = handlerId;
         this.deviceType = "Estimote";
-        this.bleScanner = platformCallback;
-        this.mqttController = MqttController.getInstance();
         this.scanPaused = false;
+    }
 
-        // this.bleScanner.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
-        // this._startScan();
-        console.log(`in estimote-scanner -> received platformCallback ${platformCallback}`);
+    execute(platform) {
+        this.platform = platform;
+        bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
+        this._startScan();
     }
 
     _handlePeripheral(peripheral) {
@@ -44,13 +46,13 @@ class EstimoteScanner {
                 "received_time": new Date().toISOString(),
                 "device_id": telemetryPacket.shortIdentifier,
                 "receiver": "ble-peripheral-scanner",
-                "gateway_id": this.bleScanner.getMacAddress()
+                "gateway_id": bleController.getMacAddress()
             };
 
             //concatenate data and telemetry packet objects
             Object.assign(data, telemetryPacket);
 
-            this.mqttController.publishToPlatformMqtt(JSON.stringify(data));
+            this.platform.deliver(this.handlerId, data);
         }
     }
 

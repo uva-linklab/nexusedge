@@ -1,25 +1,27 @@
 /*
 // TODO add which make of lighting sensors we are using
-Parses BLE packets from Lighting Sensor and publishes to the gateway-data MQTT topic
+Parses BLE packets from Lighting Sensor
  */
-const MqttController = require('../../../../utils/mqtt-controller');
+const BleController = require('ble-controller');
+const bleController = BleController.getInstance();
 
 class LightingScanner {
-    constructor(platformCallback) {
+    constructor(handlerId) {
+        this.handlerId = handlerId;
         this.deviceType = "Lighting Sensor";
-        this.bleScanner = platformCallback;
-        this.mqttController = MqttController.getInstance();
         this.scanPaused = false;
+    }
+
+    start(platform) {
+        this.platform = platform;
 
         // TODO uncomment once the UUID for the lighting sensors are figured out
-        // this.bleScanner.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
+        // bleController.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
         // this._startScan();
-
-        console.log(`in lighting-scanner -> received platformCallback ${platformCallback}`);
     }
 
     //TODO: get actual data from the lighting sensors and not just its metadata
-    handlePeripheral(peripheral) {
+    _handlePeripheral(peripheral) {
         // handle peripherals only during the time periods define in startScan and stopScan
         if(this.scanPaused) {
             return;
@@ -32,10 +34,10 @@ class LightingScanner {
             "received_time": new Date().toISOString(),
             "device_id": peripheral.id,
             "receiver": "ble-peripheral-scanner",
-            "gateway_id": this.bleScanner.getMacAddress()
+            "gateway_id": bleController.getMacAddress()
         };
 
-        this.mqttController.publishToPlatformMqtt(JSON.stringify(data)); // publish to the platform's default MQTT topic
+        this.platform.deliver(this.handlerId, data);
     }
 
     _startScan() {

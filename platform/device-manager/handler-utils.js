@@ -11,10 +11,9 @@ const { fork } = require('child_process');
  * Any directory under device-manager/handlers/ is considered to a handler.
  * The configuration file for handlers is device-manager/handlers/handlers.json.
  * This function ensures that handlers follow all guidelines.
- * @param platformCallback Object with callback functions that handlers can use
  * @return {Promise<{}|null>} If all guidelines are met returns a map of handlers and handler objects, otherwise null.
  */
-module.exports.loadHandlers = async function(platformCallback) {
+module.exports.loadHandlers = async function() {
     // ensure that handlers directory exists and it contains a handlers.json config file
     const handlersDirectoryPath = path.join(__dirname, "handlers");
     const handlersJsonPath = path.join(handlersDirectoryPath, "handlers.json");
@@ -103,27 +102,31 @@ module.exports.loadHandlers = async function(platformCallback) {
         return null;
     }
 
+    // TODO npm install controller packages separately. Install other dependencies for each handler in the local dir.
     // do npm install in each handler directory
-    try {
-        const execResults = await Promise.all(handlerNames.map(handler =>
-            executeCommand('npm install', path.join(handlersDirectoryPath, handler))));
+    // try {
+    //     const execResults = await Promise.all(handlerNames.map(handler =>
+    //         executeCommand('npm install', path.join(handlersDirectoryPath, handler))));
+    //
+    //     execResults.forEach((result, index) => {
+    //         console.log(`${handlerNames[index]}:`);
+    //         console.log(result['stdout']);
+    //     });
+    // } catch (err) {
+    //     console.error('Failed to perform npm install in one of the handlers. Please check error:');
+    //     console.error(err);
+    //     return null;
+    // }
 
-        execResults.forEach((result, index) => {
-            console.log(`${handlerNames[index]}:`);
-            console.log(result['stdout']);
-        });
-    } catch (err) {
-        console.error('Failed to perform npm install in one of the handlers. Please check error:');
-        console.error(err);
-        return null;
-    }
-
-    // create a map of handlerName -> handleObj
+    // create a map of handlerName -> handlerObj
+    // we send a map to aid in looking up the handlerObj from a handlerName.
+    // eg: send(deviceId) -> handlerObj.dispatch(deviceId) would require deviceId -> handler -> handlerObj
     const handlerObjMap = {};
-    handlerNames.forEach((handler, index) => {
-        // create objects for each handler and pass them the platformCallback object
+    handlerNames.forEach((handlerName, index) => {
+        // create objects for each handler
         const HandlerClass = require(mainScriptPaths[index]);
-        handlerObjMap[handler] = new HandlerClass(platformCallback);
+        // Pass the handler's name as its id. Will be used by it to identify itself when communicating with the platform.
+        handlerObjMap[handlerName] = new HandlerClass(handlerName);
     });
     return handlerObjMap;
 };

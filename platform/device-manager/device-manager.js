@@ -1,16 +1,46 @@
 const handlerUtils = require('./handler-utils');
+const MqttController = require('../../utils/mqtt-controller');
+const mqttController = MqttController.getInstance();
 
 // TODO add proper functions
-const registerFunction = null;
-const deliverFunction = null;
-const platformCallback = {
-    'register': registerFunction,
-    'deliver': deliverFunction
-};
-handlerUtils.loadHandlers(platformCallback).then(handlerMap => {
-    // execute each of the handlers in separate threads
-    console.log(handlerMap);
+function deliver(handler, deviceData) {
+    // TODO set the metadata here rather than in the handlers
+    // deviceData["_meta"] = {
+    //     "received_time": new Date().toISOString(),
+    //     "receiver": "ble-peripheral-scanner", // TODO remove
+    //     "handler": handler,
+    //     "controller": "jabaa", // TODO get it from teh json file mapping
+    //     "gateway_id": this.bleScanner.getMacAddress()
+    // };
+    console.log(`handler ${handler} delivered data`);
+    console.log(deviceData);
 
+    const deviceId = deviceData['id'];
+    if(isRegistered(deviceId)) {
+        mqttController.publishToPlatformMqtt(JSON.stringify(deviceData)); // publish to platform's default MQTT topic
+    } else {
+        // db.addDevice(deviceId, deviceType, handler); // TODO
+    }
+}
+
+// TODO
+function isRegistered(deviceId) {
+    // return (deviceExistsCache(deviceId) || deviceExistsDB(deviceId));
+    return true;
+}
+
+const platformCallback = {
+    'deliver': deliver
+};
+
+handlerUtils.loadHandlers().then(handlerMap => {
+    // TODO notify platform manager that we have a problem and exit
+    if(!handlerMap) {
+    }
+
+    // execute each handler object
+    // pass the platformCallback object with callback functions that handlers can use
+    Object.values(handlerMap).forEach(handlerObj => handlerObj.execute(platformCallback));
 });
 
 
@@ -23,7 +53,8 @@ handlerUtils.loadHandlers(platformCallback).then(handlerMap => {
 //     deviceHandlerMap[handler.deviceType] = handler;
 // });
 //
-// // TODO add implementation
+// TODO add implementation
+
 // function getHandlerForDeviceId(deviceId) {
 //     return oortSocketHandler;
 // }

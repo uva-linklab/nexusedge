@@ -1,0 +1,14 @@
+{
+  "name": "oort-socket-handler",
+  "version": "1.0.0",
+  "description": "Connects and controls the OORT/WiTenergy Smart Socket",
+  "main": "oort-socket-handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "ble-controller": "^1.0.0"
+  }
+}
