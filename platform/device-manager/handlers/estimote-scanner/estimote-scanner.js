@@ -17,8 +17,10 @@ class EstimoteScanner {
 
     execute(platform) {
         this.platform = platform;
-        bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
-        this._startScan();
+        bleController.initialize().then(() => {
+            bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
+            this._startScan();
+        });
     }
 
     _handlePeripheral(peripheral) {

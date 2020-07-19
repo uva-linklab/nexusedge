@@ -29,7 +29,24 @@ class OortSocketHandler {
     
     execute(platform) {
         this.platform = platform;
-        bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
+        bleController.initialize().then(() => {
+            bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
+        });
+    }
+
+    dispatch(deviceId, data) {
+        // currently, the only type of data we support is state = T/F
+        /*
+        {
+            "state": "on"
+        }
+         */
+        // add to pendingMessages
+        if(pendingMessages.hasOwnProperty(deviceId)) {
+            pendingMessages[deviceId].push(data);
+        } else {
+            pendingMessages[deviceId] = [data];
+        }
     }
 
     async _handlePeripheral(peripheral) {
@@ -67,21 +84,6 @@ class OortSocketHandler {
                 console.log("[oort-socket-handler] Deleted messages for peripheral");
             }
             this.isHandlingMessages = false;
-        }
-    }
-
-    dispatch(deviceId, data) {
-        // currently, the only type of data we support is state = T/F
-        /*
-        {
-            "state": "on"
-        }
-         */
-        // add to pendingMessages
-        if(pendingMessages.hasOwnProperty(deviceId)) {
-            pendingMessages[deviceId].push(data);
-        } else {
-            pendingMessages[deviceId] = [data];
         }
     }
 

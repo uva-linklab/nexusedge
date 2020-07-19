@@ -16,8 +16,10 @@ class LightingScanner {
         this.platform = platform;
 
         // TODO uncomment once the UUID for the lighting sensors are figured out
-        // bleController.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
-        // this._startScan();
+        bleController.initialize().then(() => {
+            // bleController.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
+            // this._startScan();
+        });
     }
 
     //TODO: get actual data from the lighting sensors and not just its metadata
