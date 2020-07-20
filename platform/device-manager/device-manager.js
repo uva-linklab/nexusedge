@@ -1,8 +1,11 @@
 const handlerUtils = require('./handler-utils');
 const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
+const daoHelper = require('../dao/dao-helper');
 
-// TODO add proper functions
+// Using this object as a cache. Stores the deviceId as the key.
+const deviceCache = {};
+
 function deliver(handler, deviceData) {
     // TODO set the metadata here rather than in the handlers
     // deviceData["_meta"] = {
@@ -16,17 +19,46 @@ function deliver(handler, deviceData) {
     console.log(deviceData);
 
     const deviceId = deviceData['id'];
-    if(isRegistered(deviceId)) {
+    const deviceType = deviceData['device']; // TODO change key to deviceType
+
+    isRegistered(deviceId).then(registered => {
+        if(!registered) {
+            daoHelper.devicesDao.addDevice(deviceId, deviceType, handler);
+
+            // also add to cache, the timestamp is unnecessary, but it might come in handy later when we merge
+            // mqtt-data-collector and this
+            // TODO if we need last seen time of device, move this line after the publish stmt
+            deviceCache[deviceId] = Date.now();
+        }
         mqttController.publishToPlatformMqtt(JSON.stringify(deviceData)); // publish to platform's default MQTT topic
-    } else {
-        // db.addDevice(deviceId, deviceType, handler); // TODO
-    }
+    });
 }
 
-// TODO
-function isRegistered(deviceId) {
-    // return (deviceExistsCache(deviceId) || deviceExistsDB(deviceId));
-    return true;
+async function isRegistered(deviceId) {
+    const deviceInCache = isDeviceInCache(deviceId);
+    if(deviceInCache) {
+        return true;
+    }
+    return await isDeviceInDb(deviceId);
+}
+
+/**
+ * Checks if a device exists in the database or not
+ * @param deviceId
+ * @return {Promise<boolean>}
+ */
+async function isDeviceInDb(deviceId) {
+    const device = await daoHelper.devicesDao.find(deviceId);
+    return (device.length !== 0);
+}
+
+/**
+ * Checks if a device exists in cache or not
+ * @param deviceId
+ * @return {boolean}
+ */
+function isDeviceInCache(deviceId) {
+    return deviceCache.hasOwnProperty(deviceId);
 }
 
 const platformCallback = {

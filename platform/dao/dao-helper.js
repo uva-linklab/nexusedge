@@ -6,3 +6,4 @@ exports.appsDao = require('./collections/apps-dao');
 exports.neighborsDao = require('./collections/neighbors-dao');
 exports.selfDao = require('./collections/self-dao');
 exports.sensorsDao = require('./collections/sensors-dao');
+exports.devicesDao = require('./collections/devices-dao');
