@@ -86,15 +86,24 @@ module.exports.loadHandlers = async function() {
     We have a requirement that controller npm packages should not be installed on a per handler basis, i.e. should not
     exist in multiple node_modules/ directories. This is because controllers are singletons which access some underlying
     hardware. Each hardware must have a single controller which arbitrates handler access to that hardware.
-    Enforcing single installation of controller packages became easier due to npm's design. By design, 'npm install'
-    looks for a node_modules/ directory anywhere in the working directory all the way upto the root directory. Since we
-    have npm packages installed in the platform/ directory, we can just do 'npm install' at each handler directory and
-    the packages get installed in platform/node_modules. (controllers are part of the package dependencies of handlers)
+    So we install controllers in the device-manager/ path. This gets installed in the parent node_modules/ directory
+    since device-manager does not have a package.json. Then for each handler, we install their dependencies excluding
+    the controller packages. (controllers are part of the package dependencies of handlers)
      */
 
-    // ensure that each handler directory has a package.json file
+    // first, install the controller packages in the device-manager directory
+    try {
+        await installNpmDependencyList(__dirname, controllers);
+    } catch (err) {
+        console.error(`failed to install the controller packages ${controllers}`);
+        console.error(err);
+        return null;
+    }
+
+    // before installing the dependencies for each handler, ensure that each handler directory has a package.json file
+    const handlerPackageJsonPaths = handlerNames.map(handler => path.join(handlersDirectoryPath, handler, 'package.json'));
     const packageJsonStatus =
-        await checkPathsExist(handlerNames.map(handler => path.join(handlersDirectoryPath, handler, 'package.json')),
+        await checkPathsExist(handlerPackageJsonPaths,
             handlerNames,
             'Some of the handlers have missing package.json files. Please ensure that each handler uses one.',
             '${name} has a missing package.json');
@@ -102,21 +111,35 @@ module.exports.loadHandlers = async function() {
         return null;
     }
 
-    // TODO npm install controller packages separately. Install other dependencies for each handler in the local dir.
-    // do npm install in each handler directory
-    // try {
-    //     const execResults = await Promise.all(handlerNames.map(handler =>
-    //         executeCommand('npm install', path.join(handlersDirectoryPath, handler))));
-    //
-    //     execResults.forEach((result, index) => {
-    //         console.log(`${handlerNames[index]}:`);
-    //         console.log(result['stdout']);
-    //     });
-    // } catch (err) {
-    //     console.error('Failed to perform npm install in one of the handlers. Please check error:');
-    //     console.error(err);
-    //     return null;
-    // }
+    // for each handler, find their deps except their controller package dependency
+    // dependenciesList -> list of each handler's dependencies. [{}, {}, {}, ..]
+    const dependenciesList =
+        await Promise.all(handlerPackageJsonPaths.map((packageJsonPath, handlerIndex) => {
+            return fs.readJson(packageJsonPath).then(packageJson => {
+                const dependencies = packageJson["dependencies"];
+
+                // remove the controller dependency from this
+                // get the handler name for this index
+                const handlerName = handlerNames[handlerIndex];
+                // get handler's controller name
+                const controller = handlersJson[handlerName]["controller"];
+                // remove the controller dependency
+                delete dependencies[controller];
+                return dependencies;
+            });
+        }));
+
+    // install the dependencies
+    try {
+        await Promise.all(dependenciesList.map((dependencies, handlerIndex) => {
+            const handlerName = handlerNames[handlerIndex];
+            installNpmDependencies(path.join(handlersDirectoryPath, handlerName), dependencies);
+        }));
+    } catch (err) {
+        console.error(`failed to install npm packages for some of the handlers`);
+        console.error(err);
+        return null;
+    }
 
     // create a map of handlerName -> handlerObj
     // we send a map to aid in looking up the handlerObj from a handlerName.
@@ -130,6 +153,44 @@ module.exports.loadHandlers = async function() {
     });
     return handlerObjMap;
 };
+
+/**
+ * Installs npm packages in the specified directory
+ * @param installPath path to perform the installation
+ * @param dependencies dependencies listed in the same style as in package.json
+ * @return {Promise<result>}
+ */
+function installNpmDependencies(installPath, dependencies) {
+    // convert dependencies from object style to a list of packages
+    const dependencyList = parseNpmDependencies(dependencies);
+    if(dependencyList.length !== 0) {
+        return installNpmDependencyList(installPath, dependencyList);
+    }
+}
+
+/**
+ * Installs npm packages in a list format to the specified directory
+ * @param installPath
+ * @param dependencyList list of packages. For instance, ["mqtt@latest", "lodash@^4.17.19"]
+ * @return {Promise<result>}
+ */
+function installNpmDependencyList(installPath, dependencyList) {
+    const spaceSepDependencies = dependencyList.reduce((dep1, dep2) => `${dep1} ${dep2}`);
+    return executeCommand(`npm install ${spaceSepDependencies}`, installPath);
+}
+
+/**
+ * Parses the npm dependencies object into a list of dependency strings
+ * For ex: "mqtt": "^3.0.0" -> "mqtt@^3.0.0"
+ * @param dependencies
+ * @return {string[]}
+ */
+function parseNpmDependencies(dependencies) {
+    return Object.keys(dependencies).map(dependency => {
+        const dependencyVersion = dependencies[dependency];
+        return `${dependency}@${dependencyVersion}`
+    });
+}
 
 /**
  * Checks if the packages exist on the npm registry.
