@@ -4,7 +4,6 @@ const path = require('path');
 const glob = util.promisify(require('glob'));
 const {exec} = require("child_process");
 const fetch = require('node-fetch');
-const { fork } = require('child_process');
 
 /**
  * Loads handlers for the device-manager.
