@@ -6,15 +6,15 @@ const devicesCollectionName = 'devices';
  * Adds the device to DB.
  * @param deviceId id of the device
  * @param deviceType specifies type of the device
- * @param handler name of the handler handling this device
+ * @param handlerId id of the handler handling this device
  */
-exports.addDevice = function(deviceId, deviceType, handler) {
+exports.addDevice = function(deviceId, deviceType, handlerId) {
     mongoDbService.getCollection(devicesCollectionName)
         .then(collection => {
             collection.insertOne({
                 "_id": deviceId,
                 "deviceType": deviceType,
-                "handler": handler
+                "handler": handlerId
             })
                 .then(() => {})
                 .catch(err => console.error(err.message));

@@ -42,18 +42,20 @@ class EstimoteScanner {
             if(!telemetryPacket)
                 return;
 
+            const deviceId = telemetryPacket.shortIdentifier;
+
+            // prepare packet for delivery to the platform
             data["device"] = this.deviceType;
-            data["id"] = telemetryPacket.shortIdentifier;
+            data["id"] = deviceId;
             data["_meta"] = {
                 "received_time": new Date().toISOString(),
-                "device_id": telemetryPacket.shortIdentifier,
+                "device_id": deviceId,
                 "receiver": "ble-peripheral-scanner",
                 "gateway_id": bleController.getMacAddress()
             };
 
             //concatenate data and telemetry packet objects
             Object.assign(data, telemetryPacket);
-
             this.platform.deliver(this.handlerId, data);
         }
     }

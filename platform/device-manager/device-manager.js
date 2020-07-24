@@ -6,7 +6,26 @@ const daoHelper = require('../dao/dao-helper');
 // Using this object as a cache. Stores the deviceId as the key.
 const deviceCache = {};
 
-function deliver(handler, deviceData) {
+/**
+ * This is a function used by handlers to register devices which won't be sending streamed data to the platform
+ * @param deviceId
+ * @param deviceType
+ * @param handlerId
+ */
+function register(deviceId, deviceType, handlerId) {
+    isRegistered(deviceId).then(registered => {
+        if(!registered) {
+            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
+        }
+    });
+}
+
+/**
+ * This is a function used by handlers to deliver device data on to the platform.
+ * @param handlerId the handler's id
+ * @param deviceData
+ */
+function deliver(handlerId, deviceData) {
     // TODO set the metadata here rather than in the handlers
     // deviceData["_meta"] = {
     //     "received_time": new Date().toISOString(),
@@ -15,7 +34,7 @@ function deliver(handler, deviceData) {
     //     "controller": "jabaa", // TODO get it from teh json file mapping
     //     "gateway_id": this.bleScanner.getMacAddress()
     // };
-    console.log(`handler ${handler} delivered data`);
+    console.log(`handler ${handlerId} delivered data`);
     console.log(deviceData);
 
     const deviceId = deviceData['id'];
@@ -23,7 +42,7 @@ function deliver(handler, deviceData) {
 
     isRegistered(deviceId).then(registered => {
         if(!registered) {
-            daoHelper.devicesDao.addDevice(deviceId, deviceType, handler);
+            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
 
             // also add to cache, the timestamp is unnecessary, but it might come in handy later when we merge
             // mqtt-data-collector and this
@@ -62,6 +81,7 @@ function isDeviceInCache(deviceId) {
 }
 
 const platformCallback = {
+    'register': register,
     'deliver': deliver
 };
 

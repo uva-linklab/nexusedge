@@ -25,6 +25,9 @@ class OortSocketHandler {
         this.handlerId = handlerId;
         this.deviceType = "OORT Smart Socket";
         this.isHandlingMessages = false;
+
+        // since we don't deliver data, keep track of the devices' last active time
+        this.devices = {}; // deviceId -> last active time
     }
     
     execute(platform) {
@@ -32,6 +35,14 @@ class OortSocketHandler {
         bleController.initialize().then(() => {
             bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
         });
+    }
+
+    getLastActiveTime(deviceId) {
+        if(this.devices.hasOwnProperty(deviceId)) {
+            return this.devices[deviceId];
+        } else {
+            return null;
+        }
     }
 
     dispatch(deviceId, data) {
@@ -50,24 +61,23 @@ class OortSocketHandler {
     }
 
     async _handlePeripheral(peripheral) {
-        const data = {};
-        data["device"] = this.deviceType;
-        data["id"] = peripheral.id;
-        data["_meta"] = {
-            "received_time": new Date().toISOString(),
-            "device_id": peripheral.id,
-            "receiver": "ble-peripheral-scanner",
-            "gateway_id": bleController.getMacAddress()
-        };
+        const deviceId = peripheral.id;
 
-        this.platform.deliver(this.handlerId, data);
+        // if device is unregistered, then register it with the platform
+        if(!this.devices.hasOwnProperty(deviceId)) {
+            this.platform.register(deviceId, this.deviceType, this.handlerId);
+        }
 
+        // update the last active time for device
+        this.devices[deviceId] = Date.now();
+
+        // if there are any pending messages for this deviceId, connect to it and send them
         /*
          There were instances where two async callbacks would both try to handle the pendingMessages leading to issues.
          isHandlingMessages is a naive way to implement a critical section to ensure that two handlers don't handle
          pendingMessages at the same time.
          */
-        if(pendingMessages.hasOwnProperty(peripheral.id) && !this.isHandlingMessages) {
+        if(pendingMessages.hasOwnProperty(deviceId) && !this.isHandlingMessages) {
             this.isHandlingMessages = true;
 
             console.log(`[OORT] There are pending messages to be sent for ${peripheral.id}`);
