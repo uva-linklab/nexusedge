@@ -3,8 +3,16 @@ const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
 
-// Using this object as a cache. Stores the deviceId as the key.
-const deviceCache = {};
+// keep track of a device's last active time. deviceId -> lastActiveTime.
+// For devices that have streamed data, this will contain the last time that we receive a msg
+// For devices that don't stream data, lastActiveTime = -1.
+// This object doubles as a cache to check if a device was already registered or not.
+const deviceLastActiveTime = {};
+
+// deviceId -> [{}, {}, ..]
+// Registration is a db operation and thus takes time. During this time, we buffer the data from that device.
+// Once registration is done, we publish all buffered data in received order.
+const pendingDeviceBuffer = {};
 
 /**
  * This is a function used by handlers to register devices which won't be sending streamed data to the platform
@@ -13,11 +21,9 @@ const deviceCache = {};
  * @param handlerId
  */
 function register(deviceId, deviceType, handlerId) {
-    isRegistered(deviceId).then(registered => {
-        if(!registered) {
-            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
-        }
-    });
+    if(!isDeviceInCache(deviceId)) {
+        daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
+    }
 }
 
 /**
@@ -34,41 +40,40 @@ function deliver(handlerId, deviceData) {
     //     "controller": "jabaa", // TODO get it from teh json file mapping
     //     "gateway_id": this.bleScanner.getMacAddress()
     // };
-    console.log(`handler ${handlerId} delivered data`);
-    console.log(deviceData);
-
     const deviceId = deviceData['id'];
     const deviceType = deviceData['device']; // TODO change key to deviceType
 
-    isRegistered(deviceId).then(registered => {
-        if(!registered) {
-            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
+    if(isAwaitingRegistration(deviceId)) {
+        // if registration for the deviceId is already underway, buffer the data for the current data point
+        pendingDeviceBuffer[deviceId].push(deviceData);
+    } else {
+        if(!isDeviceInCache(deviceId)) {
+            // if device is not in cache, then it means we need to register this device into db. (cache reflects the db
+            // at all times). So buffer this data point.
+            pendingDeviceBuffer[deviceId] = [deviceData];
+            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId).then(() => {
+                // once the device registration is complete, add device to cache
+                deviceLastActiveTime[deviceId] = Date.now();
 
-            // also add to cache, the timestamp is unnecessary, but it might come in handy later when we merge
-            // mqtt-data-collector and this
-            // TODO if we need last seen time of device, move this line after the publish stmt
-            deviceCache[deviceId] = Date.now();
+                // publish all buffered data, in received order
+                pendingDeviceBuffer[deviceId].forEach(deviceData => {
+                    mqttController.publishToPlatformMqtt(JSON.stringify(deviceData));
+                });
+                // remove all data of device from buffer
+                delete pendingDeviceBuffer[deviceId];
+            });
+        } else {
+            // Data from registered device. Publish to MQTT.
+            mqttController.publishToPlatformMqtt(JSON.stringify(deviceData));
+
+            // keep track of the device's last active time
+            deviceLastActiveTime[deviceId] = Date.now();
         }
-        mqttController.publishToPlatformMqtt(JSON.stringify(deviceData)); // publish to platform's default MQTT topic
-    });
-}
-
-async function isRegistered(deviceId) {
-    const deviceInCache = isDeviceInCache(deviceId);
-    if(deviceInCache) {
-        return true;
     }
-    return await isDeviceInDb(deviceId);
 }
 
-/**
- * Checks if a device exists in the database or not
- * @param deviceId
- * @return {Promise<boolean>}
- */
-async function isDeviceInDb(deviceId) {
-    const device = await daoHelper.devicesDao.find(deviceId);
-    return (device.length !== 0);
+function isAwaitingRegistration(deviceId) {
+    return pendingDeviceBuffer.hasOwnProperty(deviceId);
 }
 
 /**
@@ -77,7 +82,8 @@ async function isDeviceInDb(deviceId) {
  * @return {boolean}
  */
 function isDeviceInCache(deviceId) {
-    return deviceCache.hasOwnProperty(deviceId);
+    // use the deviceLastActiveTime data structure as a cache
+    return deviceLastActiveTime.hasOwnProperty(deviceId);
 }
 
 const platformCallback = {
@@ -90,10 +96,17 @@ handlerUtils.loadHandlers().then(handlerMap => {
     if(!handlerMap) {
     }
 
-    // TODO check if execute exists before performing execute: typeof handlerObj.execute
-    // execute each handler object
-    // pass the platformCallback object with callback functions that handlers can use
-    Object.values(handlerMap).forEach(handlerObj => handlerObj.execute(platformCallback));
+    // deviceLastActiveTime is used as a cache. Populate this by loading all devices in db.
+    // ensures that the cache contains all the registered devices.
+    daoHelper.devicesDao.fetchAll().then(devices => {
+        devices.forEach(device => {
+            deviceLastActiveTime[device["_id"]] = -1; // initialize the lastActiveTime to -1.
+        });
+        // TODO check if execute exists before performing execute: typeof handlerObj.execute
+        // execute each handler object
+        // pass the platformCallback object with callback functions that handlers can use
+        Object.values(handlerMap).forEach(handlerObj => handlerObj.execute(platformCallback));
+    });
 });
 
 
