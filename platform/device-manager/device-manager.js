@@ -2,7 +2,10 @@ const handlerUtils = require('./handler-utils');
 const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
+const MessagingService = require('../messaging-service');
 
+const serviceName = process.env.SERVICE_NAME;
+const messagingService = new MessagingService(serviceName);
 // keep track of a device's last active time. deviceId -> lastActiveTime.
 // For devices that have streamed data, this will contain the last time that we receive a msg
 // For devices that don't stream data, lastActiveTime = -1.
