@@ -3,6 +3,7 @@ const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');
+const {Device} = require("../dao/collections/devices-dao");
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -21,6 +22,7 @@ const nonStreamingDevicesMap = {};
 const pendingDeviceBuffer = {};
 
 let handlerMap = {};
+let handlersJson = {};
 
 /**
  * This is a function used by handlers to register devices which won't be sending streamed data to the platform
@@ -30,8 +32,9 @@ let handlerMap = {};
  */
 function register(deviceId, deviceType, handlerId) {
     if(!nonStreamingDevicesMap.hasOwnProperty(deviceId)) {
-        daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId, false);
-        nonStreamingDevicesMap[deviceId] = handlerId;
+        const device = new Device(deviceId, deviceType, handlerId, getControllerId(handlerId), false);
+        daoHelper.devicesDao.addDevice(device)
+            .then(() => nonStreamingDevicesMap[deviceId] = handlerId);
     }
 }
 
@@ -60,7 +63,9 @@ function deliver(handlerId, deviceData) {
             // if device is not in cache, then it means we need to register this device into db. (cache reflects the db
             // at all times). So buffer this data point.
             pendingDeviceBuffer[deviceId] = [deviceData];
-            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId, true).then(() => {
+
+            const device = new Device(deviceId, deviceType, handlerId, getControllerId(handlerId),true);
+            daoHelper.devicesDao.addDevice(device).then(() => {
                 // once the device registration is complete, add device to cache
                 deviceLastActiveTimeMap[deviceId] = Date.now();
 
@@ -106,15 +111,20 @@ handlerUtils.loadHandlers().then(map => {
     if(!handlerMap) {
     }
 
+    // load the handlersJson file for later use (handlerId -> controller mapping)
+    const handlersJsonPath = path.join('handlers', "handlers.json");
+    fs.readJson(handlersJsonPath).then(json => handlersJson = json);
+
     // deviceLastActiveTime is used as a cache. Populate this by loading all devices in db.
     // ensures that the cache contains all the registered devices.
     daoHelper.devicesDao.fetchAll().then(devices => {
         devices.forEach(device => {
             const deviceId = device["_id"];
             if(device["isStreamingDevice"]) {
-                nonStreamingDevicesMap.push(deviceId);
+                deviceLastActiveTimeMap[deviceId] = -1; // initialize the lastActiveTime to -1.
+            } else {
+                nonStreamingDevicesMap[deviceId] = device["handlerId"];
             }
-            deviceLastActiveTimeMap[deviceId] = -1; // initialize the lastActiveTime to -1.
         });
         // TODO check if execute exists before performing execute: typeof handlerObj.execute
         // execute each handler object
@@ -169,6 +179,10 @@ handlerUtils.loadHandlers().then(map => {
 //
 //     handler.connectToDevice(deviceId, sendAPIData);
 // });
+
+function getControllerId(handlerId) {
+    return handlersJson[handlerId]['controller'];
+}
 
 /**
  * Finds devices that are active since the specified time. For streaming devices, this looks at the lastActiveTime field.

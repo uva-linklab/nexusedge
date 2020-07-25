@@ -2,60 +2,104 @@ const MongoDbService = require('../mongo-db-service');
 const mongoDbService = MongoDbService.getInstance();
 const devicesCollectionName = 'devices';
 
+class Device {
+    constructor(deviceId, deviceType, handlerId, controllerId, isStreamingDevice) {
+        this.deviceId = deviceId;
+        this.deviceType = deviceType;
+        this.handlerId = handlerId;
+        this.controllerId = controllerId;
+        this.isStreamingDevice = isStreamingDevice;
+    }
+}
+
 /**
- * * Adds the device to DB.
- * @param deviceId id of the device
- * @param deviceType specifies type of the device
- * @param handlerId id of the handler handling this device
- * @param isStreamingDevice specifies whether or not this device provides streaming data to the platform
- * @return {PromiseLike<Promise> | Promise<Promise>}
+ * Adds the device to DB.
+ * @param device Device object to be inserted
+ * @return {Promise<void>}
  */
-exports.addDevice = function(deviceId, deviceType, handlerId, isStreamingDevice) {
+function addDevice(device) {
     return mongoDbService.getCollection(devicesCollectionName)
         .then(collection => {
-            return collection.insertOne({
-                "_id": deviceId,
-                "deviceType": deviceType,
-                "handler": handlerId,
-                "isStreamingDevice": isStreamingDevice
-            })
+            return collection.insertOne(getDocument(device));
         });
-};
+}
 
 /**
  * Finds device based on deviceId
  * @param {string} deviceId device's id
- * @returns {Promise<device>}
+ * @returns {Promise<device | null>}
  */
-exports.find = function(deviceId) {
-    return mongoDbService.getCollection(devicesCollectionName)
-        .then(collection => {
-            return collection.find({"_id": deviceId})
-                .toArray();
-        });
-};
+function find(deviceId) {
+    return mongoDbService.getCollection(devicesCollectionName).then(collection => {
+        return collection.find({"_id": deviceId})
+            .toArray()
+            .then(docs => {
+                const devices = docs.map(doc => getDevice(doc));
+                return (devices.length !== 0) ? devices[0] : null;
+            })
+    });
+}
 
 /**
  * Fetches all device entries in the collection
- * @return {Promise<Promise | any[]>}
+ * @return {Promise<Device[]>}
  */
-exports.fetchAll = function() {
+function fetchAll() {
     return mongoDbService.getCollection(devicesCollectionName)
         .then(collection => {
             return collection.find()
-                .toArray();
+                .toArray()
+                .then(docs => docs.map(doc => getDevice(doc)));
         })
-};
+}
 
 /**
  * Fetches devices for the specified deviceIds
  * @param deviceIds
  * @return {Promise<any[]>}
  */
-exports.fetchSpecific = function(deviceIds) {
+function fetchSpecific(deviceIds) {
     return mongoDbService.getCollection(devicesCollectionName)
         .then(collection => {
             return collection.find({"_id": {$in: deviceIds}})
-                .toArray();
+                .toArray()
+                .then(docs => docs.map(doc => getDevice(doc)));
         })
+}
+
+/**
+ * Convert a device object from a mongodb document
+ * @param document source mongodb document
+ * @return {Device}
+ */
+function getDevice(document) {
+    return new Device(document["_id"],
+        document["deviceType"],
+        document["handlerId"],
+        document["controllerId"],
+        document["isStreamingDevice"]
+    );
+}
+
+/**
+ * Convert a device object to a mongodb document
+ * @param device source device object
+ * @return {document}
+ */
+function getDocument(device) {
+    return {
+        "_id": device.deviceId,
+        "deviceType": device.deviceType,
+        "handlerId": device.handlerId,
+        "controllerId": device.controllerId,
+        "isStreamingDevice": device.isStreamingDevice
+    }
+}
+
+module.exports = {
+    Device: Device,
+    addDevice: addDevice,
+    find: find,
+    fetchAll: fetchAll,
+    fetchSpecific: fetchSpecific
 };
