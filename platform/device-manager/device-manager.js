@@ -10,12 +10,17 @@ const messagingService = new MessagingService(serviceName);
 // For devices that have streamed data, this will contain the last time that we receive a msg
 // For devices that don't stream data, lastActiveTime = -1.
 // This object doubles as a cache to check if a device was already registered or not.
-const deviceLastActiveTime = {};
+const deviceLastActiveTimeMap = {};
+
+// deviceId -> handlerId
+const nonStreamingDevicesMap = {};
 
 // deviceId -> [{}, {}, ..]
 // Registration is a db operation and thus takes time. During this time, we buffer the data from that device.
 // Once registration is done, we publish all buffered data in received order.
 const pendingDeviceBuffer = {};
+
+let handlerMap = {};
 
 /**
  * This is a function used by handlers to register devices which won't be sending streamed data to the platform
@@ -24,8 +29,9 @@ const pendingDeviceBuffer = {};
  * @param handlerId
  */
 function register(deviceId, deviceType, handlerId) {
-    if(!isDeviceInCache(deviceId)) {
-        daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId);
+    if(!nonStreamingDevicesMap.hasOwnProperty(deviceId)) {
+        daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId, false);
+        nonStreamingDevicesMap[deviceId] = handlerId;
     }
 }
 
@@ -54,9 +60,9 @@ function deliver(handlerId, deviceData) {
             // if device is not in cache, then it means we need to register this device into db. (cache reflects the db
             // at all times). So buffer this data point.
             pendingDeviceBuffer[deviceId] = [deviceData];
-            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId).then(() => {
+            daoHelper.devicesDao.addDevice(deviceId, deviceType, handlerId, true).then(() => {
                 // once the device registration is complete, add device to cache
-                deviceLastActiveTime[deviceId] = Date.now();
+                deviceLastActiveTimeMap[deviceId] = Date.now();
 
                 // publish all buffered data, in received order
                 pendingDeviceBuffer[deviceId].forEach(deviceData => {
@@ -70,7 +76,7 @@ function deliver(handlerId, deviceData) {
             mqttController.publishToPlatformMqtt(JSON.stringify(deviceData));
 
             // keep track of the device's last active time
-            deviceLastActiveTime[deviceId] = Date.now();
+            deviceLastActiveTimeMap[deviceId] = Date.now();
         }
     }
 }
@@ -86,7 +92,7 @@ function isAwaitingRegistration(deviceId) {
  */
 function isDeviceInCache(deviceId) {
     // use the deviceLastActiveTime data structure as a cache
-    return deviceLastActiveTime.hasOwnProperty(deviceId);
+    return deviceLastActiveTimeMap.hasOwnProperty(deviceId);
 }
 
 const platformCallback = {
@@ -94,7 +100,8 @@ const platformCallback = {
     'deliver': deliver
 };
 
-handlerUtils.loadHandlers().then(handlerMap => {
+handlerUtils.loadHandlers().then(map => {
+    handlerMap = map;
     // TODO notify platform manager that we have a problem and exit
     if(!handlerMap) {
     }
@@ -103,12 +110,16 @@ handlerUtils.loadHandlers().then(handlerMap => {
     // ensures that the cache contains all the registered devices.
     daoHelper.devicesDao.fetchAll().then(devices => {
         devices.forEach(device => {
-            deviceLastActiveTime[device["_id"]] = -1; // initialize the lastActiveTime to -1.
+            const deviceId = device["_id"];
+            if(device["isStreamingDevice"]) {
+                nonStreamingDevicesMap.push(deviceId);
+            }
+            deviceLastActiveTimeMap[deviceId] = -1; // initialize the lastActiveTime to -1.
         });
         // TODO check if execute exists before performing execute: typeof handlerObj.execute
         // execute each handler object
         // pass the platformCallback object with callback functions that handlers can use
-        Object.values(handlerMap).forEach(handlerObj => handlerObj.execute(platformCallback));
+        Object.values(handlerMap).forEach(handler => handler.execute(platformCallback));
     });
 });
 
@@ -158,3 +169,51 @@ handlerUtils.loadHandlers().then(handlerMap => {
 //
 //     handler.connectToDevice(deviceId, sendAPIData);
 // });
+
+/**
+ * Finds devices that are active since the specified time. For streaming devices, this looks at the lastActiveTime field.
+ * For non-streaming devices, this queries the handler for the last active time.
+ * @param timeMillis
+ * @return {Promise<any[]>}
+ */
+function getActiveDevicesSince(timeMillis) {
+    const activeDeviceIds = [];
+    Object.entries(deviceLastActiveTimeMap).forEach(entry => {
+        const deviceId = entry[0];
+        const lastActiveTime = entry[1];
+
+        if(lastActiveTime !== -1) { // exclude devices which haven't streamed any data after initialization
+            if(lastActiveTime > (Date.now() - timeMillis)) { // pick devices active in the last 5 mins
+                activeDeviceIds.push(deviceId);
+            }
+        }
+    });
+
+    Object.entries(nonStreamingDevicesMap).forEach(entry => {
+        const deviceId = entry[0];
+        const handlerId = entry[1];
+
+        // check with handler if this device is still active or not
+        // first, find handler obj corresponding to handlerId
+        const handler = handlerMap[handlerId];
+        // check if the handler has a provision to check the last active time, otherwise skip it
+        if(typeof handler.getLastActiveTime === "function") {
+            const lastActiveTime = handler.getLastActiveTime(deviceId);
+            if(lastActiveTime != null && lastActiveTime > (Date.now() - timeMillis)) {
+                activeDeviceIds.push(deviceId);
+            }
+        } else {
+            console.error(`${handlerId} does not provide getLastActiveTime()`);
+        }
+    });
+    return daoHelper.devicesDao.fetchSpecific(activeDeviceIds);
+}
+
+messagingService.listenForQuery('get-active-devices', message => {
+    const query = message.data.query;
+    getActiveDevicesSince(300000).then(devices => {
+        messagingService.respondToQuery(query, {
+            'devices': devices
+        });
+    });
+});

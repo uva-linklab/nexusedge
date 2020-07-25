@@ -73,6 +73,72 @@ class MessagingService {
             callback(message);
         });
     };
+
+    /**
+     * Use this function to send a query to any recipient and return a query response promise.
+     * @param sender
+     * @param recipient
+     * @param query
+     * @param queryParams
+     * @return {Promise<queryResult>} Provides a query result from the query's recipient
+     */
+    query(sender, recipient, query, queryParams) {
+        return new Promise((resolve, reject) => {
+            ipc.of.platform.emit("forward", {
+                "meta": {
+                    "sender": sender,
+                    "recipient": recipient,
+                    "event": query
+                },
+                "payload": {
+                    "query": {
+                        "params": queryParams,
+                        "meta": {
+                            "sender": sender,
+                            "event": query,
+                            "recipient": recipient
+                        }
+                    }
+                }
+            });
+
+            // wait for the <query>-response event which will be sent by the recipient
+            ipc.of.platform.on(`${query}-response`, message => {
+                // resolve the promise when we get it
+                resolve(message.data);
+            });
+        });
+    }
+
+    /**
+     * Listen for specific query events. The query can be obtained from the message in the callback as message.data.query.
+     * @param queryEvent
+     * @param callback
+     */
+    listenForQuery(queryEvent, callback) {
+        ipc.of.platform.on(queryEvent, message => {
+            callback(message);
+        });
+    }
+
+    /**
+     * To respond to a query, pass the received query to this function along with a response.
+     * @param query same query object received from the query event (message.data.query)
+     * @param response your response to the query
+     */
+    respondToQuery(query, response) {
+        const sender = query['meta']['recipient'];
+        const recipient = query['meta']['sender'];
+        const event = `${query['meta']['event']}-response`; // send this to a "<query>-response" event
+        ipc.of.platform.emit("forward", {
+            "meta": {
+                "sender": sender,
+                "recipient": recipient,
+                "event": event
+            },
+            "payload": response
+        });
+    }
 }
 
 module.exports = MessagingService;

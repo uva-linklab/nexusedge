@@ -16,14 +16,16 @@ exports.getNeighbors = async function(req, res) {
 };
 
 /**
- * Returns the sensors connected in the last 5 mins.
+ * // TODO change the API to devices. Will need to update the link graph generation and other usages.
+ * Returns the active devices.
  * @param req
  * @param res
  * @returns {Promise<*>}
  */
 exports.getSensors = async function(req, res) {
-    const sensorData = await daoHelper.sensorsDao.getSensorDataSince(300000);
-    return res.json(sensorData);
+    const response =
+        await messagingService.query(serviceName, 'device-manager', 'get-active-devices', {});
+    return res.json(response['devices']);
 };
 
 /**
