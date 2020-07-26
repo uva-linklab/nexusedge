@@ -168,19 +168,6 @@ handlerUtils.loadHandlers().then(map => {
 //     gatewayScanner.connectToDevice(gatewayIP, payload);
 // });
 //
-// // Takes payload from the send API in the app which is relayed via api-server's talkToManager API
-// messagingService.listenForEvent('send-to-device', message => {
-//     const receivedData = message.data;
-//
-//     const deviceId = receivedData["device-id"];
-//     const sendAPIData = receivedData["send-api-data"];
-//
-//     // TODO
-//     // from the device-id, figure out which handler
-//     const handler = getHandlerForDeviceId(deviceId);
-//
-//     handler.connectToDevice(deviceId, sendAPIData);
-// });
 
 /**
  * Finds devices that are active since the specified time. For streaming devices, this looks at the lastActiveTime field.
@@ -228,4 +215,30 @@ messagingService.listenForQuery('get-active-devices', message => {
             'devices': devices
         });
     });
+});
+
+// process send API request from apps
+messagingService.listenForEvent('send-to-device', message => {
+    // "_meta": {
+    //     "recipient": "app-manager",
+    //         "event": "send-to-device"
+    // },
+    // "payload": {
+    //     "device-id": deviceId,
+    //         "send-api-data": data
+    // }
+    const receivedData = message.data;
+
+    const deviceId = receivedData["device-id"];
+    const sendAPIData = receivedData["send-api-data"];
+
+    // from the device-id, figure out the handler
+    if(nonStreamingDevicesMap.hasOwnProperty(deviceId)) {
+        const handlerId = nonStreamingDevicesMap[deviceId];
+        const handler = handlerMap[handlerId];
+
+        if(typeof handler.dispatch === 'function') {
+            handler.dispatch(deviceId, sendAPIData);
+        }
+    }
 });

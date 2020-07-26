@@ -44,7 +44,7 @@ class Oracle extends EventEmitter {
         const execUrl = `http://localhost:5000/gateway/talk-to-manager`;
         const talkToManagerData = {
             "_meta": {
-                "recipient": "ble-controller",
+                "recipient": "app-manager",
                 "event": "send-to-device"
             },
             "payload": {

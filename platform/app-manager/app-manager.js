@@ -104,3 +104,7 @@ messagingService.listenForEvent('app-deployment', message => {
             .catch(err => console.error(err));
     }
 });
+
+messagingService.listenForEvent('send-to-device', message => {
+    messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
+});
