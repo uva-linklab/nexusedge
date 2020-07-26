@@ -3,9 +3,9 @@ const mongoDbService = MongoDbService.getInstance();
 const devicesCollectionName = 'devices';
 
 class Device {
-    constructor(deviceId, deviceType, handlerId, controllerId, isStreamingDevice) {
-        this.deviceId = deviceId;
-        this.deviceType = deviceType;
+    constructor(id, type, handlerId, controllerId, isStreamingDevice) {
+        this.id = id;
+        this.type = type;
         this.handlerId = handlerId;
         this.controllerId = controllerId;
         this.isStreamingDevice = isStreamingDevice;
@@ -74,7 +74,7 @@ function fetchSpecific(deviceIds) {
  */
 function getDevice(document) {
     return new Device(document["_id"],
-        document["deviceType"],
+        document["type"],
         document["handlerId"],
         document["controllerId"],
         document["isStreamingDevice"]
@@ -88,8 +88,8 @@ function getDevice(document) {
  */
 function getDocument(device) {
     return {
-        "_id": device.deviceId,
-        "deviceType": device.deviceType,
+        "_id": device.id,
+        "type": device.type,
         "handlerId": device.handlerId,
         "controllerId": device.controllerId,
         "isStreamingDevice": device.isStreamingDevice

@@ -5,6 +5,8 @@ const glob = util.promisify(require('glob'));
 const {exec} = require("child_process");
 const fetch = require('node-fetch');
 
+let handlersJson = {};
+
 /**
  * Loads handlers for the device-manager.
  * Any directory under device-manager/handlers/ is considered to a handler.
@@ -16,7 +18,6 @@ module.exports.loadHandlers = async function() {
     // ensure that handlers directory exists and it contains a handlers.json config file
     const handlersDirectoryPath = path.join(__dirname, "handlers");
     const handlersJsonPath = path.join(handlersDirectoryPath, "handlers.json");
-    let handlersJson = {};
 
     const exists = await fs.pathExists(handlersJsonPath);
     if(!exists) {
@@ -284,3 +285,12 @@ function executeCommand(cmd, cwd) {
     };
     return execP(cmd, options);
 }
+
+/**
+ * Get the controllerId for a given handlerId
+ * @param handlerId
+ * @return {*}
+ */
+exports.getControllerId = function(handlerId) {
+    return handlersJson[handlerId]['controller'];
+};
