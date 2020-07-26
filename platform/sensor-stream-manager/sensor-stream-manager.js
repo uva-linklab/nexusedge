@@ -101,14 +101,22 @@ function connectToMQTTBroker(ip) {
  */
 function updatePolicy(type, sensorId, ip, topic, policy) {
     if(type === "app-sensor") {
-        if(!privacyPolicy[type][sensorId]) privacyPolicy[type][sensorId] = {};
-        if(!privacyPolicy[type][sensorId][ip]) privacyPolicy[type][sensorId][ip] = {};
+        if(!privacyPolicy[type][sensorId]) {
+            privacyPolicy[type][sensorId] = {};
+        }
+        if(!privacyPolicy[type][sensorId][ip]) {
+            privacyPolicy[type][sensorId][ip] = {};
+        }
         privacyPolicy[type][sensorId][ip][topic] = policy;
     } else if(type === "sensor-specific") {
-        if(!privacyPolicy[type][sensorId]) privacyPolicy[type][sensorId] = {};
+        if(!privacyPolicy[type][sensorId]) {
+            privacyPolicy[type][sensorId] = {};
+        }
         privacyPolicy[type][sensorId] = policy;
     } else if(type === "app-specific") {
-        if(!privacyPolicy[type][ip]) privacyPolicy[type][ip] = {};
+        if(!privacyPolicy[type][ip]) {
+            privacyPolicy[type][ip] = {};
+        }
         privacyPolicy[type][ip][topic] = policy;
     }
 }
