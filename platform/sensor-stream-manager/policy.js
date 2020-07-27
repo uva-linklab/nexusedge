@@ -73,7 +73,7 @@ const privacyPolicy = {
 let intervalRule = {};
 
 /**
- * This function compile the cron like policy to the execute time
+ * This function compiles the cron like policy to CronDate object pointer.
  * @param {Object} policy - cron like policy
  * @param {Object} currentDate - Date object
  * @returns {Object} CronDate object pointer
@@ -88,7 +88,7 @@ function compilePolicyToIntervals(policy, currentDate) {
 }
 
 /**
- * This function calculate the time interval in milliseconds.
+ * This function calculates the time difference and return the time in milliseconds.
  * @param {Object} date1 - Date or CronDate
  * @param {Object} date2 - Date or CronDate
  * @returns {number} time in millisecond
@@ -97,6 +97,13 @@ function getTimeDifference(date1, date2) {
     return date1.getTime() - date2.getTime();
 }
 
+/**
+ * This function returns the material which will be used for updating `intervalRule` and `nextRuleTime`.
+ * @param {Object} sensorPolicy
+ * @param {Object} now - Date
+ * @returns {Array} - `intervals` is CronDate object pointer. `updateTime` is a CronDate object.
+ * `timeDiff` is the difference bwtween `updateTime` and `now`.
+ */
 function getUpdateRuleMaterial(sensorPolicy, now) {
     const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
     const updateTime = intervals.next();
@@ -105,9 +112,9 @@ function getUpdateRuleMaterial(sensorPolicy, now) {
 }
 
 /**
- * This function pushes the topic to intervalRuleType.
- * It first checks if the sensorId or gatewayIp in the intervalRuleType. If they do
- * not exist, the function will creates them.
+ * This function update `intervalRule`. It first pushes the topic to `intervalRuleType`.
+ * It first checks if the sensorId or gatewayIp in the intervalRuleType. Next, push topic or sensorId
+ * to the block lists.
  * @param {string} blockTarget - app topic or sensor id
  * @param {Object} intervalRuleType - intervalRule[type]
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
@@ -121,6 +128,8 @@ function updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys) {
     } else if(restKeys.length === 0) {
         if(!intervalRuleType.hasOwnProperty(key1)) {
             intervalRuleType[key1] = [];
+        }
+        if(!intervalRuleType[key1].includes(blockTarget)) {
             // push blockTarget to inerval policy
             intervalRuleType[key1].push(blockTarget);
         }
@@ -133,12 +142,11 @@ function updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys) {
 }
 
 /**
- * This function checks if the key in the object. If the key does
- * not exist, it creates the key.
- * @param {number} interval - time interval
- * @param {bool} block
+ * This function checks if the policy should be update to `intervalRule` or not.
+ * @param {number} timeDiff - time difference between now
+ * @param {bool} block - the boole in sensor policy
  * @param {string} blockTarget - app topic or sensor id
- * @param {Object} intervalRuleType
+ * @param {Object} intervalRuleType - intervalRule[type]
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
  * @param {...string} restkeys - sensorId, gatewayIp
  */
@@ -154,6 +162,12 @@ function updateRuleProcedure(timeDiff, block, blockTarget, intervalRuleType, key
     }
 }
 
+/**
+ * This function finds the nearest rule time.
+ * @param {Object} updateTime - CronDate object
+ * @param {Object} intervals - the boole in sensor policy
+ * @returns {Object} updateTime - CronDate object
+ */
 function getNextChangeTime(updateTime, intervals) {
     // find the nearest time
     let tempNextUpdateTime = intervals.next();
@@ -168,17 +182,16 @@ function getNextChangeTime(updateTime, intervals) {
 }
 
 /**
- * This function finds the nearest next execution time.
+ * This function finds the nearest next rule time.
  * @param {string} cron - cron rule
  * @param {Object} now - Date object
- * @param {Object} orgNextUpdateTime - CronDate object
  * @param {Object} updateTime - CronDate object
  * @param {Object} intervals - CronDate object pointer
- * @returns {Object} CronDate object
+ * @returns {Object} tempNextUpdateTime - CronDate object
  */
 function getTempNextRuleTime(cron, now, updateTime, intervals) {
     let tempNextUpdateTime = updateTime;
-    // check if `updateTime` is in the this minute
+    // check if `updateTime` is in this minute
     if(getTimeDifference(now, tempNextUpdateTime) >= 0) {
         const cronRules = cron.split(' ');
         // if the cron rule includes "seconds"
@@ -191,6 +204,11 @@ function getTempNextRuleTime(cron, now, updateTime, intervals) {
     return tempNextUpdateTime;
 }
 
+/**
+ * This function updates `nextRuleTime`. If `nextRuleTime` is further than `tempNextRuleTime`, `nextRuleTime`
+ * will be updated.
+ * @param {Object} tempNextRuleTime - CronDate object
+ */
 function updateRuleTime(tempNextRuleTime) {
     // if orgNextUpdateTime is undefined or
     // compare the nearest time with orgNextUpdateTime
@@ -199,17 +217,22 @@ function updateRuleTime(tempNextRuleTime) {
     }
 }
 
+/**
+ * This function runs the update `nextRuleTime` procedure. It first get `tempNextRuleTime` and
+ * check if it needs to be updated.
+ * @param {string} cron - cron rule
+ * @param {Object} now - Date object
+ * @param {Object} updateTime - CronDate object
+ * @param {Object} intervals - CronDate object pointer
+ */
 function updateRuleTimeProcedure(cron, now, updateTime, intervals) {
     const tempNextRuleTime = getTempNextRuleTime(cron, now, updateTime, intervals);
     updateRuleTime(tempNextRuleTime);
 }
 
 /**
- * This function updates sensor-specific interval privacy policy
- * @param {Object} now - Date
- * @param {Object} intervalRule
- * @param {Object} nextRuleTime - CronDate
- * @returns {Object} CronDate object pointer
+ * This function walk through sensor-specific policy and update to `intervalRule`.
+ * @param {Object} now - Date object
  */
 function updateRuleBySensorSpecificPolicy(now) {
     const type = `sensor-specific`;
@@ -223,11 +246,8 @@ function updateRuleBySensorSpecificPolicy(now) {
 }
 
 /**
- * This function updates app-specific interval privacy policy
- * @param {Object} now - Date
- * @param {Object} intervalRule
- * @param {Object} nextRuleTime - CronDate
- * @returns {Object} CronDate object
+ * This function walk through app-specific policy and update to `intervalRule`.
+ * @param {Object} now - Date object
  */
 function updateRuleByAppSpecificPolicy(now) {
     const type = `app-specific`;
@@ -241,15 +261,11 @@ function updateRuleByAppSpecificPolicy(now) {
             updateRuleTimeProcedure(sensorPolicy["cron"], now, updateTime, intervals);
         }
     }
-    return nextRuleTime;
 }
 
 /**
- * This function updates app-sensor interval privacy policy
- * @param {Object} now - Date
- * @param {Object} intervalRule
- * @param {Object} nextRuleTime - CronDate
- * @returns {Object} CronDate object
+ * This function walk through app-sensor policy and update to `intervalRule`.
+ * @param {Object} now - Date object
  */
 function updateRuleByAppSensorPolicy(now) {
     const type = `app-sensor`;
@@ -279,12 +295,10 @@ function updateRuleByAppSensorPolicy(now) {
             }
         }
     }
-    return nextRuleTime;
 }
 
 /**
- * This function updates the intervalRule.
- * @returns {Object} CronDate object
+ * This function walks through the privacy policy and updates `intervalRule` and `nextRuleTime`.
  */
 function updateRuleJob() {
     const now = new Date();
@@ -301,7 +315,8 @@ function updateRuleJob() {
 }
 
 /**
- * This function updates the intervalRuleType
+ * This function updates `timer`. `timer` is an object returned by `setTimeout` function.
+ * `timer` will count the time set by `nextRuleTime`.
  */
 function updateTimer() {
     // check if next interval exists
@@ -321,7 +336,7 @@ function updateTimer() {
 }
 
 /**
- * This function finds update intervalRule and start rule timer
+ * This function finds update intervalRule and start `timer`.
  */
 function ruleTimerJob() {
     updateRuleJob();
@@ -337,7 +352,7 @@ function setTimeZone(tz) {
 }
 
 /**
- * This function updates the privacyPolicy
+ * This function updates the privacyPolicy.
  * @param {string} type - app-specific, sensor-specific, app-sensor
  * @param {string} sensorId
  * @param {string} ip - MQTT broker's ip
@@ -367,9 +382,7 @@ function updatePolicy(type, sensorId, ip, topic, policy) {
 }
 
 /**
- * This function checks the policyMinute
- * if sensorId - ip - topic exists in the Policy,
- * the data should be blocked (return true).
+ * This function is used for checking if the sensorId or topic in the block list in `intervalRule`.
  * @param {string} sensorId
  * @param {string} ip - MQTT broker's ip
  * @param {string} topic - application's topic
@@ -392,7 +405,7 @@ function checkPolicy(sensorId, ip, topic) {
 }
 
 /**
- * This function returns `privacyPolicy`
+ * This function returns `privacyPolicy`.
  * @returns {Object}
  */
 function getPrivacyPolicy() {
@@ -400,7 +413,7 @@ function getPrivacyPolicy() {
 }
 
 /**
- * This function returns `intervalRule`
+ * This function returns `intervalRule`.
  * @returns {Object}
  */
 function getIntervalRule() {
