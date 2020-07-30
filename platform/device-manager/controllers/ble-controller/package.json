@@ -1,6 +1,6 @@
 {
   "name": "ble-controller",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Controller for the gateway platform which enables advertising or scanning for BLE peripherals. Uses the noble and bleno npm modules.",
   "main": "ble-controller.js",
   "scripts": {
@@ -18,6 +18,7 @@
   "homepage": "https://github.com/nabeeln7/on-the-edge#readme",
   "dependencies": {
     "@abandonware/bleno": "^0.5.1-2",
-    "@abandonware/noble": "^1.9.2-9"
+    "@abandonware/noble": "^1.9.2-9",
+    "debug": "^4.1.1"
   }
 }

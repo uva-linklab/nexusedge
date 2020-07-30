@@ -9,19 +9,21 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 */
 const bleno = require('@abandonware/bleno');
 const noble = require('@abandonware/noble');
-
+const debug = require('debug')('ble-controller');
 // uuid -> callback function
 const subscriberCallbackMap = {};
 
 // This stores pending connection requests if BLE is already connected to a peripheral.
 const connectionQueue = []; // [peripheral]
 
+const initializeQueue = [];
+
 let instance = null;
 
 class BleController {
     constructor() {
-        this.blenoInitialized = false;
-        this.nobleInitialized = false;
+        this.initialized = false;
+        this.initializing = false;
     }
 
     static getInstance() {
@@ -32,59 +34,48 @@ class BleController {
     }
 
     _initializeBleno() {
-        return new Promise((resolve, reject) => {
-            if(this.blenoInitialized) {
-                resolve();
-            } else {
-                bleno.on('stateChange', (state) => {
-                    if(state === 'poweredOn') {
-                        this.blenoInitialized = true;
-                        console.log("Bleno initialized");
-                        resolve();
-                    } else if(state === 'poweredOff') {
-                        console.log('[ble-scanner] BLE appears to be disabled.');
-                        bleno.stopAdvertising();
-                        reject();
-                    } else {
-                        console.log("[BLE Radio] bleno state changed to " + state);
-                    }
-                });
-            }
+        return new Promise(resolve => {
+            bleno.on('stateChange', (state) => {
+                if(state === 'poweredOn') {
+                    debug('[ble-scanner] BLE powered on. Bleno initialized.');
+                    resolve();
+                } else if(state === 'poweredOff') {
+                    debug('[ble-scanner] BLE appears to be disabled.');
+                    bleno.stopAdvertising();
+                } else {
+                    debug("[BLE Radio] bleno state changed to " + state);
+                }
+            });
         });
     }
 
     _initializeNoble() {
         return new Promise(resolve => {
-            if(this.nobleInitialized) {
-                resolve();
-            } else {
-                noble.on('stateChange', state => {
-                    if(state === 'poweredOn') {
-                        console.log("Noble initialized");
-                        console.log('[ble-scanner] BLE is powered on.');
-                        this.nobleInitialized = true;
-                        this.startScanning();
+            noble.on('stateChange', state => {
+                if(state === 'poweredOn') {
+                    debug('[ble-scanner] BLE powered on. Noble initialized.');
+                    this.startScanning();
 
-                        noble.on('discover', function(peripheral) {
-                            const serviceUuids = peripheral.advertisement.serviceUuids;
-                            if(serviceUuids) {
-                                // get all UUIDs of the subscribers
-                                Object.keys(subscriberCallbackMap)
-                                    .filter(uuid => serviceUuids.includes(uuid)) // check if advert matches a subscriber's
-                                    .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
-                            }
-                        });
+                    noble.on('discover', function(peripheral) {
+                        const serviceUuids = peripheral.advertisement.serviceUuids;
+                        if(serviceUuids) {
+                            // get all UUIDs of the subscribers
+                            Object.keys(subscriberCallbackMap)
+                                .filter(uuid => serviceUuids.includes(uuid)) // check if advert matches a subscriber's
+                                .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
+                        }
+                    });
 
-                        resolve();
-                    } else if(state === 'poweredOff') {
-                        console.log('[ble-scanner] BLE appears to be disabled.');
-                    } else if(state === 'scanStop') {
-                        console.log('[ble-scanner] BLE scan stopped.');
-                    } else if(state === 'scanStart') {
-                        console.log('[ble-scanner] BLE scan started.');
-                    }
-                });
-            }
+                    resolve();
+                } else if(state === 'poweredOff') {
+                    debug('[ble-scanner] BLE appears to be disabled.');
+                    this.stopScanning();
+                } else if(state === 'scanStop') {
+                    debug('[ble-scanner] BLE scan stopped.');
+                } else if(state === 'scanStart') {
+                    debug('[ble-scanner] BLE scan started.');
+                }
+            });
         });
     }
 
@@ -93,19 +84,34 @@ class BleController {
      * @return {Promise<unknown>}
      */
     initialize() {
-        return this._initializeBleno().then(() => {
-            return this._initializeNoble()
-        });
+        return new Promise(resolve => {
+            // if initialized, then return immediately
+            if(this.initialized) {
+                resolve();
+            } else if(this.initializing) { // if initialization underway, then wait in queue
+                initializeQueue.push(resolve);
+            } else {
+                this.initializing = true;
+                this._initializeBleno().then(() => this._initializeNoble().then(() => {
+                    resolve();
+                    this.initializing = false;
+                    this.initialized = true;
+
+                    // resolve all pending promises
+                    initializeQueue.forEach(resolveFn => resolveFn());
+                }))
+            }
+        })
     }
 
     advertise(localName, serviceUuids, services) {
-        console.log("started advertising");
+        debug("started advertising");
         bleno.startAdvertising(localName, serviceUuids, function(err) {
             if(err) {
-                console.log(err);
+                debug(err);
             } else {
                 bleno.setServices(services);
-                console.log("set services");
+                debug("set services");
             }
         });
     }
@@ -159,7 +165,7 @@ class BleController {
                 If the peripheral scan continues while we are performing operations on characteristics, there could be
                 race conditions. So we stop the scan, perform the operations and then restart the noble scan.
                 */
-                console.log("[ble-scanner] Stopping noble scan before connect.");
+                debug("[ble-scanner] Stopping noble scan before connect.");
                 this.stopScanning();
 
                 peripheral.connect(err => {
@@ -176,25 +182,25 @@ class BleController {
                 If there are no peripherals in queue, we resume BLE scanning.
                 */
                 peripheral.once('disconnect', () => {
-                    console.log("[ble-scanner] Peripheral disconnected");
+                    debug("[ble-scanner] Peripheral disconnected");
                     this.isConnectedToPeripheral = false;
 
                     // check if there are other peripheral connection requests
                     if(connectionQueue.length > 0) {
                         // TODO check if this is a bottleneck
                         const nextPeripheral = connectionQueue.shift(); // get next peripheral
-                        console.log("[ble-scanner] Picked up next peripheral to connect to.");
+                        debug("[ble-scanner] Picked up next peripheral to connect to.");
                         return this.connectToPeripheralAsync(nextPeripheral);
                     } else {
                         // resume noble scan after disconnect
-                        console.log("[ble-scanner] No pending connection requests. Resuming noble scan after disconnect.");
+                        debug("[ble-scanner] No pending connection requests. Resuming noble scan after disconnect.");
                         this.startScanning();
                     }
                 });
             } else {
                 // If already connected, add to the connectionQueue. Process next peripheral when there is a disconnection.
                 connectionQueue.push(peripheral);
-                console.log("[ble-scanner] BLE already connected to some peripheral. Added to connectionQueue");
+                debug("[ble-scanner] BLE already connected to some peripheral. Added to connectionQueue");
             }
         });
     }
