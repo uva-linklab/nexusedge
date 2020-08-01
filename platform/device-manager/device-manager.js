@@ -4,6 +4,8 @@ const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');
 const {Device} = require("../dao/collections/devices-dao");
+const GatewayScanner = require('./gateway-scanner/gateway-scanner');
+const gatewayScanner = GatewayScanner.getInstance();
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -106,6 +108,9 @@ function isDeviceInCache(deviceId) {
     // use the deviceLastActiveTime data structure as a cache
     return deviceLastActiveTimeMap.hasOwnProperty(deviceId);
 }
+
+// start gateway-scanner
+gatewayScanner.start(messagingService);
 
 const platformCallback = {
     'register': register,
@@ -241,4 +246,14 @@ messagingService.listenForEvent('send-to-device', message => {
             handler.dispatch(deviceId, sendAPIData);
         }
     }
+});
+
+// route talk-to-gateway messages to gateway-scanner
+messagingService.listenForEvent('talk-to-gateway', message => {
+    const messageToSend = message.data;
+
+    const gatewayIP = messageToSend["gateway-ip"];
+    const payload = messageToSend["gateway-msg-payload"];
+
+    gatewayScanner.talkToGateway(gatewayIP, payload);
 });

@@ -16,11 +16,6 @@ const services = {
         socket: undefined,
         process: undefined
     },
-    "gateway-scanner": {
-        path: __dirname + "/gateway-scanner/gateway-scanner.js",
-        socket: undefined,
-        process: undefined
-    },
     "sensor-stream-manager": {
         path: __dirname + "/sensor-stream-manager/sensor-stream-manager.js",
         socket: undefined,
