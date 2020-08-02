@@ -1,8 +1,8 @@
 {
-  "name": "lighting-scanner",
+  "name": "lighting-sensor-handler",
   "version": "1.0.0",
   "description": "Parses BLE packets from Lighting Sensor",
-  "main": "lighting-scanner.js",
+  "main": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

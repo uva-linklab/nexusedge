@@ -1,2 +1,2 @@
-# Estimote Scanner
+# Estimote Handler
 Handler for obtaining data from estimotes.

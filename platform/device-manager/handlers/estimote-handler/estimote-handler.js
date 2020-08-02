@@ -8,15 +8,15 @@ const estimoteParser = require("./estimote-telemetry-parser");
 // Packets from the estimote family (Telemetry, Connectivity, etc.) are broadcast with the Service UUID 'fe9a'
 const ESTIMOTE_SERVICE_UUID = 'fe9a';
 
-class EstimoteScanner {
+class EstimoteHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
         this.deviceType = "Estimote";
         this.scanPaused = false;
     }
 
-    execute(platform) {
-        this.platform = platform;
+    start(platformCallback) {
+        this.platform = platformCallback;
         bleController.initialize().then(() => {
             bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
             this._startScan();
@@ -73,4 +73,4 @@ class EstimoteScanner {
     }
 }
 
-module.exports = EstimoteScanner;
+module.exports = EstimoteHandler;

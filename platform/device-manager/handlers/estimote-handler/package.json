@@ -1,8 +1,8 @@
 {
-  "name": "estimote-scanner",
+  "name": "estimote-handler",
   "version": "1.0.0",
   "description": "Handler for obtaining data from estimotes.",
-  "main": "estimote-scanner.js",
+  "main": "",
   "dependencies": {
     "ble-controller": "^1.1.0"
   },

@@ -30,8 +30,8 @@ class OortSocketHandler {
         this.devices = {}; // deviceId -> last active time
     }
     
-    execute(platform) {
-        this.platform = platform;
+    start(platformCallback) {
+        this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
             bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
         });
@@ -65,7 +65,7 @@ class OortSocketHandler {
 
         // if device is unregistered, then register it with the platform
         if(!this.devices.hasOwnProperty(deviceId)) {
-            this.platform.register(deviceId, this.deviceType, this.handlerId);
+            this.platformCallback.register(deviceId, this.deviceType, this.handlerId);
         }
 
         // update the last active time for device

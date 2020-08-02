@@ -5,21 +5,21 @@ Parses BLE packets from Lighting Sensor
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 
-class LightingScanner {
+class LightingSensorHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
         this.deviceType = "Lighting Sensor";
         this.scanPaused = false;
     }
 
-    execute(platform) {
-        this.platform = platform;
+    start(platformCallback) {
+        this.platformCallback = platformCallback;
 
         // TODO uncomment once the UUID for the lighting sensors are figured out
-        bleController.initialize().then(() => {
-            // bleController.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
-            // this._startScan();
-        });
+        // bleController.initialize().then(() => {
+        //     bleController.subscribeToAdvertisements(..., this._handlePeripheral.bind(this));
+        //     this._startScan();
+        // });
     }
 
     //TODO: get actual data from the lighting sensors and not just its metadata
@@ -39,7 +39,7 @@ class LightingScanner {
             "gateway_id": bleController.getMacAddress()
         };
 
-        this.platform.deliver(this.handlerId, data);
+        this.platformCallback.deliver(this.handlerId, data);
     }
 
     _startScan() {
@@ -55,4 +55,4 @@ class LightingScanner {
     }
 }
 
-module.exports = LightingScanner;
+module.exports = LightingSensorHandler;

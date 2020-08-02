@@ -48,10 +48,17 @@ handlerUtils.loadHandlers().then(map => {
             'deliver': deliver
         };
 
-        // TODO check if execute exists before performing execute: typeof handlerObj.execute
-        // execute each handler object
-        // pass the platformCallback object with callback functions that handlers can use
-        Object.values(handlerMap).forEach(handler => handler.execute(platformCallback));
+        // start handlers, pass the platformCallback object with callback functions that handlers can use
+        Object.entries(handlerMap).forEach(entry => {
+            const handlerId = entry[0];
+            const handler = entry[1];
+            // check if handler has an execute function
+            if(typeof handler.start === 'function') {
+                handler.start(platformCallback)
+            } else {
+                console.error(`${handlerId} does not implement a start() function`)
+            }
+        });
     });
 
     // start gateway-scanner
