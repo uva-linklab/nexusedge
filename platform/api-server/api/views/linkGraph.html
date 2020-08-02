@@ -117,10 +117,10 @@
             nodeList.push(nodeId);
         });
 
-        //Add gateway connections as edges to the graph
+        // Add gateway connections as edges to the graph
         Object.entries(linkGraphData.graph).forEach(entry => {
-            var nodeId = entry[0];
-            var neighbors = entry[1];
+            const nodeId = entry[0];
+            const neighbors = entry[1];
             neighbors.forEach(neighbor => {
                 edges.push(
                     {
@@ -134,20 +134,19 @@
             });
         });
 
-        //Add devices to the link graph
+        // Add devices to the link graph
         Object.entries(linkGraphData.data).forEach(entry => {
-            var nodeId = entry[0];
-            var data = entry[1];
-            var ip = data.ip;
+            const nodeId = entry[0];
+            const data = entry[1];
             data.devices.forEach(deviceData => {
-                var deviceName = `${deviceData.device}\n(${deviceData._id})`;
-                var deviceType = "";
+                const deviceName = `${deviceData.type}\n(${deviceData.id})`;
+                let deviceType = "";
 
-                if (deviceData.device === "Estimote") {
+                if (deviceData.type === "Estimote") {
                     deviceType = "estimote";
-                } else if (deviceData.receiver === "enocean-generic-gateway") {
+                } else if (deviceData.controllerId === "enocean-controller") {
                     deviceType = "enocean";
-                } else if (deviceData.receiver === "ble-peripheral-scanner") {
+                } else if (deviceData.controllerId === "ble-controller") {
                     deviceType = "ble";
                 } else {
                     console.log(`unknown device type ${deviceData.device}, ${deviceData.receiver}`);
@@ -167,7 +166,7 @@
                     );
                     nodeList.push(deviceName);
                 }
-                var edgeColor = "";
+                let edgeColor = "";
                 if (deviceType === "ble")
                     edgeColor = bleIconColor;
                 else if (deviceType === "enocean")
