@@ -30,16 +30,9 @@ class LightingSensorHandler {
         }
 
         const data = {};
-        data["device"] = this.deviceType;
-        data["id"] = peripheral.id;
-        data["_meta"] = {
-            "received_time": new Date().toISOString(),
-            "device_id": peripheral.id,
-            "receiver": "ble-peripheral-scanner",
-            "gateway_id": bleController.getMacAddress()
-        };
+        // deliver data to platform
+        this.platformCallback.deliver(this.handlerId, peripheral.id, this.deviceType, data);
 
-        this.platformCallback.deliver(this.handlerId, data);
     }
 
     _startScan() {

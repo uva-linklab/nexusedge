@@ -86,19 +86,19 @@ function register(deviceId, deviceType, handlerId) {
 /**
  * This is a function used by handlers to deliver device data on to the platform.
  * @param handlerId the handler's id
- * @param deviceData
+ * @param deviceId the id of the device
+ * @param deviceType the type of the device
+ * @param deviceData device data
  */
-function deliver(handlerId, deviceData) {
-    // TODO set the metadata here rather than in the handlers
-    // deviceData["_meta"] = {
-    //     "received_time": new Date().toISOString(),
-    //     "receiver": "ble-peripheral-scanner", // TODO remove
-    //     "handler": handler,
-    //     "controller": "jabaa", // TODO get it from teh json file mapping
-    //     "gateway_id": this.bleScanner.getMacAddress()
-    // };
-    const deviceId = deviceData['id'];
-    const deviceType = deviceData['device']; // TODO change key to deviceType
+function deliver(handlerId, deviceId, deviceType, deviceData) {
+    const controllerId = handlerUtils.getControllerId(handlerId);
+
+    // set the metadata for the data packet
+    deviceData["_meta"] = {
+        "received_time": new Date().toISOString(),
+        "handler_id": handlerId,
+        "controller_id": controllerId
+    };
 
     if(isAwaitingRegistration(deviceId)) {
         // if registration for the deviceId is already underway, buffer the data for the current data point
@@ -112,7 +112,7 @@ function deliver(handlerId, deviceData) {
             const device = new Device(deviceId,
                 deviceType,
                 handlerId,
-                handlerUtils.getControllerId(handlerId),
+                controllerId,
                 true);
             daoHelper.devicesDao.addDevice(device).then(() => {
                 // once the device registration is complete, add device to cache

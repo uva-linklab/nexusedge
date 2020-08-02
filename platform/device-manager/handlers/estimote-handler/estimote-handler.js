@@ -16,7 +16,7 @@ class EstimoteHandler {
     }
 
     start(platformCallback) {
-        this.platform = platformCallback;
+        this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
             bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
             this._startScan();
@@ -42,21 +42,8 @@ class EstimoteHandler {
             if(!telemetryPacket)
                 return;
 
-            const deviceId = telemetryPacket.shortIdentifier;
-
-            // prepare packet for delivery to the platform
-            data["device"] = this.deviceType;
-            data["id"] = deviceId;
-            data["_meta"] = {
-                "received_time": new Date().toISOString(),
-                "device_id": deviceId,
-                "receiver": "ble-peripheral-scanner",
-                "gateway_id": bleController.getMacAddress()
-            };
-
-            //concatenate data and telemetry packet objects
-            Object.assign(data, telemetryPacket);
-            this.platform.deliver(this.handlerId, data);
+            // deliver data to platform
+            this.platformCallback.deliver(this.handlerId, telemetryPacket.shortIdentifier, this.deviceType, telemetryPacket);
         }
     }
 
