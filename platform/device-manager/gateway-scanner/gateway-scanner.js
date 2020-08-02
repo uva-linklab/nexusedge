@@ -43,7 +43,6 @@ class GatewayScanner {
             process.exit(1);
         }
 
-
         // wait for bleController to initialize
         bleController.initialize().then(() => {
             // store the IP address and BLE MAC address for future use
