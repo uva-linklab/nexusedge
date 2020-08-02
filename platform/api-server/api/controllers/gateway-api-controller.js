@@ -16,13 +16,12 @@ exports.getNeighbors = async function(req, res) {
 };
 
 /**
- * // TODO change the API to devices. Will need to update the link graph generation and other usages.
  * Returns the active devices.
  * @param req
  * @param res
  * @returns {Promise<*>}
  */
-exports.getSensors = async function(req, res) {
+exports.getDevices = async function(req, res) {
     const response =
         await messagingService.query(serviceName, 'device-manager', 'get-active-devices', {});
     return res.json(response['devices']);

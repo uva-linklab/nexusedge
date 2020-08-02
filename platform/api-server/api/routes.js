@@ -20,7 +20,7 @@ module.exports = function(app) {
     const uploader = getMultipartFormDataUploader();
 
     app.get('/gateway/neighbors', gatewayAPIController.getNeighbors);
-    app.get('/gateway/sensors', gatewayAPIController.getSensors);
+    app.get('/gateway/devices', gatewayAPIController.getDevices);
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
     app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),

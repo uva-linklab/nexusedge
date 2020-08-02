@@ -57,7 +57,7 @@ exports.getLinkGraphData = async function(req, res) {
 		const node = entry[0];
 		const ip = entry[1].ip;
 
-		nodeDict[node]["sensors"] = await getSensorData(ip);
+		nodeDict[node]["devices"] = await getDeviceData(ip);
 	}
 
 	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
@@ -76,12 +76,12 @@ async function isGatewayReachable(gatewayIP) {
 }
 
 /**
- * Uses the gateway API to query for the sensors connected to a given gateway
+ * Uses the gateway API to query for the devices connected to a given gateway
  * @param gatewayIP IP address of the gateway
  * @returns {Promise<any>}
  */
-async function getSensorData(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/gateway/sensors`;
+async function getDeviceData(gatewayIP) {
+	const execUrl = `http://${gatewayIP}:5000/gateway/devices`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }

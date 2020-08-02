@@ -134,51 +134,51 @@
             });
         });
 
-        //Add sensors to the link graph
+        //Add devices to the link graph
         Object.entries(linkGraphData.data).forEach(entry => {
             var nodeId = entry[0];
             var data = entry[1];
             var ip = data.ip;
-            data.sensors.forEach(sensorData => {
-                var sensorName = `${sensorData.device}\n(${sensorData._id})`;
-                var sensorType = "";
+            data.devices.forEach(deviceData => {
+                var deviceName = `${deviceData.device}\n(${deviceData._id})`;
+                var deviceType = "";
 
-                if (sensorData.device === "Estimote") {
-                    sensorType = "estimote";
-                } else if (sensorData.receiver === "enocean-generic-gateway") {
-                    sensorType = "enocean";
-                } else if (sensorData.receiver === "ble-peripheral-scanner") {
-                    sensorType = "ble";
+                if (deviceData.device === "Estimote") {
+                    deviceType = "estimote";
+                } else if (deviceData.receiver === "enocean-generic-gateway") {
+                    deviceType = "enocean";
+                } else if (deviceData.receiver === "ble-peripheral-scanner") {
+                    deviceType = "ble";
                 } else {
-                    console.log(`unknown device type ${sensorData.device}, ${sensorData.receiver}`);
+                    console.log(`unknown device type ${deviceData.device}, ${deviceData.receiver}`);
                     return;
                 }
 
-                //if the sensor is not already added, add it
-                if (nodeList.indexOf(sensorName) < 0) {
+                //if the device is not already added, add it
+                if (nodeList.indexOf(deviceName) < 0) {
                     nodes.push(
                         {
                             id: counter++,
-                            label: sensorName,
-                            group: sensorType,
+                            label: deviceName,
+                            group: deviceType,
                             value: 3,
                             font: {size: 16}
                         }
                     );
-                    nodeList.push(sensorName);
+                    nodeList.push(deviceName);
                 }
                 var edgeColor = "";
-                if (sensorType === "ble")
+                if (deviceType === "ble")
                     edgeColor = bleIconColor;
-                else if (sensorType === "enocean")
+                else if (deviceType === "enocean")
                     edgeColor = enoceanIconColor;
-                else if (sensorType === "estimote")
+                else if (deviceType === "estimote")
                     edgeColor = estimoteEdgeColor;
 
                 edges.push(
                     {
                         from: nodeList.indexOf(nodeId),
-                        to: nodeList.indexOf(sensorName),
+                        to: nodeList.indexOf(deviceName),
                         length: EDGE_LENGTH,
                         width: EDGE_WIDTH_SCALE,
                         color: {color: edgeColor, highlight: edgeColor}
