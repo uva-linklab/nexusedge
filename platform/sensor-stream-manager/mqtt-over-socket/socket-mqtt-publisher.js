@@ -9,7 +9,7 @@
 const {
     workerData
 } = require('worker_threads');
-const MqttController = require('../../../utils/mqtt-controller');
+const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const WebSocket = require('ws');
 

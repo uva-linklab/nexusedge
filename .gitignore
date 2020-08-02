@@ -10,8 +10,8 @@ socket/
 platform/api-server/deployed-apps/
 platform/app-manager/code-container/executables/
 
-# configure files
-utils/config.json
+# configuration files
+platform/utils/config.json
 platform/device-manager/gateway-scanner/group-key.json
 
 # packages

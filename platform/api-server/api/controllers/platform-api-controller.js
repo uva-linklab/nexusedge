@@ -1,6 +1,6 @@
 const request = require('request-promise');
-const utils = require('../../../../utils/utils');
-const MqttController = require('../../../../utils/mqtt-controller');
+const utils = require('../../../utils/utils');
+const MqttController = require('../../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const mqttTopic = 'platform-data';
 

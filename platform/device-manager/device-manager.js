@@ -1,5 +1,5 @@
 const handlerUtils = require('./handler-utils');
-const MqttController = require('../../utils/mqtt-controller');
+const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');

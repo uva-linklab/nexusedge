@@ -12,7 +12,3 @@ For e.g.:
   }
 }
 ```
-
-## Install
-apt-get install libpcap-dev  
-npm install
