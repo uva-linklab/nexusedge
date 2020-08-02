@@ -1,6 +1,6 @@
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
-const utils = require("../../utils");
+const utils = require("../utils/utils");
 const fetch = require('node-fetch');
 
 // TODO: add mqtt-data-collector logic to SSM.

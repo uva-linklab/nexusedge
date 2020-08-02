@@ -1,6 +1,6 @@
 const request = require('request-promise');
 const Queue = require('queue-fifo');
-const utils = require("../../../../utils");
+const utils = require("../../../utils/utils");
 const daoHelper = require('../../../dao/dao-helper');
 const queue = new Queue();
 
