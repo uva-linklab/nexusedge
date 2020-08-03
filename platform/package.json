@@ -4,7 +4,7 @@
   "description": "platform",
   "main": "platform-manager.js",
   "dependencies": {
-    "ble-controller": "^1.1.0",
+    "ble-controller": "^1.2.0",
     "body-parser": "latest",
     "cors": "^2.8.5",
     "debug": "^4.1.1",
