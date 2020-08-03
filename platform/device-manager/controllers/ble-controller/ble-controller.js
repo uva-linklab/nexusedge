@@ -10,6 +10,9 @@ https://github.com/noble/node-bluetooth-hci-socket/issues/84
 const bleno = require('@abandonware/bleno');
 const noble = require('@abandonware/noble');
 const debug = require('debug')('ble-controller');
+const EddystoneBeaconParser = require('./edystone-beacon-parser');
+const eddystoneBeaconParser = EddystoneBeaconParser.getInstance();
+
 // uuid -> callback function
 const subscriberCallbackMap = {};
 
@@ -22,8 +25,8 @@ let instance = null;
 
 class BleController {
     constructor() {
-        this.initialized = false;
-        this.initializing = false;
+        this._initialized = false;
+        this._initializing = false;
     }
 
     static getInstance() {
@@ -86,16 +89,16 @@ class BleController {
     initialize() {
         return new Promise(resolve => {
             // if initialized, then return immediately
-            if(this.initialized) {
+            if(this._initialized) {
                 resolve();
-            } else if(this.initializing) { // if initialization underway, then wait in queue
+            } else if(this._initializing) { // if initialization underway, then wait in queue
                 initializeQueue.push(resolve);
             } else {
-                this.initializing = true;
+                this._initializing = true;
                 this._initializeBleno().then(() => this._initializeNoble().then(() => {
                     resolve();
-                    this.initializing = false;
-                    this.initialized = true;
+                    this._initializing = false;
+                    this._initialized = true;
 
                     // resolve all pending promises
                     initializeQueue.forEach(resolveFn => resolveFn());
@@ -148,6 +151,21 @@ class BleController {
         if(!subscriberCallbackMap.hasOwnProperty(uuid)) {
             subscriberCallbackMap[uuid] = callback;
         }
+    }
+
+    /**
+     * Get a callback whenever there is an advertisement in an Eddystone beacon format.
+     * TODO: at the moment, assumes only one subscriber.
+     * @param callback provides the beacon and peripheral objects.
+     */
+    subscribeToEddystoneBeacons(callback) {
+        const eddystoneBeaconUuid = 'feaa';
+        this.subscribeToAdvertisements(eddystoneBeaconUuid, peripheral => {
+            const beacon = eddystoneBeaconParser.parse(peripheral);
+            if(beacon != null) {
+                callback(beacon, peripheral);
+            }
+        });
     }
 
     /**
