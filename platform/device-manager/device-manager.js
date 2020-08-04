@@ -218,7 +218,7 @@ messagingService.listenForEvent('send-to-device', message => {
         const handlerId = nonStreamingDevicesMap[deviceId];
         const handler = handlerMap[handlerId];
 
-        if(typeof handler.dispatch === 'function') {
+        if(handler && typeof handler.dispatch === 'function') {
             handler.dispatch(deviceId, sendAPIData);
         }
     } else {
