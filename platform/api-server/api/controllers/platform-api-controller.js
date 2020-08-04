@@ -31,7 +31,7 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
         //if it is a local request, forward to everyone, no need to publish on mqtt
 
         //get the link graph to get all the gateways in the network
-        const linkGraph = await getLinkGraphData();
+        const linkGraph = await utils.getLinkGraph();
         const gatewayIPAddressList = getGatewayIPAddressList(linkGraph);
 
         gatewayIPAddressList
@@ -47,16 +47,6 @@ async function platformAPICallHelper(req, res, platformAPIFunction) {
 
 function getGatewayIPAddressList(linkGraph) {
     return Object.entries(linkGraph.data).map(entry => entry[1]["ip"]);
-}
-
-/**
- * Use the platform API to get the link graph data
- * @returns {Promise<any>} promise of the link graph json
- */
-async function getLinkGraphData() {
-    const execUrl = `http://localhost:5000/platform/link-graph-data`;
-    const body = await request({method: 'GET', uri: execUrl});
-    return JSON.parse(body);
 }
 
 /**
