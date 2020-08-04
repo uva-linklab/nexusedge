@@ -1,4 +1,5 @@
 const handlerUtils = require('./handler-utils');
+const utils = require('../utils/utils');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const daoHelper = require('../dao/dao-helper');
@@ -207,14 +208,6 @@ messagingService.listenForQuery('get-active-devices', message => {
 
 // process send API request from apps
 messagingService.listenForEvent('send-to-device', message => {
-    // "_meta": {
-    //     "recipient": "app-manager",
-    //         "event": "send-to-device"
-    // },
-    // "payload": {
-    //     "device-id": deviceId,
-    //         "send-api-data": data
-    // }
     const receivedData = message.data;
 
     const deviceId = receivedData["device-id"];
@@ -228,6 +221,14 @@ messagingService.listenForEvent('send-to-device', message => {
         if(typeof handler.dispatch === 'function') {
             handler.dispatch(deviceId, sendAPIData);
         }
+    } else {
+        getHostGatewayIp(deviceId)
+            .then(gatewayIp => {
+                delegateSendRequest(gatewayIp, deviceId, sendAPIData);
+            })
+            .catch(err => {
+                console.error(`${deviceId} not connected to any gateways.`);
+            });
     }
 });
 
@@ -240,3 +241,53 @@ messagingService.listenForEvent('talk-to-gateway', message => {
 
     gatewayScanner.talkToGateway(gatewayIP, payload);
 });
+
+function delegateSendRequest(ip, deviceId, data) {
+    const execUrl = `http://${ip}:5000/gateway/talk-to-manager`;
+    const talkToManagerData = {
+        "_meta": {
+            "recipient": "device-manager",
+            "event": "send-to-device"
+        },
+        "payload": {
+            "device-id": deviceId,
+            "send-api-data": data
+        }
+    };
+    utils.sendPostRequest(execUrl, talkToManagerData)
+        .then(res => {
+            if(res.status === 200) {
+                console.log(`[device-manager] send() request delegated ${ip} successfully!`);
+            } else {
+                console.log(`[device-manager] send() request to ${ip} failed. HTTP status code = ${res.status}`);
+            }
+        })
+        .catch(err => {
+            console.log(`[device-manager] send() request to ${ip} failed.`);
+            console.error(err);
+        });
+}
+
+/**
+ * Finds the IP address of the gateway which has the specified deviceId
+ * @param deviceId
+ * @returns {Promise<ipAddress>}
+ */
+function getHostGatewayIp(deviceId) {
+    return new Promise((resolve, reject) => {
+        // generate link graph
+        utils.getLinkGraph().then(linkGraph => {
+            Object.values(linkGraph['data']).forEach(gatewayDetails => {
+                const ip = gatewayDetails['ip'];
+                const devices = gatewayDetails['devices'];
+
+                // check if any device has the target deviceId, if so return the IP address of that gateway.
+                if(devices.some(device => device.id === deviceId)) {
+                    resolve(ip);
+                }
+            });
+            reject('deviceId not found');
+        })
+    })
+}
+

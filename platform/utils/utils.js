@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const pcap = require('pcap');
 const config = require('./config.json');
+const fetch = require('node-fetch');
 
 exports.getIPAddress =  function() {
 	const networkInterface = config.network.interface;
@@ -31,4 +32,29 @@ exports.decryptAES = function(encrypted, password, iv) {
 	var dec = decipher.update(encrypted, 'base64', 'utf8');
 	dec += decipher.final('utf8');
 	return dec;
+};
+
+/**
+ * Obtain the Link Graph by sending a request on the api-server.
+ * @return {Promise<linkGraphJson>}
+ */
+exports.getLinkGraph = function() {
+	const execUrl = 'http://localhost:5000/platform/link-graph-data';
+	return fetch(execUrl, {method: 'GET'})
+		.then(body => body.json());
+};
+
+exports.sendGetRequest = function(url) {
+	return fetch(url, {
+		method: 'GET'
+	});
+};
+
+exports.sendPostRequest = function(url, data) {
+	return fetch(url, {
+		method: 'POST',
+		body: JSON.stringify(data),
+		headers: {'Content-Type': 'application/json'},
+		timeout: 5000
+	});
 };
