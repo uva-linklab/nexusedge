@@ -42,18 +42,9 @@ module.exports.loadHandlers = async function() {
     // get all first level directory names (ignore any files)
     const handlersOnDisk = await glob('*', {ignore: '*.*', cwd: handlersDirectoryPath});
 
-    const onDiskNotInConfig = handlersOnDisk.filter(handler => !handlerNames.includes(handler));
     const inConfigNotOnDisk = handlerNames.filter(handler => !handlersOnDisk.includes(handler));
-
-    const handlersWithoutConfigFound = onDiskNotInConfig.length !== 0;
-    const handlersNotFoundOnDisk = inConfigNotOnDisk.length !== 0;
-    if(handlersWithoutConfigFound) {
-        console.error(`Handlers detected without entries in config file: ${onDiskNotInConfig}`);
-    }
-    if(handlersNotFoundOnDisk) {
+    if(inConfigNotOnDisk.length !== 0) {
         console.error(`Handlers not found on disk: ${inConfigNotOnDisk}`);
-    }
-    if(handlersWithoutConfigFound || handlersNotFoundOnDisk) {
         return null;
     }
 
