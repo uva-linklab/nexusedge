@@ -10,5 +10,9 @@
     "oort-socket-handler": {
         "main": "oort-socket-handler.js",
         "controller": "ble-controller"
+    },
+    "lab11-ble-handler": {
+        "main": "lab11-ble-handler.js",
+        "controller": "ble-controller"
     }
 }
