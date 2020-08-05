@@ -91,7 +91,7 @@ callback.
 function notifyForSensorData(sensorIds, callback) {
     mqttController.subscribeToPlatformMqtt(message => {
         const data = JSON.parse(message);
-        const sensorId = data._meta.device_id;
+        const sensorId = data['device_id'];
 
         if(sensorIds.includes(sensorId)) {
             callback(sensorId, data);

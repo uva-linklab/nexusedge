@@ -21,7 +21,7 @@ class Oracle extends EventEmitter {
         // if so, it sends the message to the callback function
         mqttController.subscribe("localhost", applicationTopic, message => {
             const messageJson = JSON.parse(message);
-            const deviceId = messageJson["_meta"]["device_id"];
+            const deviceId = messageJson['device_id'];
             if(deviceId in callbackMap) {
                 callbackMap[deviceId](messageJson);
             }
