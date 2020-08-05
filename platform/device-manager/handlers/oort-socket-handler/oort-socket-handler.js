@@ -23,7 +23,7 @@ const pendingMessages = {};
 class OortSocketHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
-        this.deviceType = "OORT Smart Socket";
+        this.deviceType = "oort-smart-socket";
         this.isHandlingMessages = false;
 
         // since we don't deliver data, keep track of the devices' last active time

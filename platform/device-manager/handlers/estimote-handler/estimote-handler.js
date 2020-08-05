@@ -11,7 +11,7 @@ const ESTIMOTE_SERVICE_UUID = 'fe9a';
 class EstimoteHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
-        this.deviceType = "Estimote";
+        this.deviceType = "estimote";
         this.scanPaused = false;
     }
 

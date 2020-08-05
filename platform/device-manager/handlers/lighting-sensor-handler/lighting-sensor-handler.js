@@ -8,7 +8,7 @@ const bleController = BleController.getInstance();
 class LightingSensorHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
-        this.deviceType = "Lighting Sensor";
+        this.deviceType = "lighting-sensor";
         this.scanPaused = false;
     }
 
