@@ -18,7 +18,6 @@ var PARSE_JS_CACHE_TIME_IN_MS = 5*60*1000;
 class Lab11BleHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
-        this.deviceType = "lab11-ble-device";
         this._device_to_data = {};
 
         // Keep a map of URL -> parse.js parsers so we don't have to re-download
@@ -225,7 +224,7 @@ class Lab11BleHandler {
                             // this.emit('advertisement', adv_obj);
                             this.platformCallback.deliver(this.handlerId,
                                 peripheral.id,
-                                this.deviceType,
+                                adv_obj.device, // specifies what type of device it is (eg: PowerBlade, ...)
                                 adv_obj
                             );
 
@@ -257,7 +256,7 @@ class Lab11BleHandler {
                             // this.emit('local', local_obj);
                             this.platformCallback.deliver(this.handlerId,
                                 peripheral.id,
-                                this.deviceType,
+                                local_obj.device, // TODO check if this is valid
                                 local_obj
                             );
                         }
@@ -291,7 +290,7 @@ class Lab11BleHandler {
 
                                 this.platformCallback.deliver(this.handlerId,
                                     peripheral.id,
-                                    this.deviceType,
+                                    data_obj.device, // TODO check if this is valid
                                     data_obj
                                 );
                                 // Tickle the watchdog now that we have successfully
