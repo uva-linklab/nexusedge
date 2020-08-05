@@ -1,10 +1,12 @@
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
-const EddystoneBeaconScanner = require('@abandonware/eddystone-beacon-scanner');
 const debug = require('debug')('lab11-ble-handler');
 const request = require('request');
 const urlExpander = require('expand-url');
 const async = require('async');
+const url    = require('url');
+const urlConverter = require('./url-converter');
+const fs = require('fs');
 
 // Hardcoded constant for the name of the JavaScript that has the functions
 // we care about for this gateway.
@@ -16,12 +18,7 @@ var PARSE_JS_CACHE_TIME_IN_MS = 5*60*1000;
 class Lab11BleHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
-        this.deviceType = "Lab11BleDevice";
-    }
-
-    start(platformCallback) {
-        this.platformCallback = platformCallback;
-
+        this.deviceType = "lab11-ble-device";
         this._device_to_data = {};
 
         // Keep a map of URL -> parse.js parsers so we don't have to re-download
@@ -36,6 +33,10 @@ class Lab11BleHandler {
         // noble.on('scanStop', this.on_scanStop.bind(this));
         // EddystoneBeaconScanner.on('updated', this.on_beacon.bind(this));
         this._device_id_ages = {};
+    }
+
+    start(platformCallback) {
+        this.platformCallback = platformCallback;
 
         bleController.initialize().then(() => {
             bleController.subscribeToEddystoneBeacons(this._handleBeacon.bind(this));
@@ -44,12 +45,14 @@ class Lab11BleHandler {
 
     _handleBeacon(beacon, peripheral) {
         // Tickle the watchdog
-        watchdog.reset();
+        // watchdog.reset();
 
         // We keep a list of the last time we updated for each device, this allows
         // the gateway to pull down new parse.js files when they update
         if (beacon.id in this._device_id_ages) {
             if ((Date.now() - this._device_id_ages[beacon.id]) < PARSE_JS_CACHE_TIME_IN_MS) {
+                // if we are not looking to update parsers, handle the peripheral and extract its data
+                this._handlePeripheral(peripheral);
                 return;
             }
         }
@@ -71,7 +74,7 @@ class Lab11BleHandler {
             }
 
             // This is called when we successfully get the expanded URL.
-            var got_expanded_url = function (err, full_url) {
+            var got_expanded_url = (err, full_url) => {
                 if (!err) {
                     // Save this URL expansion. OK to just overwrite it each time.
                     this._cached_urls[short_url] = full_url;
@@ -83,7 +86,7 @@ class Lab11BleHandler {
                     }
 
                     // Get only the base (not index.html, for instance)
-                    var base_url = this.get_base_url(full_url);
+                    var base_url = this._get_base_url(full_url);
 
                     // Store that
                     this._device_to_data[beacon.id]['url'] = base_url;
@@ -93,7 +96,7 @@ class Lab11BleHandler {
                     this._device_to_data[beacon.id]['request_url'] = request_url;
 
                     // This is called after we successfully try to fetch parse.js
-                    var got_parse_js = function (err, response) {
+                    var got_parse_js = (err, response) => {
                         if (!err && response.statusCode === 200) {
                             debug('Loading ' + FILENAME_PARSE + ' for ' + full_url + ' (' + beacon.id + ')');
 
@@ -105,12 +108,13 @@ class Lab11BleHandler {
                             // Make the downloaded JS an actual function
                             // TODO (2016/01/11): Somehow check if the parser is valid and discard if not.
                             try {
-                                var parser = this.require_from_string(response.body, request_url);
+                                const parser = this._require_from_string(response.body, request_url);
                                 this._cached_parsers[request_url].parser = parser;
 
                                 //update the cache to indicate we actually have this parser
                                 this._device_id_ages[beacon.id] = Date.now();
-                                parser.parseAdvertisement();
+                                // TODO understand why this was here
+                                // parser.parseAdvertisement();
                             } catch (e) {
                                 debug('Failed to parse advertisement after fetching parser');
                             }
@@ -122,7 +126,7 @@ class Lab11BleHandler {
                                 const cacheString = fs.readFileSync('cached_parsers.json', 'utf-8');
                                 this._cached_parsers = JSON.parse(cacheString);
                                 for (var r_url in this._cached_parsers) {
-                                    var parser = this.require_from_string(this._cached_parsers[r_url]['parse.js'], r_url);
+                                    const parser = this._require_from_string(this._cached_parsers[r_url]['parse.js'], r_url);
                                     this._cached_parsers[r_url].parser = parser;
                                 }
 
@@ -168,12 +172,21 @@ class Lab11BleHandler {
                 debug('Using cached url expansion for ' + beacon.id);
                 got_expanded_url.call(this, null, this._cached_urls[short_url]);
             } else {
+                // TODO
                 // Try to expand the URL up to 10 times.
-                async.retry(1, function (cb, r) { urlExpander.expand(short_url, cb); }, got_expanded_url.bind(this));
+                // async.retry(1, function (cb, r) { urlExpander.expand(short_url, cb); }, got_expanded_url.bind(this));
+                const expanded = urlConverter.getExpandedUrl(short_url);
+                if(expanded) {
+                    got_expanded_url.call(this, null, expanded);
+                } else {
+                    debug('Error getting full URL (' + short_url + ') after several tries.');
+                }
             }
 
         }
+    }
 
+    _handlePeripheral(peripheral) {
         // handle the peripheral
         // Get the time
         var received_time = new Date().toISOString();
@@ -189,113 +202,132 @@ class Lab11BleHandler {
                 var parser = this._cached_parsers[device.request_url];
 
                 // Unless told not to, we parse advertisements
-                if (am_submodule || !argv.noParseAdvertisements) {
+                // if (am_submodule || !argv.noParseAdvertisements) {
 
-                    // Check if we have some way to parse the advertisement
-                    if (parser.parser && parser.parser.parseAdvertisement) {
+                // Check if we have some way to parse the advertisement
+                if (parser.parser && parser.parser.parseAdvertisement) {
 
-                        var parse_advertisement_done = function (adv_obj, local_obj) {
+                    var parse_advertisement_done = function (adv_obj, local_obj) {
 
-                            // only continue if the result was valid
-                            if (adv_obj) {
-                                adv_obj.id = peripheral.id;
+                        // only continue if the result was valid
+                        if (adv_obj) {
+                            // adv_obj.id = peripheral.id;
 
-                                // Add a _meta key with some more information
-                                adv_obj._meta = {
-                                    received_time: received_time,
-                                    device_id:     peripheral.id,
-                                    receiver:      'ble-gateway',
-                                    gateway_id:    this._gateway_id
-                                };
+                            // Add a _meta key with some more information
+                            // adv_obj._meta = {
+                            //     received_time: received_time,
+                            //     device_id:     peripheral.id,
+                            //     receiver:      'ble-gateway',
+                            //     gateway_id:    this._gateway_id
+                            // };
 
-                                // We broadcast on "advertisement"
-                                this.emit('advertisement', adv_obj);
+                            // We broadcast on "advertisement"
+                            // this.emit('advertisement', adv_obj);
+                            this.platformCallback.deliver(this.handlerId,
+                                peripheral.id,
+                                this.deviceType,
+                                adv_obj
+                            );
 
-                                // Tickle the watchdog now that we have successfully
-                                // handled a pakcet.
-                                watchdog.reset();
+                            // Tickle the watchdog now that we have successfully
+                            // handled a pakcet.
+                            // watchdog.reset();
 
-                                // Now check if the device wants to do something
-                                // with the parsed advertisement.
-                                if ((am_submodule || !argv.noPublish) && parser.parser.publishAdvertisement) {
-                                    parser.parser.publishAdvertisement(adv_obj);
-                                }
-                            }
-
-                            // Local data is optional
-                            if (local_obj) {
-                                // Add a _meta key with some more information
-                                local_obj._meta = {
-                                    received_time: received_time,
-                                    device_id:     peripheral.id,
-                                    receiver:      'ble-gateway',
-                                    gateway_id:    this._gateway_id,
-                                    base_url:      device.url
-                                };
-
-                                // We broadcast on "local"
-                                this.emit('local', local_obj);
-                            }
-                        };
-
-                        // Call the device specific advertisement parse function.
-                        // Give it the done callback.
-                        try {
-                            // add the device ID for parsers to see
-                            peripheral.advertisement.advertiser_id = peripheral.id;
-                            parser.parser.parseAdvertisement(peripheral.advertisement, parse_advertisement_done.bind(this));
-                        } catch (e) {
-                            debug('Error calling parse function for ' + peripheral.id + '\n' + e);
+                            // Now check if the device wants to do something
+                            // with the parsed advertisement.
+                            // TODO
+                            // if ((am_submodule || !argv.noPublish) && parser.parser.publishAdvertisement) {
+                            //     parser.parser.publishAdvertisement(adv_obj);
+                            // }
                         }
-                    }
-                }
 
-                // Unless told not to, we see if this device wants us to connect
-                if (am_submodule || !argv.noParseServices) {
+                        // Local data is optional
+                        if (local_obj) {
+                            // Add a _meta key with some more information
+                            // local_obj._meta = {
+                            //     received_time: received_time,
+                            //     device_id:     peripheral.id,
+                            //     receiver:      'ble-gateway',
+                            //     gateway_id:    this._gateway_id,
+                            //     base_url:      device.url
+                            // };
 
-                    var parse_services_done = function (data_obj) {
-                        if (data_obj) {
-                            data_obj.id = peripheral.id;
-
-                            // After device-specific code is done, disconnect and handle
-                            // returned object.
-                            peripheral.disconnect((disconnect_error) => {
-                                if (!disconnect_error) {
-                                    // Broadcast this on "data"
-                                    this.emit('data', data_obj);
-
-                                    // Tickle the watchdog now that we have successfully
-                                    // handled a pakcet.
-                                    watchdog.reset();
-
-                                    // Now check if the device wants to do something
-                                    // with the parsed service data.
-                                    if ((am_submodule || !argv.noPublish) && parser.parser.publishServiceData) {
-                                        parser.parser.publishServiceData(data_obj);
-                                    }
-                                }
-                            });
+                            // TODO
+                            // We broadcast on "local"
+                            // this.emit('local', local_obj);
+                            this.platformCallback.deliver(this.handlerId,
+                                peripheral.id,
+                                this.deviceType,
+                                local_obj
+                            );
                         }
                     };
 
-                    // Check if we have some code to connect
-                    if (parser.parser && parser.parser.parseServices) {
-                        // Use noble to connect to the BLE device
-                        peripheral.connect((connect_error) => {
-                            if (!connect_error) {
-                                // After a successful connection, let the
-                                // device specific code read services and whatnot.
-                                parser.parser.parseServices(peripheral, parse_services_done.bind(this));
+                    // Call the device specific advertisement parse function.
+                    // Give it the done callback.
+                    try {
+                        // add the device ID for parsers to see
+                        peripheral.advertisement.advertiser_id = peripheral.id;
+                        parser.parser.parseAdvertisement(peripheral.advertisement, parse_advertisement_done.bind(this));
+                    } catch (e) {
+                        debug('Error calling parse function for ' + peripheral.id + '\n' + e);
+                    }
+                }
+                // }
+
+                // Unless told not to, we see if this device wants us to connect
+                // if (am_submodule || !argv.noParseServices) {
+
+                var parse_services_done = function (data_obj) {
+                    if (data_obj) {
+                        data_obj.id = peripheral.id;
+
+                        // After device-specific code is done, disconnect and handle
+                        // returned object.
+                        peripheral.disconnect((disconnect_error) => {
+                            if (!disconnect_error) {
+                                // Broadcast this on "data"
+                                // this.emit('data', data_obj);
+
+                                this.platformCallback.deliver(this.handlerId,
+                                    peripheral.id,
+                                    this.deviceType,
+                                    data_obj
+                                );
+                                // Tickle the watchdog now that we have successfully
+                                // handled a pakcet.
+                                // watchdog.reset();
+
+                                // Now check if the device wants to do something
+                                // with the parsed service data.
+                                // TODO
+                                // if ((am_submodule || !argv.noPublish) && parser.parser.publishServiceData) {
+                                //     parser.parser.publishServiceData(data_obj);
+                                // }
                             }
                         });
                     }
+                };
+
+                // Check if we have some code to connect
+                if (parser.parser && parser.parser.parseServices) {
+                    // Use noble to connect to the BLE device
+                    // TODO change to using ble-controller function
+                    peripheral.connect((connect_error) => {
+                        if (!connect_error) {
+                            // After a successful connection, let the
+                            // device specific code read services and whatnot.
+                            parser.parser.parseServices(peripheral, parse_services_done.bind(this));
+                        }
+                    });
                 }
+                // }
             }
         }
     }
 
     // Load the downloaded code into a useable module
-    require_from_string(src, filename) {
+    _require_from_string(src, filename) {
         var m = new module.constructor();
         m.paths = module.paths;
         m._compile(src, filename);
@@ -306,7 +338,7 @@ class Lab11BleHandler {
     // So, something like "https://a.com/folder/page.html?q=1#here"
     // should turn in to "https://a.com/folder/"
     // function get_base_url (full_url) {
-    get_base_url(full_url) {
+    _get_base_url(full_url) {
         var parsed_url = url.parse(full_url);
         parsed_url.query = '';
         parsed_url.hash = '';
