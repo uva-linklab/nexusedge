@@ -1,5 +1,5 @@
 /*
-Parses BLE packets from Estimote Sensors and publishes to the gateway-data MQTT topic
+Handler to parses BLE packets from estimote sensors and deliver it to platform.
  */
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
