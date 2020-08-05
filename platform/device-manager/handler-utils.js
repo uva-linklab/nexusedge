@@ -124,7 +124,7 @@ module.exports.loadHandlers = async function() {
     try {
         await Promise.all(dependenciesList.map((dependencies, handlerIndex) => {
             const handlerName = handlerNames[handlerIndex];
-            installNpmDependencies(path.join(handlersDirectoryPath, handlerName), dependencies);
+            return installNpmDependencies(path.join(handlersDirectoryPath, handlerName), dependencies);
         }));
     } catch (err) {
         console.error(`failed to install npm packages for some of the handlers`);
