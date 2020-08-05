@@ -89,13 +89,19 @@ function register(deviceId, deviceType, handlerId) {
  * @param handlerId the handler's id
  * @param deviceId the id of the device
  * @param deviceType the type of the device
- * @param deviceData device data
+ * @param deviceData object which contains any device specific data
  */
 function deliver(handlerId, deviceId, deviceType, deviceData) {
     const controllerId = handlerUtils.getControllerId(handlerId);
 
+    // construct a data object with the delivered fields and additional metadata fields
+    const data = {};
+    data['device_id'] = deviceId;
+    data['device_type'] = deviceType;
+    data['device_data'] = deviceData;
+
     // set the metadata for the data packet
-    deviceData["_meta"] = {
+    data["_meta"] = {
         "received_time": new Date().toISOString(),
         "handler_id": handlerId,
         "controller_id": controllerId
@@ -103,12 +109,12 @@ function deliver(handlerId, deviceId, deviceType, deviceData) {
 
     if(isAwaitingRegistration(deviceId)) {
         // if registration for the deviceId is already underway, buffer the data for the current data point
-        pendingDeviceBuffer[deviceId].push(deviceData);
+        pendingDeviceBuffer[deviceId].push(data);
     } else {
         if(!isDeviceInCache(deviceId)) {
             // if device is not in cache, then it means we need to register this device into db. (cache reflects the db
             // at all times). So buffer this data point.
-            pendingDeviceBuffer[deviceId] = [deviceData];
+            pendingDeviceBuffer[deviceId] = [data];
 
             const device = new Device(deviceId,
                 deviceType,
@@ -120,15 +126,15 @@ function deliver(handlerId, deviceId, deviceType, deviceData) {
                 deviceLastActiveTimeMap[deviceId] = Date.now();
 
                 // publish all buffered data, in received order
-                pendingDeviceBuffer[deviceId].forEach(deviceData => {
-                    mqttController.publishToPlatformMqtt(JSON.stringify(deviceData));
+                pendingDeviceBuffer[deviceId].forEach(data => {
+                    mqttController.publishToPlatformMqtt(JSON.stringify(data));
                 });
                 // remove all data of device from buffer
                 delete pendingDeviceBuffer[deviceId];
             });
         } else {
             // Data from registered device. Publish to MQTT.
-            mqttController.publishToPlatformMqtt(JSON.stringify(deviceData));
+            mqttController.publishToPlatformMqtt(JSON.stringify(data));
 
             // keep track of the device's last active time
             deviceLastActiveTimeMap[deviceId] = Date.now();
