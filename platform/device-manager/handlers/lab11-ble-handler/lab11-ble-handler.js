@@ -7,6 +7,7 @@ const async = require('async');
 const url    = require('url');
 const urlConverter = require('./url-converter');
 const fs = require('fs');
+const path = require('path');
 
 // Hardcoded constant for the name of the JavaScript that has the functions
 // we care about for this gateway.
@@ -77,7 +78,7 @@ class Lab11BleHandler {
                 if (!err) {
                     // Save this URL expansion. OK to just overwrite it each time.
                     this._cached_urls[short_url] = full_url;
-                    fs.writeFileSync('cached_urls.json', JSON.stringify(this._cached_urls));
+                    fs.writeFileSync(path.join(__dirname, 'cached_urls.json'), JSON.stringify(this._cached_urls));
 
                     // Create space if this is a new beacon
                     if (!(beacon.id in this._device_to_data)) {
@@ -102,7 +103,7 @@ class Lab11BleHandler {
                             // Store this in the known parsers object
                             this._cached_parsers[request_url] = {};
                             this._cached_parsers[request_url]['parse.js'] = response.body;
-                            fs.writeFileSync('cached_parsers.json', JSON.stringify(this._cached_parsers));
+                            fs.writeFileSync(path.join(__dirname, 'cached_parsers.json'), JSON.stringify(this._cached_parsers));
 
                             // Make the downloaded JS an actual function
                             // TODO (2016/01/11): Somehow check if the parser is valid and discard if not.
@@ -122,7 +123,8 @@ class Lab11BleHandler {
                             debug('Could not fetch parse.js after trying multiple times. (' + beacon.id + ')');
                             try {
                                 debug('Trying to find cached parser. (' + beacon.id + ')');
-                                const cacheString = fs.readFileSync('cached_parsers.json', 'utf-8');
+                                const cacheString = fs.readFileSync(path.join(__dirname, 'cached_parsers.json'),
+                                    'utf-8');
                                 this._cached_parsers = JSON.parse(cacheString);
                                 for (var r_url in this._cached_parsers) {
                                     const parser = this._require_from_string(this._cached_parsers[r_url]['parse.js'], r_url);
@@ -158,7 +160,7 @@ class Lab11BleHandler {
                     debug('Error getting full URL (' + short_url + ') after several tries.');
                     try{
                         debug('Trying to find cached urls. (' + beacon.id + ')');
-                        const cacheString = fs.readFileSync('cached_urls.json', 'utf-8');
+                        const cacheString = fs.readFileSync(path.join(__dirname, 'cached_urls.json'), 'utf-8');
                         this._cached_urls = JSON.parse(cacheString);
                     } catch (e) {
                         debug('Failed to find cached urls. (' + beacon.id + ')');
