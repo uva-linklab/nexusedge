@@ -211,7 +211,7 @@ messagingService.listenForEvent('app-deployment', message => {
     if(appData["app"]) {
         // load application's metadata
         let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
-        metadata = metadata["sensorMapping"];
+        metadata = metadata["deviceMapping"];
         const topic = appData["app"]["_id"];
         // store application's sensor stream requirement in sensorStream
         for(const ip in metadata) {

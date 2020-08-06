@@ -86,7 +86,7 @@ class GatewayScanner {
 
     async _handlePeripheral(peripheral) {
         const localName = peripheral.advertisement.localName;
-        if(typeof localName !== "undefined") {
+        if(localName) {
             const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
             console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
             console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);

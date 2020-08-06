@@ -2,19 +2,19 @@ const fs = require('fs-extra');
 const path = require("path");
 
 exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
-	const executableDirPath = `${__dirname}/executables`;
+	const executableDirPath = path.join(__dirname, 'executables');
 	//create "executables" directory if not present
 	fs.ensureDirSync(executableDirPath);
 
 	//create a new directory in executables and copy the script and meta
 	const dirName = Date.now();
-	const dirPath = `${executableDirPath}/${dirName}`;
+	const dirPath = path.join(executableDirPath, dirName);
 	fs.ensureDirSync(dirPath);
 
-	const scriptTargetPath = `${dirPath}/${path.basename(appPath)}`;
-	const metadataTargetPath = `${dirPath}/${path.basename(metadataPath)}`;
-	const oracleSourcePath = `${__dirname}/oracle`;
-	const oracleTargetPath = `${dirPath}/oracle`;
+	const scriptTargetPath = path.join(dirPath, path.basename(appPath));
+	const metadataTargetPath = path.join(dirPath, path.basename(metadataPath));
+	const oracleSourcePath = path.join(__dirname, 'oracle');
+	const oracleTargetPath = path.join(dirPath, 'oracle');
 
 	console.log("[INFO] Copied application and metadata to executable directory.");
 	fs.copySync(appPath, scriptTargetPath);
@@ -26,4 +26,4 @@ exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 
 	// TODO: npm install here
 	return scriptTargetPath;
-}
+};
