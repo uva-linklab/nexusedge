@@ -28,6 +28,17 @@ exports.getDevices = async function(req, res) {
 };
 
 /**
+ * Returns the currently running apps.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getApps = async function(req, res) {
+    const appsData = await daoHelper.appsDao.fetchAll();
+    return res.json(appsData);
+};
+
+/**
  * This call gives the status of the server.
  * It is primarily intended to be used as a means to check reachability.
  * @param req

@@ -37,3 +37,26 @@ exports.findAppInfo = function(appId) {
                 .toArray();
         });
 };
+
+/**
+ * Fetches all the apps.
+ * @return {Promise<apps>}
+ */
+exports.fetchAll = function() {
+    return mongoDbService.getCollection(appsCollectionName)
+        .then(collection => {
+            return collection.find()
+                .toArray();
+        })
+};
+
+/**
+ * Removes all the apps.
+ * @return {Promise<void>}
+ */
+exports.clearAll = function() {
+    return mongoDbService.getCollection(appsCollectionName)
+        .then(collection => {
+            return collection.drop();
+        })
+};

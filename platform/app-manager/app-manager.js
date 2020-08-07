@@ -11,10 +11,13 @@ const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 // TODO: When initializing app-manager, app-manager checks database to see
-//  if any apps already existed (zombie process). This happens when app-manager crashed abnormally
+//  if any apps already exists (zombie process). This happens when app-manager crashed abnormally.
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
+
+// when starting up, remove all existing apps
+daoHelper.appsDao.clearAll(); // asynchronous operation
 
 // Stores the process, _id, pid, appPath, and metadataPath in apps
 // apps = {
