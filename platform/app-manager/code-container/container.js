@@ -7,7 +7,7 @@ exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 	fs.ensureDirSync(executableDirPath);
 
 	//create a new directory in executables and copy the script and meta
-	const dirName = Date.now();
+	const dirName = Date.now().toString();
 	const dirPath = path.join(executableDirPath, dirName);
 	fs.ensureDirSync(dirPath);
 
