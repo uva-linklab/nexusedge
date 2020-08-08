@@ -195,24 +195,18 @@ messagingService.listenForEvent('connect-to-socket', (message) => {
     const wsAddress = payload["ws-address"];
 });
 
-// sensor-stream-manager receives application's process instance and metadata from app-manager
-// this listener stores the application's topic and sensor requirement
-messagingService.listenForEvent('app-deployment', message => {
+// sensor-stream-manager receives an application's topic and sensor requirements and provides it
+messagingService.listenForEvent('request-streams', message => {
     // appData = {
-    //     "app": {
-    //         "app": newApp, // instance of process,
-    //         "pid": newApp.pid,
-    //         "_id": appId,
-    //         "appPath": newAppPath,
-    //         "metadataPath": appData.metadataPath
-    //     }
-    // };
+    //     "topic": appId,
+    //     "metadataPath": appData.metadataPath
+    // }
     const appData = message.data;
-    if(appData["app"]) {
+    if(appData.hasOwnProperty('topic') && appData.hasOwnProperty('metadataPath')) {
         // load application's metadata
-        let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
+        let metadata = fs.readJsonSync(appData["metadataPath"]);
         metadata = metadata["deviceMapping"];
-        const topic = appData["app"]["_id"];
+        const topic = appData["topic"];
         // store application's sensor stream requirement in sensorStream
         for(const ip in metadata) {
             const sensorIds = metadata[ip];

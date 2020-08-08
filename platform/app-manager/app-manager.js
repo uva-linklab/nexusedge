@@ -100,8 +100,9 @@ messagingService.listenForEvent('app-deployment', message => {
                 console.log(`    pid: ${newApp.pid}`);
                 // sends application's information to sensor-stream-manager
                 // for registering the topic and sensor data requirement.
-                messagingService.forwardMessage(serviceName, "sensor-stream-manager", "app-deployment", {
-                    "app": apps[appName],
+                messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+                    "topic": appId,
+                    "metadataPath": appData.metadataPath
                 });
             })
             .catch(err => console.error(err));
