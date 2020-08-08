@@ -26,6 +26,7 @@ module.exports = function(app) {
     app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
+    app.post('/gateway/terminate-app', gatewayAPIController.terminateApp);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',

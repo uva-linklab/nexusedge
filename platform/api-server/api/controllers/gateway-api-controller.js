@@ -82,6 +82,17 @@ exports.executeApp = async function(req, res) {
     res.send();
 };
 
+exports.terminateApp = async function(req, res) {
+    const appId = req.body['id'];
+    if(appId) {
+        // Forward the termination request to app-manager
+        messagingService.forwardMessage(serviceName, "app-manager", "terminate-app", {
+            "id": appId
+        });
+    }
+    res.send();
+};
+
 // TODO: need to be changed to the general api.
 /**
  * This endpoint takes sensor requirement from the remote gateways and

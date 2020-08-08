@@ -50,13 +50,23 @@ exports.fetchAll = function() {
         })
 };
 
+exports.removeAllApps = function() {
+    mongoDbService.getCollection(appsCollectionName)
+        .then(collection => {
+            collection.drop()
+                .then(() => {})
+                .catch(err => {});
+        })
+};
+
 /**
- * Removes all the apps.
+ * Remove a specific app from db.
+ * @param appId id of the app to remove
  * @return {Promise<void>}
  */
-exports.clearAll = function() {
+exports.removeApp = function(appId) {
     return mongoDbService.getCollection(appsCollectionName)
         .then(collection => {
-            return collection.drop();
-        })
+            return collection.remove({"_id": appId});
+        });
 };

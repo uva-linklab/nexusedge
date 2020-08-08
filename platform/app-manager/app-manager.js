@@ -17,7 +17,7 @@ const messagingService = new MessagingService(serviceName);
 fs.ensureDirSync(`${__dirname}/logs`);
 
 // when starting up, remove all existing apps
-daoHelper.appsDao.clearAll(); // asynchronous operation
+daoHelper.appsDao.removeAllApps(); // asynchronous operation
 
 // Stores the process, _id, pid, appPath, and metadataPath in apps
 // apps = {
@@ -66,11 +66,13 @@ messagingService.listenForEvent('app-deployment', message => {
 
                 // use "ipc" in options.stdio to setup ipc between the parent process and the child process
                 // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
+
+                const appLogPath = path.join(__dirname, 'logs', `${appName}.out`);
                 const newApp = fork(newAppPath, [], {
                     env: { TOPIC: appId },
                     stdio: [
                         0,
-                        fs.openSync(`${__dirname}/logs/${appName}.out`, 'a'),
+                        fs.openSync(appLogPath, 'a'),
                         fs.openSync(`${__dirname}/logs/${appName}.out`, 'a'),
                         "ipc"
                     ]
@@ -87,10 +89,12 @@ messagingService.listenForEvent('app-deployment', message => {
                 // The _id is also used for application's topic
                 apps[appName] = {
                     "_id": appId,
+                    "name": appName,
                     "app": newApp, // instance of process,
                     "pid": newApp.pid,
                     "appPath": newAppPath,
-                    "metadataPath": appData.metadataPath
+                    "metadataPath": appData.metadataPath,
+                    "logPath": appLogPath
                 };
 
                 console.log(`[INFO] Launched ${newAppPath} successfully!`);
@@ -106,6 +110,44 @@ messagingService.listenForEvent('app-deployment', message => {
                 });
             })
             .catch(err => console.error(err));
+    }
+});
+
+messagingService.listenForEvent( "terminate-app", message => {
+    const appId = message.data['id'];
+
+    // TODO move this to container.js
+    // if we know of this app, process termination request
+    if(apps.hasOwnProperty(appId)) {
+        // fetch details of the app
+        const app = apps[appId];
+        const appName = app['name'];
+        const appInstance = app['app'];
+        const appPath = app['appPath'];
+        const appLogPath = app['logPath'];
+
+        // kill the process
+        appInstance.kill('SIGINT');
+        console.log(`app ${appName} killed.`);
+
+        // remove item from db
+        daoHelper.appsDao.removeApp(appId).then(() => {
+            console.log(`app ${appName} removed from db.`);
+
+            // remove logs
+            fs.remove(appLogPath);
+            console.log(`log file for ${appName} removed.`);
+
+            // remove the execution directory
+            const appExecDirectory = path.dirname(appPath);
+            fs.remove(appExecDirectory);
+            console.log(`execution directory for ${appName} removed.`);
+
+            // remove item from apps object
+            delete apps[appId];
+        })
+    } else {
+        console.error(`App id ${appId} is not a running app on this gateway. Could not complete termination request.`);
     }
 });
 
