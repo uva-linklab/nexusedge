@@ -9,55 +9,100 @@ let handlersJson = {};
 
 /**
  * Loads handlers for the device-manager.
- * Any directory under device-manager/handlers/ is considered to a handler.
+ * Any directory under device-manager/handlers/ is considered to be a handler.
  * The configuration file for handlers is device-manager/handlers/handlers.json.
- * This function ensures that handlers follow all guidelines.
- * @return {Promise<{}|null>} If all guidelines are met returns a map of handlers and handler objects, otherwise null.
+ * @return {Promise<{}|null>} returns a map of handler->handlerObj if loading was successful, otherwise returns null.
  */
-module.exports.loadHandlers = async function() {
-    // ensure that handlers directory exists and it contains a handlers.json config file
-    const handlersDirectoryPath = path.join(__dirname, "handlers");
-    const handlersJsonPath = path.join(handlersDirectoryPath, "handlers.json");
-
-    const exists = await fs.pathExists(handlersJsonPath);
-    if(!exists) {
-        console.error(`Please ensure that a handlers directory exists and contains a valid handlers.json config file.`);
+async function loadHandlers() {
+    // store the handlersJson file for later use in getControllerId()
+    handlersJson = await getHandlers();
+    if(handlersJson == null) {
         return null;
     }
 
-    // ensure that the config file is well-formed
+    // ensure that the handlers listed in handlers.json are all in place
+    // also ensure that there are no handlers that exist without an entry in handlers.json
+    const handlerNames = Object.keys(handlersJson);
+
+    // ensure that the 'main' script listed for each handler exists
+    const mainScriptPaths =
+        Object.entries(handlersJson).map(entry => path.join(__dirname, entry[0], entry[1]['main']));
+
+    // create a map of handlerName -> handlerObj
+    // we send a map to aid in looking up the handlerObj from a handlerName.
+    // eg: send(deviceId) -> handlerObj.dispatch(deviceId) would require deviceId -> handler -> handlerObj
     try {
-        handlersJson = await fs.readJson(handlersJsonPath);
-    } catch (e) {
-        // if there's a JSON parse error, throw an error message
-        if(e instanceof SyntaxError) {
-            console.error("Handlers.json is not well-formed.");
-            return null;
+        // for each handler name, load its node.js module
+        const handlerModules = await Promise.all(handlerNames.map((handlerName, index) =>
+            getHandlerModule(handlerName, mainScriptPaths[index])));
+
+        const handlerObjMap = {};
+        // iterate over handlerNames and handlerModules to populate handlerObjMap
+        handlerNames.forEach((handlerName, index) => handlerObjMap[handlerName] = handlerModules[index]);
+        return handlerObjMap;
+    } catch(err) {
+        return null;
+    }
+}
+
+/**
+ * Load the nodejs module for a given handler
+ * @param handlerName The name of the handler
+ * @param handlerScriptPath The handler's main script path
+ * @return {Promise<module>}
+ */
+async function getHandlerModule(handlerName, handlerScriptPath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const HandlerClass = require(handlerScriptPath);
+            // Pass the handler's name as its id. Will be used by it to identify itself when communicating with the platform.
+            const handlerModule = new HandlerClass(handlerName);
+            resolve(handlerModule);
+        } catch (err) {
+            if(err.code === 'MODULE_NOT_FOUND') {
+                console.error('Dependencies for some of the handlers not installed. ' +
+                    'Please run device-manager/handlers/install-handlers.js before starting the platform. ');
+                console.error(err.message);
+                reject(err);
+            }
         }
+    });
+}
+
+/**
+ * Installs the dependencies for all of the handlers.
+ * Packages for controllers are installed once into the platform-manager/node_modules/ directory to ensure singleton
+ * operation.
+ * @return {Promise<boolean>} status of the installation
+ */
+async function installHandlers() {
+    const handlersJson = await getHandlers();
+    if(handlersJson == null) {
+        return false;
     }
 
     // ensure that the handlers listed in handlers.json are all in place
     // also ensure that there are no handlers that exist without an entry in handlers.json
     const handlerNames = Object.keys(handlersJson);
     // get all first level directory names (ignore any files)
-    const handlersOnDisk = await glob('*', {ignore: '*.*', cwd: handlersDirectoryPath});
+    const handlersOnDisk = await glob('*', {ignore: '*.*', cwd: __dirname});
 
     const inConfigNotOnDisk = handlerNames.filter(handler => !handlersOnDisk.includes(handler));
     if(inConfigNotOnDisk.length !== 0) {
         console.error(`Handlers not found on disk: ${inConfigNotOnDisk}`);
-        return null;
+        return false;
     }
 
     // ensure that the 'main' script listed for each handler exists
     const mainScriptPaths =
-        Object.entries(handlersJson).map(entry => path.join(handlersDirectoryPath, entry[0], entry[1]['main']));
+        Object.entries(handlersJson).map(entry => path.join(__dirname, entry[0], entry[1]['main']));
 
     const mainScriptsStatus = await checkPathsExist(mainScriptPaths,
         handlerNames,
         "",
         "${name}'s main script does not exist.");
     if(!mainScriptsStatus) {
-        return null;
+        return false;
     }
 
     // ensure that the specified controllers are listed on the npm repo
@@ -70,36 +115,35 @@ module.exports.loadHandlers = async function() {
         '',
         '${name} does not exist in the npm registry.');
     if(!npmPackageStatus) {
-        return null;
+        return false;
     }
 
     /*
     We have a requirement that controller npm packages should not be installed on a per handler basis, i.e. should not
     exist in multiple node_modules/ directories. This is because controllers are singletons which access some underlying
     hardware. Each hardware must have a single controller which arbitrates handler access to that hardware.
-    So we install controllers in the device-manager/ path. This gets installed in the parent node_modules/ directory
-    since device-manager does not have a package.json. Then for each handler, we install their dependencies excluding
+    So we install controllers in the platform-manager/ path. Then for each handler, we install their dependencies excluding
     the controller packages. (controllers are part of the package dependencies of handlers)
      */
 
-    // first, install the controller packages in the device-manager directory
+    // first, install the controller packages in the platform-manager directory
     try {
-        await installNpmDependencyList(__dirname, controllers);
+        await installNpmDependencyList(path.join(__dirname, '..', '..'), controllers);
     } catch (err) {
         console.error(`failed to install the controller packages ${controllers}`);
         console.error(err);
-        return null;
+        return false;
     }
 
     // before installing the dependencies for each handler, ensure that each handler directory has a package.json file
-    const handlerPackageJsonPaths = handlerNames.map(handler => path.join(handlersDirectoryPath, handler, 'package.json'));
+    const handlerPackageJsonPaths = handlerNames.map(handler => path.join(__dirname, handler, 'package.json'));
     const packageJsonStatus =
         await checkPathsExist(handlerPackageJsonPaths,
             handlerNames,
             'Some of the handlers have missing package.json files. Please ensure that each handler uses one.',
             '${name} has a missing package.json');
     if(!packageJsonStatus) {
-        return null;
+        return false;
     }
 
     // for each handler, find their deps except their controller package dependency
@@ -124,26 +168,41 @@ module.exports.loadHandlers = async function() {
     try {
         await Promise.all(dependenciesList.map((dependencies, handlerIndex) => {
             const handlerName = handlerNames[handlerIndex];
-            return installNpmDependencies(path.join(handlersDirectoryPath, handlerName), dependencies);
+            return installNpmDependencies(path.join(__dirname, handlerName), dependencies);
         }));
     } catch (err) {
         console.error(`failed to install npm packages for some of the handlers`);
         console.error(err);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Get the handlers in handlers.json
+ * @return {Promise<null|{}>}
+ */
+async function getHandlers() {
+    const handlersJsonPath = path.join(__dirname, "handlers.json");
+
+    const exists = await fs.pathExists(handlersJsonPath);
+    if(!exists) {
+        console.error(`Please ensure that the handlers directory contains a valid handlers.json config file.`);
         return null;
     }
 
-    // create a map of handlerName -> handlerObj
-    // we send a map to aid in looking up the handlerObj from a handlerName.
-    // eg: send(deviceId) -> handlerObj.dispatch(deviceId) would require deviceId -> handler -> handlerObj
-    const handlerObjMap = {};
-    handlerNames.forEach((handlerName, index) => {
-        // create objects for each handler
-        const HandlerClass = require(mainScriptPaths[index]);
-        // Pass the handler's name as its id. Will be used by it to identify itself when communicating with the platform.
-        handlerObjMap[handlerName] = new HandlerClass(handlerName);
-    });
-    return handlerObjMap;
-};
+    // ensure that the config file is well-formed
+    try {
+        handlersJson = await fs.readJson(handlersJsonPath);
+        return handlersJson;
+    } catch (e) {
+        // if there's a JSON parse error, throw an error message
+        if(e instanceof SyntaxError) {
+            console.error("Handlers.json is not well-formed.");
+            return null;
+        }
+    }
+}
 
 /**
  * Installs npm packages in the specified directory
@@ -282,6 +341,12 @@ function executeCommand(cmd, cwd) {
  * @param handlerId
  * @return {*}
  */
-exports.getControllerId = function(handlerId) {
+function getControllerId(handlerId) {
     return handlersJson[handlerId]['controller'];
+}
+
+module.exports = {
+    loadHandlers: loadHandlers,
+    installHandlers: installHandlers,
+    getControllerId: getControllerId
 };
