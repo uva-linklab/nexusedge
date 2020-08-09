@@ -1,4 +1,4 @@
-const handlerUtils = require('./handler-utils');
+const handlerUtils = require('./handlers/handler-utils');
 const utils = require('../utils/utils');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
