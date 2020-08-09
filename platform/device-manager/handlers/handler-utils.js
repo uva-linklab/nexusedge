@@ -11,7 +11,7 @@ let handlersJson = {};
  * Loads handlers for the device-manager.
  * Any directory under device-manager/handlers/ is considered to be a handler.
  * The configuration file for handlers is device-manager/handlers/handlers.json.
- * @return {Promise<{}|null>} If all guidelines are met returns a map of handlers and handler classes, otherwise null.
+ * @return {Promise<{}|null>} returns a map of handler->handlerObj if loading was successful, otherwise returns null.
  */
 async function loadHandlers() {
     // store the handlersJson file for later use in getControllerId()
@@ -31,23 +31,42 @@ async function loadHandlers() {
     // create a map of handlerName -> handlerObj
     // we send a map to aid in looking up the handlerObj from a handlerName.
     // eg: send(deviceId) -> handlerObj.dispatch(deviceId) would require deviceId -> handler -> handlerObj
-    const handlerObjMap = {};
-    handlerNames.forEach((handlerName, index) => {
-        // create objects for each handler
+    try {
+        // for each handler name, load its node.js module
+        const handlerModules = await Promise.all(handlerNames.map((handlerName, index) =>
+            getHandlerModule(handlerName, mainScriptPaths[index])));
+
+        const handlerObjMap = {};
+        // iterate over handlerNames and handlerModules to populate handlerObjMap
+        handlerNames.forEach((handlerName, index) => handlerObjMap[handlerName] = handlerModules[index]);
+        return handlerObjMap;
+    } catch(err) {
+        return null;
+    }
+}
+
+/**
+ * Load the nodejs module for a given handler
+ * @param handlerName The name of the handler
+ * @param handlerScriptPath The handler's main script path
+ * @return {Promise<module>}
+ */
+async function getHandlerModule(handlerName, handlerScriptPath) {
+    return new Promise((resolve, reject) => {
         try {
-            const HandlerClass = require(mainScriptPaths[index]);
+            const HandlerClass = require(handlerScriptPath);
             // Pass the handler's name as its id. Will be used by it to identify itself when communicating with the platform.
-            handlerObjMap[handlerName] = new HandlerClass(handlerName);
+            const handlerModule = new HandlerClass(handlerName);
+            resolve(handlerModule);
         } catch (err) {
             if(err.code === 'MODULE_NOT_FOUND') {
                 console.error('Dependencies for some of the handlers not installed. ' +
                     'Please run device-manager/handlers/install-handlers.js before starting the platform. ');
                 console.error(err.message);
-                return null;
+                reject(err);
             }
         }
     });
-    return handlerObjMap;
 }
 
 /**

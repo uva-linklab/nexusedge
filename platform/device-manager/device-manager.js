@@ -28,10 +28,12 @@ const pendingDeviceBuffer = {};
 let handlerMap = {};
 
 handlerUtils.loadHandlers().then(map => {
-    handlerMap = map;
+    if(map == null) {
     // TODO notify platform manager that we have a problem and exit
-    if(!handlerMap) {
+        console.error("There was a problem loading the handlers. Exiting device-manager.");
+        process.exit(1);
     }
+    handlerMap = map;
 
     // deviceLastActiveTime is used as a cache. Populate this by loading all devices in db.
     // ensures that the cache contains all the registered devices.
