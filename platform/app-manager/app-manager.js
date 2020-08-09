@@ -3,8 +3,11 @@ const fs = require("fs-extra");
 const path = require("path");
 const { fork } = require('child_process');
 const crypto = require('crypto');
+const Tail = require('tail').Tail;
 const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');
+const MqttController = require('../utils/mqtt-controller');
+const mqttController = MqttController.getInstance();
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -87,7 +90,7 @@ messagingService.listenForEvent('app-deployment', message => {
 
                 // Stores the process, _id, pid, appPath, and metadataPath in apps
                 // The _id is also used for application's topic
-                apps[appName] = {
+                apps[appId] = {
                     "_id": appId,
                     "name": appName,
                     "app": newApp, // instance of process,
@@ -147,10 +150,80 @@ messagingService.listenForEvent( "terminate-app", message => {
             delete apps[appId];
         })
     } else {
-        console.error(`App id ${appId} is not a running app on this gateway. Could not complete termination request.`);
+        console.error(`App ${appId} is not a running app on this gateway. Could not complete termination request.`);
+    }
+});
+
+messagingService.listenForQuery('start-app-log-streaming', message => {
+    const query = message.data.query;
+    if(query.params.hasOwnProperty('id')) {
+        const appId = query.params['id'];
+
+        // check if the app is running
+        if(apps.hasOwnProperty(appId)) {
+            // fetch the app's log file path
+            const app = apps[appId];
+            const appLogPath = app['logPath'];
+
+            const appLogMqttTopic = getAppLogTopic(appId);
+            if(fs.existsSync(appLogPath)) {
+                const tail = new Tail(appLogPath, {
+                    fromBeginning: true
+                });
+
+                tail.on("line", function(data) {
+                    // publish to mqtt topic
+                    mqttController.publish('localhost', appLogMqttTopic, data);
+                });
+
+                tail.on("error", function(error) {
+                    console.error(`error while tailing the log file for ${appId}, ERROR: ${error}`);
+                    tail.unwatch();
+                });
+
+                // add the tail object to the apps object
+                apps[appId]['logTail'] = tail;
+
+                messagingService.respondToQuery(query, {
+                    'appLogTopic': appLogMqttTopic
+                });
+            }
+        } else {
+            // send an error
+            messagingService.respondToQuery(query, {
+                'error': `App ${appId} is not a running app on this gateway.`
+            });
+        }
+    }
+});
+
+messagingService.listenForEvent('stop-app-log-streaming', message => {
+    const appId = message.data['id'];
+
+    // check if we know this app
+    if(apps.hasOwnProperty(appId)) {
+        // check if we were tailing this app's log
+        if(apps[appId].hasOwnProperty('logTail')) {
+            const tail = apps[appId]['logTail'];
+            // stop tailing
+            tail.unwatch();
+            delete apps[appId]['logTail'];
+
+            // stop streaming the app's log on mqtt
+            const appLogTopic = getAppLogTopic(appId);
+            mqttController.unsubscribe('localhost', appLogTopic);
+        } else {
+            console.error(`App ${appId} was not streaming its logs. Did not attempt to stop streaming.`);
+        }
+    } else {
+        console.error(`App ${appId} is not a running app on this gateway. Did not attempt to stop app log streaming.`);
     }
 });
 
 messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
+
+function getAppLogTopic(appId) {
+    return `${appId}-log`;
+}

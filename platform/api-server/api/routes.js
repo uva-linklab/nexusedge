@@ -23,10 +23,12 @@ module.exports = function(app) {
     app.get('/gateway/devices', gatewayAPIController.getDevices);
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
     app.get('/gateway/apps', gatewayAPIController.getApps);
-    app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
-    app.post('/gateway/terminate-app', gatewayAPIController.terminateApp);
+    app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
+    app.post('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startAppLogStreaming);
+    app.post('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopAppLogStreaming);
+    app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',

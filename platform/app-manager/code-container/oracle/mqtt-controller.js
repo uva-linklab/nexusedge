@@ -84,6 +84,29 @@ class MqttController {
     }
 
     /**
+     * unsubscribe from the specified topic
+     * @param ip
+     * @param topic
+     */
+    unsubscribe(ip, topic) {
+        const client = this._getMqttClient(ip);
+
+        const callbackMap = this._getCallbackMap(ip);
+
+        // if there is a callback list for the topic, append this callback to it
+        if(callbackMap.hasOwnProperty(topic)) {
+            // TODO this does not work if there are multiple subscribers to this topic.
+            //  currently, we don't have a way to differentiate between callbacks. So there is no way to ascertain
+            //  which callback we're trying to remove when there are multiple subscribers.
+            //  maybe during subscription, return a subscriptionId ?
+            delete callbackMap[topic];
+
+            // unsubscribe from the mqtt topic
+            client.unsubscribe(topic);
+        }
+    }
+
+    /**
      * Internal method to return the MQTT client object for the specified ip.
      * If the ip address is not present, creates a new mqtt client object.
      * @param ip

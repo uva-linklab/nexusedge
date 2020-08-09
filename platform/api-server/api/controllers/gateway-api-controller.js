@@ -83,10 +83,37 @@ exports.executeApp = async function(req, res) {
 };
 
 exports.terminateApp = async function(req, res) {
-    const appId = req.body['id'];
+    const appId = req.params['id'];
     if(appId) {
         // Forward the termination request to app-manager
         messagingService.forwardMessage(serviceName, "app-manager", "terminate-app", {
+            "id": appId
+        });
+    }
+    res.send();
+};
+
+exports.startAppLogStreaming = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // pass the request to app-manager and get back an mqtt topic to listen to the logs
+        const response =
+            await messagingService.query(serviceName, 'app-manager', 'start-app-log-streaming', {
+                'id': appId
+            });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    }
+};
+
+exports.stopAppLogStreaming = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // Forward the termination request to app-manager
+        messagingService.forwardMessage(serviceName, "app-manager", "stop-app-log-streaming", {
             "id": appId
         });
     }
