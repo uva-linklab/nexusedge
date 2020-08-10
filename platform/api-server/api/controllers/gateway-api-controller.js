@@ -86,11 +86,16 @@ exports.terminateApp = async function(req, res) {
     const appId = req.params['id'];
     if(appId) {
         // Forward the termination request to app-manager
-        messagingService.forwardMessage(serviceName, "app-manager", "terminate-app", {
+        const response =
+            await messagingService.query(serviceName, "app-manager", "terminate-app", {
             "id": appId
         });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
     }
-    res.send();
 };
 
 exports.startAppLogStreaming = async function(req, res) {
@@ -113,11 +118,16 @@ exports.stopAppLogStreaming = async function(req, res) {
     const appId = req.params['id'];
     if(appId) {
         // Forward the termination request to app-manager
-        messagingService.forwardMessage(serviceName, "app-manager", "stop-app-log-streaming", {
-            "id": appId
+        const response =
+            await messagingService.query(serviceName, "app-manager", "stop-app-log-streaming", {
+                "id": appId
+            });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
         });
     }
-    res.send();
 };
 
 // TODO: need to be changed to the general api.

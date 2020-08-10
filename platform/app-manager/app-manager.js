@@ -116,41 +116,53 @@ messagingService.listenForEvent('app-deployment', message => {
     }
 });
 
-messagingService.listenForEvent( "terminate-app", message => {
-    const appId = message.data['id'];
+messagingService.listenForQuery( "terminate-app", message => {
+    const query = message.data.query;
 
-    // TODO move this to container.js
-    // if we know of this app, process termination request
-    if(apps.hasOwnProperty(appId)) {
-        // fetch details of the app
-        const app = apps[appId];
-        const appName = app['name'];
-        const appInstance = app['app'];
-        const appPath = app['appPath'];
-        const appLogPath = app['logPath'];
+    if(query.params.hasOwnProperty('id')) {
+        const appId = query.params['id'];
 
-        // kill the process
-        appInstance.kill('SIGINT');
-        console.log(`app ${appName} killed.`);
+        // TODO move this to container.js
+        // if we know of this app, process termination request
+        if(apps.hasOwnProperty(appId)) {
+            // fetch details of the app
+            const app = apps[appId];
+            const appName = app['name'];
+            const appInstance = app['app'];
+            const appPath = app['appPath'];
+            const appLogPath = app['logPath'];
 
-        // remove item from db
-        daoHelper.appsDao.removeApp(appId).then(() => {
-            console.log(`app ${appName} removed from db.`);
+            // kill the process
+            appInstance.kill('SIGINT');
+            console.log(`app ${appName} killed.`);
 
-            // remove logs
-            fs.remove(appLogPath);
-            console.log(`log file for ${appName} removed.`);
+            // remove item from db
+            daoHelper.appsDao.removeApp(appId).then(() => {
+                console.log(`app ${appName} removed from db.`);
 
-            // remove the execution directory
-            const appExecDirectory = path.dirname(appPath);
-            fs.remove(appExecDirectory);
-            console.log(`execution directory for ${appName} removed.`);
+                // remove logs
+                fs.remove(appLogPath);
+                console.log(`log file for ${appName} removed.`);
 
-            // remove item from apps object
-            delete apps[appId];
-        })
-    } else {
-        console.error(`App ${appId} is not a running app on this gateway. Could not complete termination request.`);
+                // remove the execution directory
+                const appExecDirectory = path.dirname(appPath);
+                fs.remove(appExecDirectory);
+                console.log(`execution directory for ${appName} removed.`);
+
+                // remove item from apps object
+                delete apps[appId];
+
+                messagingService.respondToQuery(query, {
+                    'status': true
+                });
+            })
+        } else {
+            console.error(`App ${appId} is not a running app on this gateway. Could not complete termination request.`);
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': `App ${appId} is not a running app on this gateway.`
+            });
+        }
     }
 });
 
@@ -185,38 +197,56 @@ messagingService.listenForQuery('start-app-log-streaming', message => {
                 apps[appId]['logTail'] = tail;
 
                 messagingService.respondToQuery(query, {
+                    'status': true,
                     'appLogTopic': appLogMqttTopic
                 });
             }
         } else {
             // send an error
             messagingService.respondToQuery(query, {
+                'status': false,
                 'error': `App ${appId} is not a running app on this gateway.`
             });
         }
     }
 });
 
-messagingService.listenForEvent('stop-app-log-streaming', message => {
-    const appId = message.data['id'];
+messagingService.listenForQuery('stop-app-log-streaming', message => {
+    const query = message.data.query;
 
-    // check if we know this app
-    if(apps.hasOwnProperty(appId)) {
-        // check if we were tailing this app's log
-        if(apps[appId].hasOwnProperty('logTail')) {
-            const tail = apps[appId]['logTail'];
-            // stop tailing
-            tail.unwatch();
-            delete apps[appId]['logTail'];
+    if(query.params.hasOwnProperty('id')) {
+        const appId = query.params['id'];
 
-            // stop streaming the app's log on mqtt
-            const appLogTopic = getAppLogTopic(appId);
-            mqttController.unsubscribe('localhost', appLogTopic);
+        // check if we know this app
+        if(apps.hasOwnProperty(appId)) {
+            // check if we were tailing this app's log
+            if(apps[appId].hasOwnProperty('logTail')) {
+                const tail = apps[appId]['logTail'];
+                // stop tailing
+                tail.unwatch();
+                delete apps[appId]['logTail'];
+
+                // stop streaming the app's log on mqtt
+                const appLogTopic = getAppLogTopic(appId);
+                mqttController.unsubscribe('localhost', appLogTopic);
+
+                messagingService.respondToQuery(query, {
+                    'status': true
+                });
+            } else {
+                console.error(`App ${appId} was not streaming its logs. Did not attempt to stop streaming.`);
+                messagingService.respondToQuery(query, {
+                    'status': false,
+                    'error': `App ${appId} was not streaming its logs.`
+                });
+            }
         } else {
-            console.error(`App ${appId} was not streaming its logs. Did not attempt to stop streaming.`);
+            console.error(`App ${appId} is not a running app on this gateway. Did not attempt to stop app log streaming.`);
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': `App ${appId} is not a running app on this gateway.`
+            });
         }
-    } else {
-        console.error(`App ${appId} is not a running app on this gateway. Did not attempt to stop app log streaming.`);
     }
 });
 
