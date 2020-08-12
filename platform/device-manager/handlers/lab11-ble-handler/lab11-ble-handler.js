@@ -154,6 +154,7 @@ class Lab11BleHandler {
                         }, got_parse_js.bind(this));
                     } else {
                         debug('Using cached parse.js for ' + beacon.id);
+                        this._device_id_ages[beacon.id] = Date.now();
                     }
 
                 } else {
