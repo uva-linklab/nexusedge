@@ -178,28 +178,36 @@ messagingService.listenForQuery('start-app-log-streaming', message => {
             const appLogPath = app['logPath'];
 
             const appLogMqttTopic = getAppLogTopic(appId);
-            if(fs.existsSync(appLogPath)) {
-                const tail = new Tail(appLogPath, {
-                    fromBeginning: true
-                });
-
-                tail.on("line", function(data) {
-                    // publish to mqtt topic
-                    mqttController.publish('localhost', appLogMqttTopic, data);
-                });
-
-                tail.on("error", function(error) {
-                    console.error(`error while tailing the log file for ${appId}, ERROR: ${error}`);
-                    tail.unwatch();
-                });
-
-                // add the tail object to the apps object
-                apps[appId]['logTail'] = tail;
-
+            // if we were already tailing this app, then just return the topic
+            if(apps[appId].hasOwnProperty('logTail')) {
                 messagingService.respondToQuery(query, {
                     'status': true,
                     'appLogTopic': appLogMqttTopic
                 });
+            } else {
+                if(fs.existsSync(appLogPath)) {
+                    const tail = new Tail(appLogPath, {
+                        fromBeginning: true
+                    });
+
+                    tail.on("line", function(data) {
+                        // publish to mqtt topic
+                        mqttController.publish('localhost', appLogMqttTopic, data);
+                    });
+
+                    tail.on("error", function(error) {
+                        console.error(`error while tailing the log file for ${appId}, ERROR: ${error}`);
+                        tail.unwatch();
+                    });
+
+                    // add the tail object to the apps object
+                    apps[appId]['logTail'] = tail;
+
+                    messagingService.respondToQuery(query, {
+                        'status': true,
+                        'appLogTopic': appLogMqttTopic
+                    });
+                }
             }
         } else {
             // send an error
