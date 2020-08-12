@@ -67,6 +67,6 @@ exports.removeAllApps = function() {
 exports.removeApp = function(appId) {
     return mongoDbService.getCollection(appsCollectionName)
         .then(collection => {
-            return collection.remove({"_id": appId});
+            return collection.deleteOne({"_id": appId});
         });
 };

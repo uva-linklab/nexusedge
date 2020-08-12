@@ -75,8 +75,8 @@ messagingService.listenForEvent('app-deployment', message => {
                     env: { TOPIC: appId },
                     stdio: [
                         0,
+                        fs.openSync(appLogPath, 'w'),
                         fs.openSync(appLogPath, 'a'),
-                        fs.openSync(`${__dirname}/logs/${appName}.out`, 'a'),
                         "ipc"
                     ]
                 });
