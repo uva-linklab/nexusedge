@@ -1,11 +1,33 @@
 #Setup
-* Label the last 5 characters of the serial number on the board (eg: 0482U). These 5 characters would be used for identifying the board.
+* Label the last 5 characters of the serial number on the board (eg: 0482U). These 5 characters would be used for 
+identifying the board.  
+For Raspberry Pi, the serial number can be found by running the command:  
+```
+cat /proc/cpuinfo
+```
 * Create a blank file with this id on the HOME directory of the board. 
-	touch 0482U
-* Add an environment variable called ARTIK_SERIAL with this id.
-	export ARTIK_SERIAL="0482U"
-* Install essential packages  
-    apt install nodejs cron build-essential libudev-dev mongodb openssh-server git-all mosquitto
+```
+touch <serial-number>
+```
+* Add an environment variable called BOARD_SERIAL with this id. Add this line to ~/.bash_profile:
+```
+export BOARD_SERIAL="<serial-number>"
+```
+* Install node.js v12.x
+```
+# Using Ubuntu
+curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Using Debian, as root
+curl -sL https://deb.nodesource.com/setup_12.x | bash -
+apt-get install -y nodejs
+```
+Reference: https://github.com/nodesource/distributions/blob/master/README.md
+* Install mongodb  
+For RPi: https://koenaerts.ca/compile-and-install-mongodb-on-raspberry-pi/
+* Install other essential packages  
+    apt install cron build-essential libudev-dev openssh-server git-all mosquitto mosquitto-clients libpcap-dev
 * Set up an email alert to send the IP address of the board on reboot. Add scripts/email-script.sh to cron:  
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Add the following line to /etc/mongodb.conf:   
