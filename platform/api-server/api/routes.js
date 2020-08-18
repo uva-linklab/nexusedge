@@ -26,8 +26,9 @@ module.exports = function(app) {
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
-    app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startAppLogStreaming);
-    app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopAppLogStreaming);
+    app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
+    app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
+    app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopLogStreaming);
     app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.

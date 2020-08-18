@@ -49,6 +49,15 @@ function generateAppId(appName) {
     return hash.digest('hex');
 }
 
+/**
+ * Returns the MQTT topic on which the specified app's logs are streaming to
+ * @param appId The id of the app
+ * @return {string}
+ */
+function getAppLogTopic(appId) {
+    return `${appId}-log`;
+}
+
 // When app-manager get appPath and metadataPath from platform-manager,
 // app-manager will fork a process for executing new app.
 messagingService.listenForEvent('app-deployment', message => {
@@ -116,13 +125,13 @@ messagingService.listenForEvent('app-deployment', message => {
     }
 });
 
+// TODO move the functionality to container.js
 messagingService.listenForQuery( "terminate-app", message => {
     const query = message.data.query;
 
     if(query.params.hasOwnProperty('id')) {
         const appId = query.params['id'];
 
-        // TODO move this to container.js
         // if we know of this app, process termination request
         if(apps.hasOwnProperty(appId)) {
             // fetch details of the app
@@ -166,7 +175,30 @@ messagingService.listenForQuery( "terminate-app", message => {
     }
 });
 
-messagingService.listenForQuery('start-app-log-streaming', message => {
+messagingService.listenForQuery('get-log-streaming-topic', message => {
+    const query = message.data.query;
+    if(query.params.hasOwnProperty('id')) {
+        const appId = query.params['id'];
+
+        // check if the app is running
+        if(apps.hasOwnProperty(appId)) {
+            const appLogMqttTopic = getAppLogTopic(appId);
+            messagingService.respondToQuery(query, {
+                'status': true,
+                'appLogTopic': appLogMqttTopic
+            });
+        } else {
+            // send an error
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': `App ${appId} is not a running app on this gateway.`
+            });
+        }
+    }
+});
+
+// TODO move the functionality to container.js
+messagingService.listenForQuery('start-log-streaming', message => {
     const query = message.data.query;
     if(query.params.hasOwnProperty('id')) {
         const appId = query.params['id'];
@@ -177,15 +209,14 @@ messagingService.listenForQuery('start-app-log-streaming', message => {
             const app = apps[appId];
             const appLogPath = app['logPath'];
 
-            const appLogMqttTopic = getAppLogTopic(appId);
-            // if we were already tailing this app, then just return the topic
+            // if we were already tailing this app, then return
             if(apps[appId].hasOwnProperty('logTail')) {
                 messagingService.respondToQuery(query, {
-                    'status': true,
-                    'appLogTopic': appLogMqttTopic
+                    'status': true
                 });
             } else {
                 if(fs.existsSync(appLogPath)) {
+                    const appLogMqttTopic = getAppLogTopic(appId);
                     const tail = new Tail(appLogPath, {
                         fromBeginning: true
                     });
@@ -204,8 +235,7 @@ messagingService.listenForQuery('start-app-log-streaming', message => {
                     apps[appId]['logTail'] = tail;
 
                     messagingService.respondToQuery(query, {
-                        'status': true,
-                        'appLogTopic': appLogMqttTopic
+                        'status': true
                     });
                 }
             }
@@ -219,7 +249,8 @@ messagingService.listenForQuery('start-app-log-streaming', message => {
     }
 });
 
-messagingService.listenForQuery('stop-app-log-streaming', message => {
+// TODO move the functionality to container.js
+messagingService.listenForQuery('stop-log-streaming', message => {
     const query = message.data.query;
 
     if(query.params.hasOwnProperty('id')) {
@@ -261,7 +292,3 @@ messagingService.listenForQuery('stop-app-log-streaming', message => {
 messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
-
-function getAppLogTopic(appId) {
-    return `${appId}-log`;
-}
