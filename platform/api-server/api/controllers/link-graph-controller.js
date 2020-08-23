@@ -12,8 +12,8 @@ const queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	var nodeDict = {};
-	var neighborsDict = {};
+	const nodeDict = {};
+	const neighborsDict = {};
 
 	//pick up self's mac address (_id) and ip address from db
 	const selfDetails = await daoHelper.selfDao.getLatestEntry();
@@ -24,7 +24,7 @@ exports.getLinkGraphData = async function(req, res) {
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
-		var neighborsOfNode = [];
+		const neighborsOfNode = [];
 
 		//check if the node is reachable
 		const nodeReachable = await isGatewayReachable(node.IP_address);
@@ -33,8 +33,8 @@ exports.getLinkGraphData = async function(req, res) {
 			const neighbors = await getNeighborData(node.IP_address);
 
 			for(const neighborNode of neighbors) {
-				const neighborId = neighborNode._id;
-				const neighborIPAddress = neighborNode.IP_address;
+				const neighborId = neighborNode.id;
+				const neighborIPAddress = neighborNode.ip;
 
 				//check if the neighbor is reachable
 				const neighborReachable = await isGatewayReachable(neighborIPAddress);
