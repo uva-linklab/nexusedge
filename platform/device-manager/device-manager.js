@@ -214,9 +214,7 @@ messagingService.listenForQuery('get-active-devices', message => {
 
 messagingService.listenForQuery('get-neighbors', message => {
     const query = message.data.query;
-    gatewayScanner.getActiveGateways().then(gateways => {
-        messagingService.respondToQuery(query, gateways);
-    });
+    messagingService.respondToQuery(query, gatewayScanner.getActiveGateways());
 });
 
 // process send API request from apps
