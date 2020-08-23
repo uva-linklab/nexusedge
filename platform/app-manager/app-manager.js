@@ -114,7 +114,12 @@ messagingService.listenForEvent('app-deployment', message => {
 
 messagingService.listenForQuery( "get-apps", message => {
     const query = message.data.query;
-    messagingService.respondToQuery(query, Object.values(apps));
+    // respond back with a list of apps with just the app id and name
+    const appsList = [];
+    Object.keys(apps).forEach(appId => {
+        appsList.push({"_id": appId, "name": apps[appId]})
+    });
+    messagingService.respondToQuery(query, appsList);
 });
 
 // TODO move the functionality to container.js

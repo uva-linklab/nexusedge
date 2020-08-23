@@ -208,9 +208,7 @@ function getActiveDevicesSince(timeMillis) {
 messagingService.listenForQuery('get-active-devices', message => {
     const query = message.data.query;
     getActiveDevicesSince(300000).then(devices => {
-        messagingService.respondToQuery(query, {
-            'devices': devices
-        });
+        messagingService.respondToQuery(query, devices);
     });
 });
 
