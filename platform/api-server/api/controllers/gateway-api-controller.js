@@ -34,8 +34,9 @@ exports.getDevices = async function(req, res) {
  * @returns {Promise<*>}
  */
 exports.getApps = async function(req, res) {
-    const appsData = await daoHelper.appsDao.fetchAll();
-    return res.json(appsData);
+    const response =
+        await messagingService.query(serviceName, 'app-manager', 'get-apps', {});
+    return res.json(response);
 };
 
 /**

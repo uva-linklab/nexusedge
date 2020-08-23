@@ -13,14 +13,8 @@ console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-// TODO: When initializing app-manager, app-manager checks database to see
-//  if any apps already exists (zombie process). This happens when app-manager crashed abnormally.
-
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
-
-// when starting up, remove all existing apps
-daoHelper.appsDao.removeAllApps(); // asynchronous operation
 
 // Stores the process, _id, pid, appPath, and metadataPath in apps
 // apps = {
@@ -89,13 +83,6 @@ messagingService.listenForEvent('app-deployment', message => {
                         "ipc"
                     ]
                 });
-                // Save application's _id, name, application path, metadata path, and pid in mongodb
-                daoHelper.appsDao.saveAppInfo(appId,
-                    path.basename(newAppPath),
-                    newAppPath,
-                    appData.metadataPath,
-                    newApp.pid.toString()
-                );
 
                 // Stores the process, _id, pid, appPath, and metadataPath in apps
                 // The _id is also used for application's topic
@@ -125,6 +112,11 @@ messagingService.listenForEvent('app-deployment', message => {
     }
 });
 
+messagingService.listenForQuery( "get-apps", message => {
+    const query = message.data.query;
+    messagingService.respondToQuery(query, Object.values(apps));
+});
+
 // TODO move the functionality to container.js
 messagingService.listenForQuery( "terminate-app", message => {
     const query = message.data.query;
@@ -145,26 +137,22 @@ messagingService.listenForQuery( "terminate-app", message => {
             appInstance.kill('SIGINT');
             console.log(`app ${appName} killed.`);
 
-            // remove item from db
-            daoHelper.appsDao.removeApp(appId).then(() => {
-                console.log(`app ${appName} removed from db.`);
+            // remove logs
+            fs.remove(appLogPath);
+            console.log(`log file for ${appName} removed.`);
 
-                // remove logs
-                fs.remove(appLogPath);
-                console.log(`log file for ${appName} removed.`);
+            // remove the execution directory
+            const appExecDirectory = path.dirname(appPath);
+            fs.remove(appExecDirectory);
+            console.log(`execution directory for ${appName} removed.`);
 
-                // remove the execution directory
-                const appExecDirectory = path.dirname(appPath);
-                fs.remove(appExecDirectory);
-                console.log(`execution directory for ${appName} removed.`);
+            // remove item from apps object
+            delete apps[appId];
 
-                // remove item from apps object
-                delete apps[appId];
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
 
-                messagingService.respondToQuery(query, {
-                    'status': true
-                });
-            })
         } else {
             console.error(`App ${appId} is not a running app on this gateway. Could not complete termination request.`);
             messagingService.respondToQuery(query, {
