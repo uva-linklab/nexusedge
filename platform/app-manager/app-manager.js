@@ -16,12 +16,12 @@ const messagingService = new MessagingService(serviceName);
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 
-// Stores the process, _id, pid, appPath, and metadataPath in apps
+// Stores the process, id, pid, appPath, and metadataPath in apps
 // apps = {
 //     "app-name": {
 //         "app": instance-of-process,
 //         "pid": application-process-pid,
-//         "_id": topic,
+//         "id": topic,
 //         "appPath": application-executable-path,
 //         "metadataPath": application-metadata-path
 //     }
@@ -84,10 +84,10 @@ messagingService.listenForEvent('app-deployment', message => {
                     ]
                 });
 
-                // Stores the process, _id, pid, appPath, and metadataPath in apps
-                // The _id is also used for application's topic
+                // Stores the process, id, pid, appPath, and metadataPath in apps
+                // The id is also used for application's topic
                 apps[appId] = {
-                    "_id": appId,
+                    "id": appId,
                     "name": appName,
                     "app": newApp, // instance of process,
                     "pid": newApp.pid,
@@ -99,7 +99,7 @@ messagingService.listenForEvent('app-deployment', message => {
                 console.log(`[INFO] Launched ${newAppPath} successfully!`);
                 console.log(`   time: ${new Date().toISOString()}`);
                 console.log(`   path: ${newAppPath}`);
-                console.log(`    _id: ${appId}`);
+                console.log(`    id: ${appId}`);
                 console.log(`    pid: ${newApp.pid}`);
                 // sends application's information to sensor-stream-manager
                 // for registering the topic and sensor data requirement.
@@ -118,7 +118,7 @@ messagingService.listenForQuery( "get-apps", message => {
     const appsList = [];
     Object.keys(apps).forEach(appId => {
         appsList.push({
-            _id: appId,
+            id: appId,
             name: apps[appId]['name']
         });
     });
