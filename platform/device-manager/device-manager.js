@@ -212,6 +212,13 @@ messagingService.listenForQuery('get-active-devices', message => {
     });
 });
 
+messagingService.listenForQuery('get-neighbors', message => {
+    const query = message.data.query;
+    gatewayScanner.getActiveGateways().then(gateways => {
+        messagingService.respondToQuery(query, gateways);
+    });
+});
+
 // process send API request from apps
 messagingService.listenForEvent('send-to-device', message => {
     const receivedData = message.data;

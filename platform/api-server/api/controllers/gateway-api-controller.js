@@ -5,14 +5,15 @@ const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 /**
- * Return the neighbors discovered in the last 5 mins.
+ * Return the neighboring gateways.
  * @param req
  * @param res
  * @returns {Promise<*>}
  */
 exports.getNeighbors = async function(req, res) {
-    const neighborData = await daoHelper.neighborsDao.getNeighborDataSince(300000);
-    return res.json(neighborData);
+    const response =
+        await messagingService.query(serviceName, 'device-manager', 'get-neighbors', {});
+    return res.json(response);
 };
 
 /**

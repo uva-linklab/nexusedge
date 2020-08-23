@@ -43,6 +43,9 @@ class GatewayScanner {
             process.exit(1);
         }
 
+        // gatewayId -> { id: , ip: , lastActiveTime: }
+        this._discoveredGateways = {};
+
         // wait for bleController to initialize
         bleController.initialize().then(() => {
             // store the IP address and BLE MAC address for future use
@@ -88,10 +91,14 @@ class GatewayScanner {
         const localName = peripheral.advertisement.localName;
         if(localName) {
             const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
-            console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
-            console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
+            // console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
+            // console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
 
-            daoHelper.neighborsDao.upsertNeighborData(peripheral.address, discoveredIp);
+            this._discoveredGateways[peripheral.address] = {
+                id: peripheral.address,
+                ip: discoveredIp,
+                lastActiveTime: Date.now()
+            };
 
             // //check if there are any pending messages that need to be sent to this peripheral
             if(pendingMessages.hasOwnProperty(discoveredIp)) {
@@ -127,6 +134,13 @@ class GatewayScanner {
                 }
             }
         }
+    }
+
+    getActiveGateways() {
+        // find gateways that have been active in the last 15 seconds
+        const timeMillis = 15 * 1000;
+        return Object.values(this._discoveredGateways)
+            .filter(gateway => gateway.lastActiveTime > Date.now() - timeMillis);
     }
 }
 
