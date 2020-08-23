@@ -117,7 +117,10 @@ messagingService.listenForQuery( "get-apps", message => {
     // respond back with a list of apps with just the app id and name
     const appsList = [];
     Object.keys(apps).forEach(appId => {
-        appsList.push({"_id": appId, "name": apps[appId]})
+        appsList.push({
+            _id: appId,
+            name: apps[appId]['name']
+        });
     });
     messagingService.respondToQuery(query, appsList);
 });
