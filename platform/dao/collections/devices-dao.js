@@ -1,6 +1,6 @@
-const MongoDbService = require('../mongo-db-service');
-const mongoDbService = MongoDbService.getInstance();
-const devicesCollectionName = 'devices';
+const DirtyDbService = require('../dirty-db-service');
+const dirtyDbService = DirtyDbService.getInstance();
+const devicesDbName = 'devices';
 
 class Device {
     constructor(id, type, handlerId, controllerId, isStreamingDevice) {
@@ -18,25 +18,27 @@ class Device {
  * @return {Promise<void>}
  */
 function addDevice(device) {
-    return mongoDbService.getCollection(devicesCollectionName)
-        .then(collection => {
-            return collection.insertOne(getDocument(device));
+    return new Promise(resolve => {
+        dirtyDbService.getDb(devicesDbName).then(db => {
+            // if already in the db, then don't add again
+            if(db.get(device.id)) {
+                resolve();
+            } else {
+                db.set(device.id, getJsObject(device), resolve());
+            }
         });
+    });
 }
 
 /**
  * Finds device based on deviceId
  * @param {string} deviceId device's id
- * @returns {Promise<device | null>}
+ * @returns {Promise<Device | null>}
  */
 function find(deviceId) {
-    return mongoDbService.getCollection(devicesCollectionName).then(collection => {
-        return collection.find({"_id": deviceId})
-            .toArray()
-            .then(docs => {
-                const devices = docs.map(doc => getDevice(doc));
-                return (devices.length !== 0) ? devices[0] : null;
-            })
+    return dirtyDbService.getDb(devicesDbName).then(db => {
+        const deviceObj = db.get(deviceId);
+        return deviceObj ? getDevice(deviceObj) : null;
     });
 }
 
@@ -45,50 +47,54 @@ function find(deviceId) {
  * @return {Promise<Device[]>}
  */
 function fetchAll() {
-    return mongoDbService.getCollection(devicesCollectionName)
-        .then(collection => {
-            return collection.find()
-                .toArray()
-                .then(docs => docs.map(doc => getDevice(doc)));
-        })
+    return dirtyDbService.getDb(devicesDbName).then(db => {
+        const devices = [];
+        db.forEach(function(deviceId, deviceObj) {
+            devices.push(getDevice(deviceObj));
+        });
+        return devices;
+    });
 }
 
 /**
  * Fetches devices for the specified deviceIds
  * @param deviceIds
- * @return {Promise<any[]>}
+ * @return {Promise<Device[]>}
  */
 function fetchSpecific(deviceIds) {
-    return mongoDbService.getCollection(devicesCollectionName)
-        .then(collection => {
-            return collection.find({"_id": {$in: deviceIds}})
-                .toArray()
-                .then(docs => docs.map(doc => getDevice(doc)));
-        })
+    return dirtyDbService.getDb(devicesDbName).then(db => {
+        const devices = [];
+        db.forEach(function(deviceId, deviceObj) {
+            if(deviceIds.includes(deviceId)) {
+                devices.push(getDevice(deviceObj));
+            }
+        });
+        return devices;
+    });
 }
 
 /**
- * Convert a device object from a mongodb document
- * @param document source mongodb document
+ * Convert a js object to a Device object
+ * @param jsObject js object
  * @return {Device}
  */
-function getDevice(document) {
-    return new Device(document["_id"],
-        document["type"],
-        document["handlerId"],
-        document["controllerId"],
-        document["isStreamingDevice"]
+function getDevice(jsObject) {
+    return new Device(jsObject["id"],
+        jsObject["type"],
+        jsObject["handlerId"],
+        jsObject["controllerId"],
+        jsObject["isStreamingDevice"]
     );
 }
 
 /**
- * Convert a device object to a mongodb document
- * @param device source device object
- * @return {document}
+ * Convert a device object to a javascript object
+ * @param device Device object
+ * @return {Object}
  */
-function getDocument(device) {
+function getJsObject(device) {
     return {
-        "_id": device.id,
+        "id": device.id,
         "type": device.type,
         "handlerId": device.handlerId,
         "controllerId": device.controllerId,

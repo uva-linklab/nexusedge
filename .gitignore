@@ -12,6 +12,9 @@ platform/app-manager/code-container/executables/
 platform/device-manager/handlers/lab11-ble-handler/cached_parsers.json
 platform/device-manager/handlers/lab11-ble-handler/cached_urls.json
 
+# data files
+platform/dao/data/
+
 # configuration files
 platform/utils/config.json
 platform/device-manager/gateway-scanner/group-key.json
