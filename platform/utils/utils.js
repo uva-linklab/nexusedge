@@ -1,21 +1,42 @@
 const crypto = require('crypto');
-const pcap = require('pcap');
 const config = require('./config.json');
 const fetch = require('node-fetch');
+const { networkInterfaces } = require('os');
 
-exports.getIPAddress =  function() {
-	const networkInterface = config.network.interface;
-	if(!networkInterface) {
-		console.log("interface not found in config file");
+exports.getGatewayIp = function() {
+	const interfaceInConfig = config.network.interface;
+	if(!interfaceInConfig) {
+		throw new Error('interface not defined in utils/config.json');
 	}
+	const interfaces = networkInterfaces();
+	if(interfaces.hasOwnProperty(interfaceInConfig)) {
+		const sysInterface = interfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
+		if(sysInterface) {
+			return sysInterface.address;
+		} else {
+			throw new Error(`no IPv4 address found for ${interfaceInConfig} interface defined in utils/config.json`);
+		}
+	} else {
+		throw new Error(`interface ${interfaceInConfig} defined in utils/config.json is not valid`);
+	}
+};
 
-	//regex to exclude ipv6 addresses and only capture ipv4 addresses. This doesn't ensure that the ipv4 octets are 0-255 but this would suffice. All we need is to exclude ipv6 addresses. 
-	const regex = /^\d+\.\d+\.\d+\.\d+$/;
-	return pcap.findalldevs()
-				.find(elem => elem.name === networkInterface)
-				.addresses
-				.find(addrElem => addrElem && regex.test(addrElem.addr))
-				.addr;
+exports.getGatewayId = function() {
+	const interfaceInConfig = config.network.interface;
+	if(!interfaceInConfig) {
+		throw new Error('interface not defined in utils/config.json');
+	}
+	const interfaces = networkInterfaces();
+	if(interfaces.hasOwnProperty(interfaceInConfig)) {
+		const sysInterface = interfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
+		if(sysInterface) {
+			return sysInterface.mac;
+		} else {
+			throw new Error(`${interfaceInConfig} interface defined in utils/config.json is not an IPv4 interface`);
+		}
+	} else {
+		throw new Error(`interface ${interfaceInConfig} defined in utils/config.json is not valid`);
+	}
 };
 
 const algorithm = 'aes-256-ctr';

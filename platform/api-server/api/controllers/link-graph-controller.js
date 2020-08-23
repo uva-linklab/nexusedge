@@ -117,7 +117,7 @@ async function getNeighborData(gatewayIP) {
  */
 exports.renderLinkGraph = async function(req, res) {
 	//pick up self's ip address from utils rather than self db collection to save a db lookup.
-	const ipAddress = utils.getIPAddress();
+	const ipAddress = utils.getGatewayIp();
 	const data = {
 		'ip_address': ipAddress
 	};

@@ -156,7 +156,7 @@ console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-const gatewayIp = utils.getIPAddress();
+const gatewayIp = utils.getGatewayIp();
 if(!gatewayIp) {
     console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
     process.exit(1);

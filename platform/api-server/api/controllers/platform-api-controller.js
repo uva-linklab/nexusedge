@@ -24,7 +24,7 @@ exports.queryAll = async function (req, res) {
  */
 async function platformAPICallHelper(req, res, platformAPIFunction) {
     const data = req.body;
-    const ipAddress = utils.getIPAddress();
+    const ipAddress = utils.getGatewayIp();
     const isLocalRequest = req.connection.localAddress === req.connection.remoteAddress;
 
     if(isLocalRequest) {

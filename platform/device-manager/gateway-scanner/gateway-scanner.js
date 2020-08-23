@@ -37,7 +37,7 @@ class GatewayScanner {
             process.exit(1);
         }
 
-        this.ipAddress = utils.getIPAddress();
+        this.ipAddress = utils.getGatewayIp();
         if(!this.ipAddress) {
             console.log("No IP address found. Please ensure the config files are set properly.");
             process.exit(1);

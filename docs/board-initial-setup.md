@@ -27,7 +27,7 @@ Reference: https://github.com/nodesource/distributions/blob/master/README.md
 * Install mongodb  
 For RPi: https://koenaerts.ca/compile-and-install-mongodb-on-raspberry-pi/
 * Install other essential packages  
-    apt install cron build-essential libudev-dev openssh-server git-all mosquitto mosquitto-clients libpcap-dev
+    apt install cron build-essential libudev-dev openssh-server git-all mosquitto mosquitto-clients
 * Set up an email alert to send the IP address of the board on reboot. Add scripts/email-script.sh to cron:  
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Add the following line to /etc/mongodb.conf:   
