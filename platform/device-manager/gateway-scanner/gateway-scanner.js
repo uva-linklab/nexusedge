@@ -139,8 +139,11 @@ class GatewayScanner {
     getActiveGateways() {
         // find gateways that have been active in the last 15 seconds
         const timeMillis = 15 * 1000;
-        return Object.values(this._discoveredGateways)
+        const activeGateways = Object.values(this._discoveredGateways)
             .filter(gateway => gateway.lastActiveTime > Date.now() - timeMillis);
+        // remove the last active time field
+        activeGateways.forEach(gateway => delete gateway.lastActiveTime);
+        return activeGateways;
     }
 }
 

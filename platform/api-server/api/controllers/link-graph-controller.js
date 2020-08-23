@@ -19,7 +19,7 @@ exports.getLinkGraphData = async function(req, res) {
 	const selfDetails = await daoHelper.selfDao.getLatestEntry();
 
 	if(selfDetails !== null){
-		queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
+		queue.enqueue({id: selfDetails._id, ip: selfDetails.IP_address});
 	}
 
 	while(!queue.isEmpty()) {
@@ -27,10 +27,10 @@ exports.getLinkGraphData = async function(req, res) {
 		const neighborsOfNode = [];
 
 		//check if the node is reachable
-		const nodeReachable = await isGatewayReachable(node.IP_address);
+		const nodeReachable = await isGatewayReachable(node.ip);
 		if(nodeReachable) {
 			//request for the neighbor data of a node is an API call made to that node's server
-			const neighbors = await getNeighborData(node.IP_address);
+			const neighbors = await getNeighborData(node.ip);
 
 			for(const neighborNode of neighbors) {
 				const neighborId = neighborNode.id;
@@ -48,8 +48,8 @@ exports.getLinkGraphData = async function(req, res) {
 					}
 				}
 			}
-			nodeDict[node._id] = {"ip": node.IP_address};
-			neighborsDict[node._id] = neighborsOfNode;
+			nodeDict[node.id] = {"ip": node.ip};
+			neighborsDict[node.id] = neighborsOfNode;
 		}
 	}
 
