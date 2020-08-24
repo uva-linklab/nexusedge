@@ -76,7 +76,7 @@ function getAdvertisementName() {
  * @return {{ip: string, id: string}}
  */
 function getGatewayDetails(advertisementName) {
-	const groupKey = getGroupKey();
+	const groupKey = getConfig('groupKey');
 
 	const decryptedStr = decryptAES(advertisementName, groupKey.key, groupKey.iv);
 	const parts = decryptedStr.split('*');
