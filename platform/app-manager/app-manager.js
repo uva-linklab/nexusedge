@@ -4,7 +4,6 @@ const path = require("path");
 const { fork } = require('child_process');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
-const daoHelper = require('../dao/dao-helper');
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
