@@ -50,14 +50,7 @@ function getGatewayId() {
 	}
 }
 
-function getGroupKey() {
-	const groupKey = config.groupKey;
-	if(!groupKey) {
-		throw new Error('group key not defined in utils/config.json');
-	}
-	return groupKey;
-}
-
+// TODO: move getAdvertisementName() and getGateway() into a separate file that is available on npm for aux devices to use
 /**
  * Returns an encrypted string that has embedded information about the id and ip address of the gateway. The encryption
  * in AES-256-CTR mode using the Group Key specified in config.groupKey. This encrypted string is to be used as the
@@ -66,7 +59,7 @@ function getGroupKey() {
  * @return {string}
  */
 function getAdvertisementName() {
-	const groupKey = getGroupKey();
+	const groupKey = getConfig('groupKey');
 
 	const id = getGatewayId();
 	const ip = getGatewayIp();
