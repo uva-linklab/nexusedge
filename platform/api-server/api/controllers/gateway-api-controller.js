@@ -1,5 +1,5 @@
-const daoHelper = require('../../../dao/dao-helper');
 const MessagingService = require('../../../messaging-service');
+const utils = require('../../../utils/utils');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -57,10 +57,10 @@ exports.getServerStatus = async function(req, res) {
  * This call retrieves the self details of the gateway.
  * @param req
  * @param res
- * @returns {Promise<*>}
+ * @return {*}
  */
-exports.getSelfDetails = async function(req, res) {
-    const selfDetails = await daoHelper.selfDao.getLatestEntry();
+exports.getGatewayDetails = function(req, res) {
+    const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
     return res.json(selfDetails);
 };
 

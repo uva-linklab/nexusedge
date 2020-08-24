@@ -170,7 +170,7 @@ function isDeviceInCache(deviceId) {
  * Finds devices that are active since the specified time. For streaming devices, this looks at the lastActiveTime field.
  * For non-streaming devices, this queries the handler for the last active time.
  * @param timeMillis
- * @return {Promise<any[]>}
+ * @return {Promise<Device[]>}
  */
 function getActiveDevicesSince(timeMillis) {
     const activeDeviceIds = [];

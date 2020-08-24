@@ -29,7 +29,7 @@ module.exports = function(app) {
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
     app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopLogStreaming);
-    app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
+    app.get('/gateway/details', gatewayAPIController.getGatewayDetails);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',

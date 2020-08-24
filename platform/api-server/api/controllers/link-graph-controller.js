@@ -1,7 +1,6 @@
 const request = require('request-promise');
 const Queue = require('queue-fifo');
 const utils = require("../../../utils/utils");
-const daoHelper = require('../../../dao/dao-helper');
 const queue = new Queue();
 
 /**
@@ -15,34 +14,31 @@ exports.getLinkGraphData = async function(req, res) {
 	const nodeDict = {};
 	const neighborsDict = {};
 
-	//pick up self's mac address (_id) and ip address from db
-	const selfDetails = await daoHelper.selfDao.getLatestEntry();
-
-	if(selfDetails !== null){
-		queue.enqueue({id: selfDetails._id, ip: selfDetails.IP_address});
-	}
+	// pick up self's id and ip address and enqueue it first
+	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
+	queue.enqueue(selfDetails);
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
 		const neighborsOfNode = [];
 
-		//check if the node is reachable
+		// check if the node is reachable
 		const nodeReachable = await isGatewayReachable(node.ip);
 		if(nodeReachable) {
-			//request for the neighbor data of a node is an API call made to that node's server
+			// request for the neighbor data of a node is an API call made to that node's server
 			const neighbors = await getNeighborData(node.ip);
 
 			for(const neighborNode of neighbors) {
 				const neighborId = neighborNode.id;
 				const neighborIPAddress = neighborNode.ip;
 
-				//check if the neighbor is reachable
+				// check if the neighbor is reachable
 				const neighborReachable = await isGatewayReachable(neighborIPAddress);
 				if(neighborReachable) {
 					neighborsOfNode.push(neighborId);
 
-					//Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
-					//to the neighborsDict. So the keyset can be used to check if traversed or not.
+					// Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
+					// to the neighborsDict. So the keyset can be used to check if traversed or not.
 					if(!(Object.keys(neighborsDict).includes(neighborId))) {
 						queue.enqueue(neighborNode)
 					}

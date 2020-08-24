@@ -3,7 +3,7 @@ const MqttController = require('./mqtt-controller');
 const mqttController = MqttController.getInstance();
 const httpUtils = require('./http-utils');
 
-let selfDetails = undefined;
+let gatewayDetails = undefined;
 const callbackMap = {};
 
 class Oracle extends EventEmitter {
@@ -90,18 +90,18 @@ class Oracle extends EventEmitter {
 
     _getIPAddress() {
         return new Promise((resolve, reject) => {
-            if(!selfDetails) {
-                httpUtils.sendGetRequest('http://localhost:5000/gateway/self-details')
+            if(!gatewayDetails) {
+                httpUtils.sendGetRequest('http://localhost:5000/gateway/details')
                     .then(res => res.json())
                     .then(selfDetailsJson => {
-                        selfDetails = selfDetailsJson;
-                        resolve(selfDetailsJson.IP_address);
+                        gatewayDetails = selfDetailsJson;
+                        resolve(selfDetailsJson.ip);
                     })
                     .catch(err => {
                         reject(err)
                     });
             } else {
-                resolve(selfDetails.IP_address);
+                resolve(gatewayDetails.ip);
             }
         })
     }

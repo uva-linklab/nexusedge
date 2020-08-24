@@ -2,13 +2,9 @@ const fs = require('fs');
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 const utils = require('../../utils/utils');
-const daoHelper = require('../../dao/dao-helper');
 const TalkToManagerService = require('./talk-to-manager-service/talk-to-manager-service').Service;
 const talkToManagerServiceUuid = require('./talk-to-manager-service/talk-to-manager-service').uuid;
 const messageCharacteristicUuid = require('./talk-to-manager-service/message-characteristic').uuid;
-
-const keyFileName = "group-key.json";
-const keyFilePath = __dirname + "/" + keyFileName;
 
 // Stores any pending messages that need to be sent to a peripheral via BLE.
 // Type: ip-address -> [message]
@@ -17,9 +13,6 @@ const pendingMessages = {};
 let instance = null;
 
 class GatewayScanner {
-    constructor() {
-    }
-
     static getInstance() {
         if(!instance) {
             instance = new GatewayScanner();
@@ -30,52 +23,22 @@ class GatewayScanner {
     start(messagingService) {
         this.messagingService = messagingService;
 
-        // get the group key for scanning and advertising the gateway as part of the platform
-        this.groupKey = this._getGroupKey();
-        if(!this.groupKey) {
-            console.log(`Group key not found in ${keyFilePath}. Please refer to setup instructions in the readme file.`);
-            process.exit(1);
-        }
-
-        this.ipAddress = utils.getGatewayIp();
-        if(!this.ipAddress) {
-            console.log("No IP address found. Please ensure the config files are set properly.");
-            process.exit(1);
-        }
-
         // gatewayId -> { id: , ip: , lastActiveTime: }
         this._discoveredGateways = {};
 
         // wait for bleController to initialize
         bleController.initialize().then(() => {
-            // store the IP address and BLE MAC address for future use
-            daoHelper.selfDao.upsertAddresses(bleController.getMacAddress(), this.ipAddress);
-
             // Use the group key to encrypt the IP address. We use this encrypted IP as the localName for the advertisement.
-            const encryptedIp = utils.encryptAES(this.ipAddress, this.groupKey.key, this.groupKey.iv);
+            const encryptedLocalName = utils.getAdvertisementName();
             const talkToManagerService = new TalkToManagerService(this.messagingService, () => {
                 // restart ble scan once the write to the characteristic is complete
                 bleController.startScanning();
             });
-
-            bleController.advertise(encryptedIp, [talkToManagerServiceUuid], [talkToManagerService]);
+            bleController.advertise(encryptedLocalName, [talkToManagerServiceUuid], [talkToManagerService]);
 
             // listen to advertisements for other neighboring gateways using the talkToManagerServiceUuid
             bleController.subscribeToAdvertisements(talkToManagerServiceUuid, this._handlePeripheral.bind(this));
         });
-    }
-
-    /**
-     * Reads the group key from the specified key file.
-     * @returns {string|any} Return JSON object with two fields "key" and "iv". If key file is not valid, returns "".
-     */
-    _getGroupKey() {
-        if (!fs.existsSync(keyFilePath)) {
-            return "";
-        } else {
-            const data = fs.readFileSync(keyFilePath, 'utf-8');
-            return JSON.parse(data);
-        }
     }
 
     talkToGateway(gatewayIP, payload) {
@@ -90,21 +53,23 @@ class GatewayScanner {
     async _handlePeripheral(peripheral) {
         const localName = peripheral.advertisement.localName;
         if(localName) {
-            const discoveredIp = utils.decryptAES(localName.toString('utf8'), this.groupKey.key, this.groupKey.iv);
+            const gatewayDetails = utils.getGatewayDetails(localName.toString('utf8'));
+
             // console.log("[gateway-scanner] Gateway discovered: " + peripheral.address);
             // console.log(`[gateway-scanner] IP Address = ${discoveredIp}`);
 
-            this._discoveredGateways[peripheral.address] = {
-                id: peripheral.address,
-                ip: discoveredIp,
+            this._discoveredGateways[gatewayDetails.id] = {
+                id: gatewayDetails.id,
+                ip: gatewayDetails.ip,
                 lastActiveTime: Date.now()
             };
 
-            // //check if there are any pending messages that need to be sent to this peripheral
+            // check if there are any pending messages that need to be sent to this peripheral
+            const discoveredIp = gatewayDetails.ip;
             if(pendingMessages.hasOwnProperty(discoveredIp)) {
                 console.log(`[gateway-scanner] There are pending messages to be sent for ${discoveredIp}`);
 
-                //get the list of messages
+                // get the list of messages
                 const messageList = pendingMessages[discoveredIp];
                 /*
                 Remove the "head" of the list and returns it
