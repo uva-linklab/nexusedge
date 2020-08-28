@@ -1,4 +1,4 @@
-const cronParser = require('./cron-parser/lib/parser');
+const cronParser = require('@huanglipang/cron-parser');
 
 let timeZone = "America/New_York";
 

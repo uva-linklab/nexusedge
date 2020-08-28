@@ -6,10 +6,9 @@
   "dependencies": {
     "@abandonware/bleno": "^0.5.1-2",
     "@abandonware/noble": "^1.9.2-8",
+    "@huanglipang/cron-parser": "^2.16.3",
     "body-parser": "latest",
     "cors": "^2.8.5",
-    "cron": "^1.8.2",
-    "cron-parser": "^2.15.0",
     "debug": "^4.1.1",
     "express": "^4.16.4",
     "fs-extra": "^8.1.0",
