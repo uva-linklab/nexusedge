@@ -143,8 +143,8 @@ function routeSensorStreamsToApps(client) {
             for(const gatewayIp in sensorStreamRouteTable[sensorId]) {
                 const topics = sensorStreamRouteTable[sensorId][gatewayIp];
                 for(const topic of topics) {
-                    // Check policy
-                    if(!policyHelper.check(sensorId, gatewayIp, topic)) {
+                    // Check if the app is blocked
+                    if(!policyHelper.isBlocked(sensorId, gatewayIp, topic)) {
                         // Publish to application's topic
                         publishData(gatewayIp, topic, JSON.stringify(payload));
                         console.log(`published to ${gatewayIp}  ${topic}`)

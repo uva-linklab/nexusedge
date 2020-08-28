@@ -1,4 +1,4 @@
-const cronParser = require('cron-parser');
+const cronParser = require('./cron-parser/lib/parser');
 
 let timeZone = "America/New_York";
 
@@ -79,7 +79,6 @@ let intervalRule = {};
  * @returns {Object} CronDate object pointer
  */
 function compilePolicyToIntervals(policy, currentDate) {
-    currentDate.setSeconds(-10);
     const options = {
         "currentDate": currentDate,
         "tz": timeZone
@@ -107,8 +106,7 @@ function getTimeDifference(date1, date2) {
 function getUpdateRuleMaterial(sensorPolicy, now) {
     const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
     const updateTime = intervals.next();
-    const timeDiff = getTimeDifference(now, updateTime);
-    return [intervals, updateTime, timeDiff];
+    return [intervals, updateTime];
 }
 
 /**
@@ -150,8 +148,8 @@ function updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys) {
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
  * @param {...string} restkeys - sensorId, gatewayIp
  */
-function updateRuleProcedure(timeDiff, block, blockTarget, intervalRuleType, key1, ...restKeys) {
-    if(timeDiff >= 0) {
+function updateRuleProcedure(isInInterval, block, blockTarget, intervalRuleType, key1, ...restKeys) {
+    if(isInInterval) {
         if(block) {
             updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys);
         }
@@ -160,48 +158,6 @@ function updateRuleProcedure(timeDiff, block, blockTarget, intervalRuleType, key
             updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys);
         }
     }
-}
-
-/**
- * This function finds the nearest rule time.
- * @param {Object} updateTime - CronDate object
- * @param {Object} intervals - the boole in sensor policy
- * @returns {Object} updateTime - CronDate object
- */
-function getNextChangeTime(updateTime, intervals) {
-    // find the nearest time
-    let tempNextUpdateTime = intervals.next();
-    let interval = getTimeDifference(tempNextUpdateTime, updateTime);
-    while(interval <= 60000) {
-        updateTime = tempNextUpdateTime;
-        tempNextUpdateTime = intervals.next();
-        interval = getTimeDifference(tempNextUpdateTime, updateTime);
-    }
-    updateTime.addMinute();
-    return updateTime;
-}
-
-/**
- * This function finds the nearest next rule time.
- * @param {string} cron - cron rule
- * @param {Object} now - Date object
- * @param {Object} updateTime - CronDate object
- * @param {Object} intervals - CronDate object pointer
- * @returns {Object} tempNextUpdateTime - CronDate object
- */
-function getTempNextRuleTime(cron, now, updateTime, intervals) {
-    let tempNextUpdateTime = updateTime;
-    // check if `updateTime` is in this minute
-    if(getTimeDifference(now, tempNextUpdateTime) >= 0) {
-        const cronRules = cron.split(' ');
-        // if the cron rule includes "seconds"
-        if(cronRules.length === 6) {
-            tempNextUpdateTime = intervals.next();
-        } else {
-            tempNextUpdateTime = getNextChangeTime(tempNextUpdateTime, intervals);
-        }
-    }
-    return tempNextUpdateTime;
 }
 
 /**
@@ -218,19 +174,6 @@ function updateRuleTime(tempNextRuleTime) {
 }
 
 /**
- * This function runs the update `nextRuleTime` procedure. It first get `tempNextRuleTime` and
- * check if it needs to be updated.
- * @param {string} cron - cron rule
- * @param {Object} now - Date object
- * @param {Object} updateTime - CronDate object
- * @param {Object} intervals - CronDate object pointer
- */
-function updateRuleTimeProcedure(cron, now, updateTime, intervals) {
-    const tempNextRuleTime = getTempNextRuleTime(cron, now, updateTime, intervals);
-    updateRuleTime(tempNextRuleTime);
-}
-
-/**
  * This function walk through sensor-specific policy and update to `intervalRule`.
  * @param {Object} now - Date object
  */
@@ -239,9 +182,9 @@ function updateRuleBySensorSpecificPolicy(now) {
     const sensorIds = privacyPolicy[type];
     for(const sensorId in sensorIds) {
         const sensorPolicy = sensorIds[sensorId];
-        const [intervals, updateTime, timeDiff] = getUpdateRuleMaterial(sensorPolicy, now);
-        updateRuleProcedure(timeDiff, sensorPolicy["block"], sensorId, intervalRule[type]);
-        updateRuleTimeProcedure(sensorPolicy["cron"], now, updateTime, intervals);
+        const [intervals, updateTime] = getUpdateRuleMaterial(sensorPolicy, now);
+        updateRuleProcedure(intervals.isInInterval(now), sensorPolicy["block"], sensorId, intervalRule[type]);
+        updateRuleTime(updateTime);
     }
 }
 
@@ -256,9 +199,9 @@ function updateRuleByAppSpecificPolicy(now) {
         const topics = gatewayIps[gatewayIp];
         for(const topic in topics) {
             const sensorPolicy = topics[topic];
-            const [intervals, updateTime, timeDiff] = getUpdateRuleMaterial(sensorPolicy, now);
-            updateRuleProcedure(timeDiff, sensorPolicy["block"], topic, intervalRule[type], gatewayIp);
-            updateRuleTimeProcedure(sensorPolicy["cron"], now, updateTime, intervals);
+            const [intervals, updateTime] = getUpdateRuleMaterial(sensorPolicy, now);
+            updateRuleProcedure(intervals.isInInterval(now), sensorPolicy["block"], topic, intervalRule[type], gatewayIp);
+            updateRuleTime(updateTime);
         }
     }
 }
@@ -283,15 +226,15 @@ function updateRuleByAppSensorPolicy(now) {
                     continue;
                 }
                 const sensorPolicy = topics[topic];
-                const [intervals, updateTime, timeDiff] = getUpdateRuleMaterial(sensorPolicy, now);
+                const [intervals, updateTime] = getUpdateRuleMaterial(sensorPolicy, now);
                 updateRuleProcedure(
-                    timeDiff,
+                    intervals.isInInterval(now),
                     sensorPolicy["block"],
                     topic,
                     intervalRule[type],
                     sensorId, gatewayIp
                 );
-                updateRuleTimeProcedure(sensorPolicy["cron"], now, updateTime, intervals);
+                updateRuleTime(updateTime);
             }
         }
     }
@@ -336,7 +279,7 @@ function updateTimer() {
 }
 
 /**
- * This function finds update intervalRule and start `timer`.
+ * This function update `intervalRule` and start `timer`.
  */
 function ruleTimerJob() {
     updateRuleJob();
@@ -388,7 +331,7 @@ function updatePolicy(type, sensorId, ip, topic, policy) {
  * @param {string} topic - application's topic
  * @returns {bool} - if the sensor is blocked
  */
-function checkPolicy(sensorId, ip, topic) {
+function isBlocked(sensorId, ip, topic) {
     if(intervalRule["sensor-specific"].includes(sensorId)) {
         return true;
     }
@@ -423,7 +366,7 @@ function getIntervalRule() {
 module.exports = {
     getPolicy: getPrivacyPolicy,
     getRule: getIntervalRule,
-    check: checkPolicy,
+    isBlocked: isBlocked,
     update: updatePolicy,
     setTimeZone: setTimeZone,
     startRuleTimer: ruleTimerJob
