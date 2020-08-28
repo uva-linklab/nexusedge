@@ -1,7 +1,6 @@
 const request = require('request-promise');
 const Queue = require('queue-fifo');
-const utils = require("../../../../utils");
-const daoHelper = require('../../../dao/dao-helper');
+const utils = require("../../../utils/utils");
 const queue = new Queue();
 
 /**
@@ -12,44 +11,41 @@ const queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	var nodeDict = {};
-	var neighborsDict = {};
+	const nodeDict = {};
+	const neighborsDict = {};
 
-	//pick up self's mac address (_id) and ip address from db
-	const selfDetails = await daoHelper.selfDao.getLatestEntry();
-
-	if(selfDetails !== null){
-		queue.enqueue({_id: selfDetails._id, IP_address: selfDetails.IP_address});
-	}
+	// pick up self's id and ip address and enqueue it first
+	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
+	queue.enqueue(selfDetails);
 
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
-		var neighborsOfNode = [];
+		const neighborsOfNode = [];
 
-		//check if the node is reachable
-		const nodeReachable = await isGatewayReachable(node.IP_address);
+		// check if the node is reachable
+		const nodeReachable = await isGatewayReachable(node.ip);
 		if(nodeReachable) {
-			//request for the neighbor data of a node is an API call made to that node's server
-			const neighbors = await getNeighborData(node.IP_address);
+			// request for the neighbor data of a node is an API call made to that node's server
+			const neighbors = await getNeighborData(node.ip);
 
 			for(const neighborNode of neighbors) {
-				const neighborId = neighborNode._id;
-				const neighborIPAddress = neighborNode.IP_address;
+				const neighborId = neighborNode.id;
+				const neighborIPAddress = neighborNode.ip;
 
-				//check if the neighbor is reachable
+				// check if the neighbor is reachable
 				const neighborReachable = await isGatewayReachable(neighborIPAddress);
 				if(neighborReachable) {
 					neighborsOfNode.push(neighborId);
 
-					//Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
-					//to the neighborsDict. So the keyset can be used to check if traversed or not.
+					// Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
+					// to the neighborsDict. So the keyset can be used to check if traversed or not.
 					if(!(Object.keys(neighborsDict).includes(neighborId))) {
 						queue.enqueue(neighborNode)
 					}
 				}
 			}
-			nodeDict[node._id] = {"ip": node.IP_address};
-			neighborsDict[node._id] = neighborsOfNode;
+			nodeDict[node.id] = {"ip": node.ip};
+			neighborsDict[node.id] = neighborsOfNode;
 		}
 	}
 
@@ -57,7 +53,8 @@ exports.getLinkGraphData = async function(req, res) {
 		const node = entry[0];
 		const ip = entry[1].ip;
 
-		nodeDict[node]["sensors"] = await getSensorData(ip);
+		nodeDict[node]["devices"] = await getDevices(ip);
+		nodeDict[node]["apps"] = await getApps(ip);
 	}
 
 	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
@@ -76,12 +73,23 @@ async function isGatewayReachable(gatewayIP) {
 }
 
 /**
- * Uses the gateway API to query for the sensors connected to a given gateway
+ * Uses the gateway API to query for the devices connected to a given gateway
  * @param gatewayIP IP address of the gateway
  * @returns {Promise<any>}
  */
-async function getSensorData(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/gateway/sensors`;
+async function getDevices(gatewayIP) {
+	const execUrl = `http://${gatewayIP}:5000/gateway/devices`;
+	const body = await request({method: 'GET', uri: execUrl});
+	return JSON.parse(body);
+}
+
+/**
+ * Uses the gateway API to query for the apps running on a given gateway
+ * @param gatewayIP IP address of the gateway
+ * @returns {Promise<any>}
+ */
+async function getApps(gatewayIP) {
+	const execUrl = `http://${gatewayIP}:5000/gateway/apps`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }
@@ -105,7 +113,7 @@ async function getNeighborData(gatewayIP) {
  */
 exports.renderLinkGraph = async function(req, res) {
 	//pick up self's ip address from utils rather than self db collection to save a db lookup.
-	const ipAddress = utils.getIPAddress();
+	const ipAddress = utils.getGatewayIp();
 	const data = {
 		'ip_address': ipAddress
 	};

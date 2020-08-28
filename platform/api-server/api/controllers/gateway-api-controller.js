@@ -1,29 +1,43 @@
-const daoHelper = require('../../../dao/dao-helper');
 const MessagingService = require('../../../messaging-service');
+const utils = require('../../../utils/utils');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 /**
- * Return the neighbors discovered in the last 5 mins.
+ * Return the neighboring gateways.
  * @param req
  * @param res
  * @returns {Promise<*>}
  */
 exports.getNeighbors = async function(req, res) {
-    const neighborData = await daoHelper.neighborsDao.getNeighborDataSince(300000);
-    return res.json(neighborData);
+    const response =
+        await messagingService.query(serviceName, 'device-manager', 'get-neighbors', {});
+    return res.json(response);
 };
 
 /**
- * Returns the sensors connected in the last 5 mins.
+ * Returns the active devices.
  * @param req
  * @param res
  * @returns {Promise<*>}
  */
-exports.getSensors = async function(req, res) {
-    const sensorData = await daoHelper.sensorsDao.getSensorDataSince(300000);
-    return res.json(sensorData);
+exports.getDevices = async function(req, res) {
+    const response =
+        await messagingService.query(serviceName, 'device-manager', 'get-active-devices', {});
+    return res.json(response);
+};
+
+/**
+ * Returns the currently running apps.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getApps = async function(req, res) {
+    const response =
+        await messagingService.query(serviceName, 'app-manager', 'get-apps', {});
+    return res.json(response);
 };
 
 /**
@@ -43,10 +57,10 @@ exports.getServerStatus = async function(req, res) {
  * This call retrieves the self details of the gateway.
  * @param req
  * @param res
- * @returns {Promise<*>}
+ * @return {*}
  */
-exports.getSelfDetails = async function(req, res) {
-    const selfDetails = await daoHelper.selfDao.getLatestEntry();
+exports.getGatewayDetails = function(req, res) {
+    const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
     return res.json(selfDetails);
 };
 
@@ -68,6 +82,70 @@ exports.executeApp = async function(req, res) {
         "metadataPath": metadataPath
     });
     res.send();
+};
+
+exports.terminateApp = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // Forward the termination request to app-manager
+        const response =
+            await messagingService.query(serviceName, "app-manager", "terminate-app", {
+            "id": appId
+        });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    }
+};
+
+exports.getLogStreamingTopic = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // pass the request to app-manager and get back an mqtt topic to listen to the logs
+        const response =
+            await messagingService.query(serviceName, 'app-manager', 'get-log-streaming-topic', {
+                'id': appId
+            });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    }
+};
+
+exports.startLogStreaming = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // pass the request to app-manager and get back an mqtt topic to listen to the logs
+        const response =
+            await messagingService.query(serviceName, 'app-manager', 'start-log-streaming', {
+                'id': appId
+            });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    }
+};
+
+exports.stopLogStreaming = async function(req, res) {
+    const appId = req.params['id'];
+    if(appId) {
+        // Forward the termination request to app-manager
+        const response =
+            await messagingService.query(serviceName, "app-manager", "stop-log-streaming", {
+                "id": appId
+            });
+        return res.json(response);
+    } else {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    }
 };
 
 // TODO: need to be changed to the general api.

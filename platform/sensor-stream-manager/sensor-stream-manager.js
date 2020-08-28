@@ -1,6 +1,6 @@
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
-const utils = require("../../utils/utils");
+const utils = require("../utils/utils");
 const fetch = require('node-fetch');
 const policyHelper = require("./policy");
 
@@ -138,10 +138,10 @@ function subscribeToGatewayData(client) {
 function routeSensorStreamsToApps(client) {
     client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
-        const sensorId = payload["_meta"]["device_id"];
-        if(sensorId in sensorStreamRouteTable) {
-            for(const gatewayIp in sensorStreamRouteTable[sensorId]) {
-                const topics = sensorStreamRouteTable[sensorId][gatewayIp];
+        const sensorId = payload['device_id'];
+        if(sensorId in sensorStream) {
+            for(const gatewayIp in sensorStream[sensorId]) {
+                const topics = sensorStream[sensorId][gatewayIp];
                 for(const topic of topics) {
                     // Check if the app is blocked
                     if(!policyHelper.isBlocked(sensorId, gatewayIp, topic)) {
@@ -159,8 +159,7 @@ console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-// get gateway's ip
-const gatewayIp = utils.getIPAddress();
+const gatewayIp = utils.getGatewayIp();
 if(!gatewayIp) {
   console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
   process.exit(1);
@@ -196,25 +195,19 @@ messagingService.listenForEvent('connect-to-socket', (message) => {
     const wsAddress = payload["ws-address"];
 });
 
-// sensor-stream-manager receives application's process instance and metadata from app-manager
-// this listener stores the application's topic and sensor requirement
-messagingService.listenForEvent('app-deployment', message => {
+// sensor-stream-manager receives an application's topic and sensor requirements and provides it
+messagingService.listenForEvent('request-streams', message => {
     // appData = {
-    //     "app": {
-    //         "app": newApp, // instance of process,
-    //         "pid": newApp.pid,
-    //         "_id": appId,
-    //         "appPath": newAppPath,
-    //         "metadataPath": metadataPath,
-    //     }
-    // };
+    //     "topic": appId,
+    //     "metadataPath": appData.metadataPath
+    // }
     const appData = message.data;
-    if(appData["app"]) {
+    if(appData.hasOwnProperty('topic') && appData.hasOwnProperty('metadataPath')) {
         // load application's metadata
-        let metadata = fs.readJsonSync(appData["app"]["metadataPath"]);
-        metadata = metadata["sensorMapping"];
-        const topic = appData["app"]["_id"];
-        // store application's sensor stream requirement in sensorStreamRouteTable
+        let metadata = fs.readJsonSync(appData["metadataPath"]);
+        metadata = metadata["deviceMapping"];
+        const topic = appData["topic"];
+        // store application's sensor stream requirement in sensorStream
         for(const ip in metadata) {
             const sensorIds = metadata[ip];
             // store the sensor connected to local gateway

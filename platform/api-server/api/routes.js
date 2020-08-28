@@ -20,11 +20,16 @@ module.exports = function(app) {
     const uploader = getMultipartFormDataUploader();
 
     app.get('/gateway/neighbors', gatewayAPIController.getNeighbors);
-    app.get('/gateway/sensors', gatewayAPIController.getSensors);
+    app.get('/gateway/devices', gatewayAPIController.getDevices);
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
-    app.get('/gateway/self-details', gatewayAPIController.getSelfDetails);
+    app.get('/gateway/apps', gatewayAPIController.getApps);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
+    app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
+    app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
+    app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
+    app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopLogStreaming);
+    app.get('/gateway/details', gatewayAPIController.getGatewayDetails);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',

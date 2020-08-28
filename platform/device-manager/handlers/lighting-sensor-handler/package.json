@@ -1,0 +1,14 @@
+{
+  "name": "lighting-sensor-handler",
+  "version": "1.0.0",
+  "description": "Parses BLE packets from Lighting Sensor",
+  "main": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "ble-controller": "^1.2.0"
+  }
+}

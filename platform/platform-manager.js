@@ -16,16 +16,16 @@ const services = {
         socket: undefined,
         process: undefined
     },
-    "ble-controller": {
-        path: __dirname + "/ble-controller/ble-controller.js",
-        socket: undefined,
-        process: undefined
-    },
     "sensor-stream-manager": {
         path: __dirname + "/sensor-stream-manager/sensor-stream-manager.js",
         socket: undefined,
         process: undefined
-    }
+    },
+    "device-manager": {
+        path: __dirname + "/device-manager/device-manager.js",
+        socket: undefined,
+        process: undefined
+    },
 };
 
 // ipcCallback stores all the call back function used by ipc server.

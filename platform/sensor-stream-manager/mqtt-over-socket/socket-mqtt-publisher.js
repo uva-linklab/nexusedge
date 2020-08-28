@@ -9,7 +9,7 @@
 const {
     workerData
 } = require('worker_threads');
-const MqttController = require('../../../utils/mqtt-controller');
+const MqttController = require('../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const WebSocket = require('ws');
 
@@ -91,7 +91,7 @@ callback.
 function notifyForSensorData(sensorIds, callback) {
     mqttController.subscribeToPlatformMqtt(message => {
         const data = JSON.parse(message);
-        const sensorId = data._meta.device_id;
+        const sensorId = data['device_id'];
 
         if(sensorIds.includes(sensorId)) {
             callback(sensorId, data);

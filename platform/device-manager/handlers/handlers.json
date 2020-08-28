@@ -1,0 +1,18 @@
+{
+    "estimote-handler": {
+        "main": "estimote-handler.js",
+        "controller": "ble-controller"
+    },
+    "lighting-sensor-handler": {
+        "main": "lighting-sensor-handler.js",
+        "controller": "ble-controller"
+    },
+    "oort-socket-handler": {
+        "main": "oort-socket-handler.js",
+        "controller": "ble-controller"
+    },
+    "lab11-ble-handler": {
+        "main": "lab11-ble-handler.js",
+        "controller": "ble-controller"
+    }
+}

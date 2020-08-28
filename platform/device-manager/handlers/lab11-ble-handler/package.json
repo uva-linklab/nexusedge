@@ -1,0 +1,18 @@
+{
+  "name": "lab11-ble-handler",
+  "version": "1.0.0",
+  "description": "Parses data from BLE sensors that use the Eddystone BLE advertisements as used in the lab11/gateway project.",
+  "main": "lab11-ble-handler.js",
+  "dependencies": {
+    "async": "^1.5.2",
+    "ble-controller": "^1.2.0",
+    "debug": "^2.6.9",
+    "expand-url": "^0.1.3",
+    "request": "^2.88.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC"
+}
