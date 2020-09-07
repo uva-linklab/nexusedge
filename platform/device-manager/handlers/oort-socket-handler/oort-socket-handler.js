@@ -29,7 +29,7 @@ class OortSocketHandler {
         // since we don't deliver data, keep track of the devices' last active time
         this.devices = {}; // deviceId -> last active time
     }
-    
+
     start(platformCallback) {
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
@@ -107,19 +107,19 @@ class OortSocketHandler {
         let infoIndex = -1;
         let sensorIndex = -1;
         for (let i = 0; i < services.length; i++) {
-            if (services[i].uuid === OORT_SERVICE_INFO_UUID) {
+            if(services[i].uuid === OORT_SERVICE_INFO_UUID) {
                 infoIndex = i;
-            } else if (services[i].uuid === OORT_SERVICE_SENSOR_UUID) {
+            } else if(services[i].uuid === OORT_SERVICE_SENSOR_UUID) {
                 sensorIndex = i;
             }
         }
 
-        if (infoIndex === -1) {
+        if(infoIndex === -1) {
             console.error('[OORT] Could not find a device info service. Can\'t set date.');
             throw 'Could not find a device info service. Can\'t set date.';
         }
 
-        if (sensorIndex === -1) {
+        if(sensorIndex === -1) {
             console.error('[OORT] Could not find sensor service for OORT.');
             throw 'Could not find sensor service for OORT.';
         }
@@ -127,7 +127,7 @@ class OortSocketHandler {
         //get the info characteristics
         const infoChars = await bleController.discoverCharacteristics(services[infoIndex], [OORT_CHAR_SYSTEMID_UUID]);
 
-        if (infoChars.length === 0) {
+        if(infoChars.length === 0) {
             console.error('[OORT] Could not get the System ID characteristic.');
             throw 'Could not get the System ID characteristic.';
         }
@@ -139,9 +139,9 @@ class OortSocketHandler {
             [OORT_CHAR_CLOCK_UUID, OORT_CHAR_SENSOR_UUID]);
 
         for (let i = 0; i < sensorChars.length; i++) {
-            if (sensorChars[i].uuid === OORT_CHAR_CLOCK_UUID) {
+            if(sensorChars[i].uuid === OORT_CHAR_CLOCK_UUID) {
                 oortClockCharacteristic = sensorChars[i];
-            } else if (sensorChars[i].uuid === OORT_CHAR_SENSOR_UUID) {
+            } else if(sensorChars[i].uuid === OORT_CHAR_SENSOR_UUID) {
                 oortSensorCharacteristic = sensorChars[i];
             }
         }
@@ -178,7 +178,7 @@ class OortSocketHandler {
     async _setOortState(peripheral, state) {
         await this._initializeOortSocket(peripheral);
 
-        if (oortSensorCharacteristic == null) {
+        if(oortSensorCharacteristic == null) {
             throw 'No connected OORT. Cannot write.';
         }
 
@@ -186,6 +186,11 @@ class OortSocketHandler {
 
         bleController.writeCharacteristic(oortClockCharacteristic, [0x4, val]);
         console.log(`[OORT] sent state = ${state} to oort`);
+
+        // ensure that you disconnect after controlling the smart socket
+        setTimeout(() => {
+            bleController.disconnectPeripheral(peripheral);
+        }, 2000);
     }
 }
 
