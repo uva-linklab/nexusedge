@@ -268,34 +268,7 @@ messagingService.listenForEvent("update-policy", message => {
     // };
     const data = message.data;
     if(data["policy"]) {
-        const policy = data["policy"];
-        for(const type in policy) {
-            if(type === "app-sensor") {
-                const sensorIds = policy[type];
-                for(const sensorId in sensorIds) {
-                    const gatewayIps = sensorIds[sensorId];
-                    for(const gatewayIp in gatewayIps) {
-                        const topics = gatewayIps[gatewayIp]
-                        for(const topic in topics) {
-                            policyHelper.update(type, sensorId, gatewayIp, topic, topics[topic]);
-                        }
-                    }
-                }
-            } else if(type === "sensor-specific") {
-                const sensorIds = policy[type];
-                for(const sensorId in sensorIds) {
-                    policyHelper.update(type, sensorId, undefined, undefined, sensorIds[sensorId]);
-                }
-            } else if(type === "app-specific") {
-                const gatewayIps = policy[type];
-                for(const gatewayIp in gatewayIps) {
-                    const topics = gatewayIps[gatewayIp]
-                    for(const topic in topics) {
-                        policyHelper.update(type, undefined, gatewayIp, topic, topics[topic]);
-                    }
-                }
-            }
-        }
+        policyHelper.update(data["policy"]);
         console.log(`[INFO] Updated policy: ${JSON.stringify(policyHelper.getPolicy())}`);
         policyHelper.startRuleTimer();
     }

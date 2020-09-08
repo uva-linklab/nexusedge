@@ -296,31 +296,92 @@ function setTimeZone(tz) {
 
 /**
  * This function updates the privacyPolicy.
- * @param {string} type - app-specific, sensor-specific, app-sensor
- * @param {string} sensorId
- * @param {string} ip - MQTT broker's ip
- * @param {string} topic - application's topic
  * @param {Object} policy
  */
-function updatePolicy(type, sensorId, ip, topic, policy) {
-    if(type === "app-sensor") {
-        if(!privacyPolicy[type][sensorId]) {
-            privacyPolicy[type][sensorId] = {};
+function updatePolicy(policy) {
+    for(const type in policy) {
+        if(type === "app-sensor") {
+            const sensorIds = policy[type];
+            for(const sensorId in sensorIds) {
+                const gatewayIps = sensorIds[sensorId];
+                for(const gatewayIp in gatewayIps) {
+                    const topics = gatewayIps[gatewayIp]
+                    for(const topic in topics) {
+                        if(!privacyPolicy[type].hasOwnProperty(sensorId)) {
+                            privacyPolicy[type][sensorId] = {};
+                        }
+                        if(!privacyPolicy[type][sensorId].hasOwnProperty(gatewayIp)) {
+                            privacyPolicy[type][sensorId][gatewayIp] = {};
+                        }
+                        privacyPolicy[type][sensorId][gatewayIp][topic] = topics[topic];
+                    }
+                }
+            }
+        } else if(type === "sensor-specific") {
+            const sensorIds = policy[type];
+            for(const sensorId in sensorIds) {
+                privacyPolicy[type][sensorId] = sensorIds[sensorId];
+            }
+        } else if(type === "app-specific") {
+            const gatewayIps = policy[type];
+            for(const gatewayIp in gatewayIps) {
+                const topics = gatewayIps[gatewayIp]
+                for(const topic in topics) {
+                    if(!privacyPolicy[type].hasOwnProperty(gatewayIp)) {
+                        privacyPolicy[type][gatewayIp] = {};
+                    }
+                    privacyPolicy[type][gatewayIp][topic] = topics[topic];
+                }
+            }
         }
-        if(!privacyPolicy[type][sensorId][ip]) {
-            privacyPolicy[type][sensorId][ip] = {};
+    }
+    clearEmptyPolicy();
+}
+
+function clearEmptyPolicy() {
+    for (const type in privacyPolicy) {
+        if (type === "app-sensor") {
+            for (const sensor in privacyPolicy["app-sensor"]) {
+                for (const gateway in privacyPolicy["app-sensor"][sensor]) {
+                    for (const topic in privacyPolicy["app-sensor"][sensor][gateway]) {
+                        if (
+                            !Object.keys(
+                                privacyPolicy["app-sensor"][sensor][gateway][topic]
+                            ).length
+                        ) {
+                            delete privacyPolicy["app-sensor"][sensor][gateway][topic];
+                        }
+                    }
+                    if (
+                        !Object.keys(privacyPolicy["app-sensor"][sensor][gateway]).length
+                    ) {
+                        delete privacyPolicy["app-sensor"][sensor][gateway];
+                    }
+                }
+                if (!Object.keys(privacyPolicy["app-sensor"][sensor]).length) {
+                    delete privacyPolicy["app-sensor"][sensor];
+                }
+            }
+        } else if (type === "sensor-specific") {
+            for (const sensor in privacyPolicy["sensor-specific"]) {
+                if (!Object.keys(privacyPolicy["sensor-specific"][sensor]).length) {
+                    delete privacyPolicy["sensor-specific"][sensor];
+                }
+            }
+        } else if (type === "app-specific") {
+            for (const sensor in privacyPolicy["app-specific"]) {
+                for (const gateway in privacyPolicy["app-specific"][sensor]) {
+                    if (
+                        !Object.keys(privacyPolicy["app-specific"][sensor][gateway]).length
+                    ) {
+                        delete privacyPolicy["app-specific"][sensor][gateway];
+                    }
+                }
+                if (!Object.keys(privacyPolicy["app-specific"][sensor]).length) {
+                    delete privacyPolicy["app-specific"][sensor];
+                }
+            }
         }
-        privacyPolicy[type][sensorId][ip][topic] = policy;
-    } else if(type === "sensor-specific") {
-        if(!privacyPolicy[type][sensorId]) {
-            privacyPolicy[type][sensorId] = {};
-        }
-        privacyPolicy[type][sensorId] = policy;
-    } else if(type === "app-specific") {
-        if(!privacyPolicy[type][ip]) {
-            privacyPolicy[type][ip] = {};
-        }
-        privacyPolicy[type][ip][topic] = policy;
     }
 }
 
