@@ -73,7 +73,7 @@ const privacyPolicy = {
 let intervalRule = {};
 
 /**
- * This function compiles the cron like policy to CronDate object pointer.
+ * This function compiles the cron like policy and return a CronDate object pointer.
  * @param {Object} policy - cron like policy
  * @param {Object} currentDate - Date object
  * @returns {Object} CronDate object pointer
@@ -87,7 +87,7 @@ function compilePolicyToIntervals(policy, currentDate) {
 }
 
 /**
- * This function calculates the time difference and return the time in milliseconds.
+ * This function calculates the time difference between date1 and date2 and returns the time in milliseconds.
  * @param {Object} date1 - Date or CronDate
  * @param {Object} date2 - Date or CronDate
  * @returns {number} time in millisecond
@@ -98,10 +98,10 @@ function getTimeDifference(date1, date2) {
 
 /**
  * This function returns the material which will be used for updating `intervalRule` and `nextRuleTime`.
+ * `updateTime` indicates the next update time of the policy.
  * @param {Object} sensorPolicy
  * @param {Object} now - Date
- * @returns {Array} - `intervals` is CronDate object pointer. `updateTime` is a CronDate object.
- * `timeDiff` is the difference bwtween `updateTime` and `now`.
+ * @returns {Array} - `intervals` is a CronDate object pointer. `updateTime` is a CronDate object.
  */
 function getUpdateRuleMaterial(sensorPolicy, now) {
     const intervals = compilePolicyToIntervals(sensorPolicy, new Date(now));
@@ -141,8 +141,8 @@ function updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys) {
 
 /**
  * This function checks if the policy should be update to `intervalRule` or not.
- * @param {number} timeDiff - time difference between now
- * @param {bool} block - the boole in sensor policy
+ * @param {bool} isInInterval - if current time in the interval
+ * @param {bool} block - block or allow
  * @param {string} blockTarget - app topic or sensor id
  * @param {Object} intervalRuleType - intervalRule[type]
  * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
@@ -338,6 +338,10 @@ function updatePolicy(policy) {
     clearEmptyPolicy();
 }
 
+/**
+ * This function will clear empty policy. SSM will receive empty policy if the user
+ * want to delete the existed policy.
+ */
 function clearEmptyPolicy() {
     for (const type in privacyPolicy) {
         if (type === "app-sensor") {
