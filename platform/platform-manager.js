@@ -105,7 +105,7 @@ for(let serviceName in services) {
         // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
         stdio: [
             0, // Use platform's stdin for services
-            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stdout to log
+            fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'w'), //append service's stdout to log
             fs.openSync(`${__dirname}/logs/${serviceName}.out`, 'a'), //append service's stderr to same log
             "ipc"
         ]
