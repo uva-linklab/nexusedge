@@ -14,6 +14,9 @@ const messagingService = new MessagingService(serviceName);
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
+fs.emptyDirSync(`${__dirname}/logs`); // clear directory
+
+codeContainer.cleanupExecutablesDir();
 
 // Stores the process, id, pid, appPath, and metadataPath in apps
 // apps = {
