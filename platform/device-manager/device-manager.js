@@ -11,14 +11,8 @@ const gatewayScanner = GatewayScanner.getInstance();
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-// keep track of a device's last active time. deviceId -> lastActiveTime.
-// For devices that have streamed data, this will contain the last time that we receive a msg
-// For devices that don't stream data, lastActiveTime = -1.
-// This object doubles as a cache to check if a device was already registered or not.
-const deviceLastActiveTimeMap = {};
-
 // deviceId -> handlerId
-const nonStreamingDevicesMap = {};
+const deviceCache = {};
 
 // deviceId -> [{}, {}, ..]
 // Registration is a db operation and thus takes time. During this time, we buffer the data from that device.
@@ -39,11 +33,7 @@ handlerUtils.loadHandlers().then(map => {
     // ensures that the cache contains all the registered devices.
     daoHelper.devicesDao.fetchAll().then(devices => {
         devices.forEach(device => {
-            if(device.isStreamingDevice) {
-                deviceLastActiveTimeMap[device.id] = -1; // initialize the lastActiveTime to -1.
-            } else {
-                nonStreamingDevicesMap[device.id] = device.handlerId;
-            }
+            deviceCache[device.id] = device.handlerId;
         });
 
         const platformCallback = {
@@ -75,14 +65,14 @@ handlerUtils.loadHandlers().then(map => {
  * @param handlerId
  */
 function register(deviceId, deviceType, handlerId) {
-    if(!nonStreamingDevicesMap.hasOwnProperty(deviceId)) {
+    if(!deviceCache.hasOwnProperty(deviceId)) {
         const device = new Device(deviceId,
             deviceType,
             handlerId,
             handlerUtils.getControllerId(handlerId),
             false);
         daoHelper.devicesDao.addDevice(device)
-            .then(() => nonStreamingDevicesMap[deviceId] = handlerId);
+            .then(() => deviceCache[deviceId] = handlerId);
     }
 }
 
@@ -125,7 +115,7 @@ function deliver(handlerId, deviceId, deviceType, deviceData) {
                 true);
             daoHelper.devicesDao.addDevice(device).then(() => {
                 // once the device registration is complete, add device to cache
-                deviceLastActiveTimeMap[deviceId] = Date.now();
+                deviceCache[deviceId] = handlerId;
 
                 // publish all buffered data, in received order
                 pendingDeviceBuffer[deviceId].forEach(data => {
@@ -137,9 +127,6 @@ function deliver(handlerId, deviceId, deviceType, deviceData) {
         } else {
             // Data from registered device. Publish to MQTT.
             mqttController.publishToPlatformMqtt(JSON.stringify(data));
-
-            // keep track of the device's last active time
-            deviceLastActiveTimeMap[deviceId] = Date.now();
         }
     }
 }
@@ -154,8 +141,7 @@ function isAwaitingRegistration(deviceId) {
  * @return {boolean}
  */
 function isDeviceInCache(deviceId) {
-    // use the deviceLastActiveTime data structure as a cache
-    return deviceLastActiveTimeMap.hasOwnProperty(deviceId);
+    return deviceCache.hasOwnProperty(deviceId);
 }
 
 // TODO add implementation
@@ -166,48 +152,9 @@ function isDeviceInCache(deviceId) {
 //     return handler;
 // }
 
-/**
- * Finds devices that are active since the specified time. For streaming devices, this looks at the lastActiveTime field.
- * For non-streaming devices, this queries the handler for the last active time.
- * @param timeMillis
- * @return {Promise<Device[]>}
- */
-function getActiveDevicesSince(timeMillis) {
-    const activeDeviceIds = [];
-    Object.entries(deviceLastActiveTimeMap).forEach(entry => {
-        const deviceId = entry[0];
-        const lastActiveTime = entry[1];
-
-        if(lastActiveTime !== -1) { // exclude devices which haven't streamed any data after initialization
-            if(lastActiveTime > (Date.now() - timeMillis)) { // pick devices active in the last 5 mins
-                activeDeviceIds.push(deviceId);
-            }
-        }
-    });
-
-    Object.entries(nonStreamingDevicesMap).forEach(entry => {
-        const deviceId = entry[0];
-        const handlerId = entry[1];
-
-        // check with handler if this device is still active or not
-        // first, find handler obj corresponding to handlerId
-        const handler = handlerMap[handlerId];
-        // check if the handler has a provision to check the last active time, otherwise skip it
-        if(typeof handler.getLastActiveTime === "function") {
-            const lastActiveTime = handler.getLastActiveTime(deviceId);
-            if(lastActiveTime != null && lastActiveTime > (Date.now() - timeMillis)) {
-                activeDeviceIds.push(deviceId);
-            }
-        } else {
-            console.error(`${handlerId} does not provide getLastActiveTime()`);
-        }
-    });
-    return daoHelper.devicesDao.fetchSpecific(activeDeviceIds);
-}
-
-messagingService.listenForQuery('get-active-devices', message => {
+messagingService.listenForQuery('get-devices', message => {
     const query = message.data.query;
-    getActiveDevicesSince(300000).then(devices => {
+    daoHelper.devicesDao.fetchAll().then(devices => {
         messagingService.respondToQuery(query, devices);
     });
 });
@@ -225,12 +172,12 @@ messagingService.listenForEvent('send-to-device', message => {
     const sendAPIData = receivedData["send-api-data"];
 
     // from the device-id, figure out the handler
-    if(nonStreamingDevicesMap.hasOwnProperty(deviceId)) {
-        const handlerId = nonStreamingDevicesMap[deviceId];
-        const handler = handlerMap[handlerId];
+    if(deviceCache.hasOwnProperty(deviceId)) {
+        const handlerId = deviceCache[deviceId];
+        const handlerObj = handlerMap[handlerId];
 
-        if(handler && typeof handler.dispatch === 'function') {
-            handler.dispatch(deviceId, sendAPIData);
+        if(handlerObj && typeof handlerObj.dispatch === 'function') {
+            handlerObj.dispatch(deviceId, sendAPIData);
         }
     } else {
         getHostGatewayIp(deviceId)

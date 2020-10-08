@@ -25,9 +25,7 @@ class OortSocketHandler {
         this.handlerId = handlerId;
         this.deviceType = "oort-smart-socket";
         this.isHandlingMessages = false;
-
-        // since we don't deliver data, keep track of the devices' last active time
-        this.devices = {}; // deviceId -> last active time
+        this.registeredDevices = [];
     }
 
     start(platformCallback) {
@@ -35,14 +33,6 @@ class OortSocketHandler {
         bleController.initialize().then(() => {
             bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
         });
-    }
-
-    getLastActiveTime(deviceId) {
-        if(this.devices.hasOwnProperty(deviceId)) {
-            return this.devices[deviceId];
-        } else {
-            return null;
-        }
     }
 
     dispatch(deviceId, data) {
@@ -64,12 +54,10 @@ class OortSocketHandler {
         const deviceId = peripheral.id;
 
         // if device is unregistered, then register it with the platform
-        if(!this.devices.hasOwnProperty(deviceId)) {
+        if(!this.registeredDevices.includes(deviceId)) {
             this.platformCallback.register(deviceId, this.deviceType, this.handlerId);
+            this.registeredDevices.push(deviceId);
         }
-
-        // update the last active time for device
-        this.devices[deviceId] = Date.now();
 
         // if there are any pending messages for this deviceId, connect to it and send them
         /*

@@ -24,7 +24,7 @@ exports.getNeighbors = async function(req, res) {
  */
 exports.getDevices = async function(req, res) {
     const response =
-        await messagingService.query(serviceName, 'device-manager', 'get-active-devices', {});
+        await messagingService.query(serviceName, 'device-manager', 'get-devices', {});
     return res.json(response);
 };
 
