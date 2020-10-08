@@ -3,6 +3,32 @@ const config = require('./config.json');
 const fetch = require('node-fetch');
 const os = require('os');
 const Address4 = require('ip-address').Address4;
+const osUtils = require('os-utils');
+
+function getFreeCpuPercent() {
+	return new Promise(resolve => {
+		osUtils.cpuFree(cpuFreePercent => {
+			resolve(cpuFreePercent)
+		});
+	})
+}
+
+function getFreeMemoryMB() {
+	return osUtils.freemem();
+}
+
+/**
+ * Get the % of free cpu, and the megabytes of free memory available
+ * @return {Promise<{cpu: *, memory: *}>}
+ */
+function getResourceUsage() {
+	return getFreeCpuPercent().then(freeCpuPercent => {
+		return {
+			cpu: freeCpuPercent,
+			memory: getFreeMemoryMB()
+		};
+	})
+}
 
 function getConfig(key) {
 	const value = config[key];
@@ -135,5 +161,8 @@ module.exports = {
 	getGatewayDetails: getGatewayDetails,
 	getLinkGraph: getLinkGraph,
 	sendGetRequest: sendGetRequest,
-	sendPostRequest: sendPostRequest
+	sendPostRequest: sendPostRequest,
+	getFreeCpuPercent: getFreeCpuPercent,
+	getFreeMemoryMB: getFreeMemoryMB,
+	getResourceUsage: getResourceUsage
 };

@@ -65,6 +65,18 @@ exports.getGatewayDetails = function(req, res) {
 };
 
 /**
+ * Give gateway's resource usage statistics.
+ * @param req
+ * @param res
+ * @return {*}
+ */
+exports.getResourceUsage = async function(req, res) {
+    const resourceUsage = await utils.getResourceUsage();
+    return res.json(resourceUsage);
+};
+
+
+/**
  * This endpoint takes the uploaded code and metadata and
  * executes it using the code-container module.
  * @param req
