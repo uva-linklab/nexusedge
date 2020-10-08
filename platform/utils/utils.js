@@ -24,8 +24,8 @@ function getFreeMemoryMB() {
 function getResourceUsage() {
 	return getFreeCpuPercent().then(freeCpuPercent => {
 		return {
-			cpu: freeCpuPercent,
-			memory: getFreeMemoryMB()
+			cpuFreePercent: freeCpuPercent,
+			memoryFreeMB: getFreeMemoryMB()
 		};
 	})
 }
