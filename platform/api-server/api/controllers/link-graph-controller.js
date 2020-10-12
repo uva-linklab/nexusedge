@@ -18,35 +18,39 @@ exports.getLinkGraphData = async function(req, res) {
 	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
 	queue.enqueue(selfDetails);
 
+	const reachabilityCache = {};
+	reachabilityCache[selfDetails.id] = true; // set self's reachable to true
+
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
 		const neighborsOfNode = [];
 
-		// check if the node is reachable
-		const nodeReachable = await isGatewayReachable(node.ip);
-		if(nodeReachable) {
-			// request for the neighbor data of a node is an API call made to that node's server
-			const neighbors = await getNeighborData(node.ip);
+		// request for the neighbor data of a node is an API call made to that node's server
+		const neighbors = await getNeighborData(node.ip);
 
-			for(const neighborNode of neighbors) {
-				const neighborId = neighborNode.id;
-				const neighborIPAddress = neighborNode.ip;
+		for(const neighborNode of neighbors) {
+			const neighborId = neighborNode.id;
+			const neighborIPAddress = neighborNode.ip;
 
-				// check if the neighbor is reachable
-				const neighborReachable = await isGatewayReachable(neighborIPAddress);
-				if(neighborReachable) {
-					neighborsOfNode.push(neighborId);
+			// if not in cache, check reachability
+			if(!reachabilityCache.hasOwnProperty(neighborId)) {
+				reachabilityCache[neighborId] = await isGatewayReachable(neighborIPAddress);
 
-					// Check if this particular neighbor node is already traversed. All traversed nodes are added as keys
-					// to the neighborsDict. So the keyset can be used to check if traversed or not.
-					if(!(Object.keys(neighborsDict).includes(neighborId))) {
-						queue.enqueue(neighborNode)
-					}
+				// Add this node to the traversal queue, if is not already traversed.
+				// All traversed nodes are added as keys to the neighborsDict. So the key set can be used to check
+				// if traversed or not.
+				if(!(Object.keys(neighborsDict).includes(neighborId))) {
+					queue.enqueue(neighborNode);
 				}
 			}
-			nodeDict[node.id] = {"ip": node.ip};
-			neighborsDict[node.id] = neighborsOfNode;
+
+			// if it is a reachable node, add this to the neighbor list of current node
+			if(reachabilityCache[neighborId]) {
+				neighborsOfNode.push(neighborId);
+			}
 		}
+		nodeDict[node.id] = {"ip": node.ip};
+		neighborsDict[node.id] = neighborsOfNode;
 	}
 
 	for(const entry of Object.entries(nodeDict)) {
