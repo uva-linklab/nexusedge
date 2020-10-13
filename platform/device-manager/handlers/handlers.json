@@ -14,5 +14,9 @@
     "lab11-ble-handler": {
         "main": "lab11-ble-handler.js",
         "controller": "ble-controller"
+    },
+    "enocean-handler": {
+        "main": "enocean-handler.js",
+        "controller": "enocean-controller"
     }
 }
