@@ -1,0 +1,19 @@
+{
+  "name": "enocean-controller",
+  "version": "1.0.0",
+  "description": "Controller module to work with devices using the EnOcean protocol",
+  "main": "enocean-controller.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/nabeeln7/on-the-edge"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "@nabeeln7/node-enocean": "^1.0.0",
+    "serialport": "^9.0.1"
+  }
+}
