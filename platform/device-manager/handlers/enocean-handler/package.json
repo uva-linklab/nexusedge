@@ -9,6 +9,6 @@
   "author": "Nabeel Nasir",
   "license": "ISC",
   "dependencies": {
-    "enocean-controller": "^1.0.0"
+    "enocean-controller": "^1.0.2"
   }
 }

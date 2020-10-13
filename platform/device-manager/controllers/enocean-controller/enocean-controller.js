@@ -87,3 +87,5 @@ class EnOceanController {
         });
     }
 }
+
+module.exports = EnOceanController;

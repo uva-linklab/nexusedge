@@ -1,8 +1,8 @@
 {
   "name": "enocean-controller",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Controller module to work with devices using the EnOcean protocol",
-  "main": "ec1.js",
+  "main": "enocean-controller.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
