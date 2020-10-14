@@ -13,7 +13,7 @@
   "author": "Nabeel Nasir",
   "license": "ISC",
   "dependencies": {
-    "@nabeeln7/node-enocean": "^1.0.1",
+    "@nabeeln7/node-enocean": "^1.0.2",
     "serialport": "^9.0.1"
   }
 }
