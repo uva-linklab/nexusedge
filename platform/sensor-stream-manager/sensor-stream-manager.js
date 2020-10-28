@@ -2,7 +2,10 @@ const fs = require("fs-extra");
 const mqtt = require("mqtt");
 const utils = require("../utils/utils");
 const fetch = require("node-fetch");
-const policyHelper = require("./policy");
+const { PolicyEnforcer } = require("./policy");
+
+const timeZone = "America/New_York";
+const policyHelper = new PolicyEnforcer(timeZone);
 
 // TODO: add mqtt-data-collector logic to SSM.
 const MessagingService = require("../messaging-service");
@@ -282,12 +285,5 @@ messagingService.listenForEvent("update-policy", (message) => {
     const data = message.data;
     if (data["policy"]) {
         policyHelper.update(data["policy"]);
-        console.log(
-            `[INFO] Updated policy: ${JSON.stringify(policyHelper.getPolicy())}`
-        );
-        policyHelper.startRuleTimer();
     }
 });
-
-const timeZone = "America/New_York";
-policyHelper.setTimeZone(timeZone);
