@@ -13,7 +13,7 @@ platform_callback_list = []
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
+#     print("Connected with result code " + str(rc))
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
@@ -29,7 +29,7 @@ def on_message(client, userdata, mqtt_message):
 
     if topic == app_topic:
         message_json = json.loads(payload)
-        device_id = message_json["_meta"]["device_id"]
+        device_id = message_json["device_id"]
 
         if device_id in callback_map:
             callback_map[device_id](message_json)  # call the callback fn
