@@ -149,7 +149,7 @@ function subscribeToGatewayData(client) {
 function routeSensorStreamsToApps(client) {
     client.on("message", (topic, message) => {
         const payload = JSON.parse(message.toString());
-        const sensorId = payload["device_id"];
+        const sensorId = payload["_meta"]["device_id"];
         // need to check the value's key in payload
         policyHelper.updateCondition(sensorId, payload);
         if (sensorId in sensorStreamRouteTable) {

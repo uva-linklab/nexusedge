@@ -252,20 +252,6 @@ class PrivacyPolicy extends PolicyBase {
     constructor(tz) {
         super(tz, {}, {}, {});
         // conditional policy
-        // this.condition = {
-        //     "sensor1": {
-        //         "temperature1": {
-        //             "type": "numerical",
-        //             "condition": ">=",
-        //             "value": 25
-        //         },
-        //         "occupancy": {
-        //             "type": "boolean",
-        //             "condition": true,
-        //             "value": null
-        //         }
-        //     }
-        // }
         this.condition = {};
     }
     reset() {
