@@ -30,6 +30,54 @@ class Schedule {
     }
 }
 
+class ConditionalSensor {
+    constructor(type, condition, value) {
+        this.type = type || null;
+        this.condtion = condition || null;
+        this.value = value || null;
+        this.status = undefined;
+    }
+    update(value) {
+        if(this.type === "numerical") {
+            if(this.condition === ">") {
+                if(value > this.value) {
+                    this.status = true;
+                } else {
+                    this.status = false;
+                }
+            } else if(this.condition === ">=") {
+                if(value >= this.value) {
+                    this.status = true;
+                } else {
+                    this.status = false;
+                }
+            } else if(this.condition === "<") {
+                if(value < this.value) {
+                    this.status = true;
+                } else {
+                    this.status = false;
+                }
+            } else if(this.condition === "<=") {
+                if(value <= this.value) {
+                    this.status = true;
+                } else {
+                    this.status = false;
+                }
+            }
+        } else if(this.type === "boolean") {
+            if(this.condition) {
+                this.status = value;
+            } else {
+                this.status = !value;
+            }
+        }
+    }
+    isBlocked() {
+        if(this.status === undefined) return false;
+        return this.status;
+    }
+}
+
 class PolicyBase {
     constructor(tz, sensorSpecific, appSpecific, appSensor) {
         this.sensorSpecific = sensorSpecific;
@@ -46,10 +94,15 @@ class PolicyBase {
     getAppSensor() {
         return this.appSensor;
     }
+    reset() {
+        this.sensorSpecific = [];
+        this.appSpecific = {};
+        this.appSensor = {};
+    }
     print() {
-        console.log(`Sensor Specific: ${JSON.stringify(this.sensorSpecific)}`);
-        console.log(`App Specific:    ${JSON.stringify(this.appSpecific)}`);
-        console.log(`App Sensor:      ${JSON.stringify(this.appSensor)}`);
+        console.log(`Sensor Specific:   ${JSON.stringify(this.sensorSpecific)}`);
+        console.log(`App Specific:      ${JSON.stringify(this.appSpecific)}`);
+        console.log(`App Sensor:        ${JSON.stringify(this.appSensor)}`);
     }
 }
 
@@ -62,9 +115,8 @@ class PrivacyRule extends PolicyBase {
         return this.nextUpdateTime;
     }
     reset() {
+        super.reset();
         this.sensorSpecific = [];
-        this.appSpecific = {};
-        this.appSensor = {};
     }
     update(sensorSpecificPolicy, appSpecificPolicy, appSensor) {
         this.reset();
@@ -199,14 +251,41 @@ class PrivacyRule extends PolicyBase {
 class PrivacyPolicy extends PolicyBase {
     constructor(tz) {
         super(tz, {}, {}, {});
+        // conditional policy
+        // this.condition = {
+        //     "sensor1": {
+        //         "temperature1": {
+        //             "type": "numerical",
+        //             "condition": ">=",
+        //             "value": 25
+        //         },
+        //         "occupancy": {
+        //             "type": "boolean",
+        //             "condition": true,
+        //             "value": null
+        //         }
+        //     }
+        // }
+        this.condition = {};
     }
     reset() {
-        this.sensorSpecific = {};
-        this.appSpecific = {};
-        this.appSensor = {};
+        super.reset();
+        this.condition = {};
     }
     update(policy) {
         this.reset();
+        if(policy["condition"]) {
+            for(const sensorId in policy["condition"]) {
+                this.condition[sensorId] = {};
+                for(const conditionalSensorId in policy["condition"][sensorId]) {
+                    this.condition[sensorId][conditionalSensorId] = new ConditionalSensor(
+                        policy["condition"][sensorId][conditionalSensorId]["type"],
+                        policy["condition"][sensorId][conditionalSensorId]["condition"],
+                        policy["condition"][sensorId][conditionalSensorId]["value"]
+                    );
+                }
+            }
+        }
         if(policy["sensor-specific"]) {
             for(const sensorId in policy["sensor-specific"]) {
                 this.sensorSpecific[sensorId] = this.updateSinglePolicy(policy["sensor-specific"][sensorId]);
@@ -216,7 +295,7 @@ class PrivacyPolicy extends PolicyBase {
             for(const gatewayIp in policy["app-specific"]) {
                 const topics = policy["app-specific"][gatewayIp]
                 for(const topic in topics) {
-                    this.checkKey(this.appSpecific, gatewayIp);
+                    this.isKeyExisted(this.appSpecific, gatewayIp);
                     this.appSpecific[gatewayIp][topic] = this.updateSinglePolicy(topics[topic]);
                 }
             }
@@ -227,7 +306,7 @@ class PrivacyPolicy extends PolicyBase {
                 for(const gatewayIp in gatewayIps) {
                     const topics = gatewayIps[gatewayIp];
                     for(const topic in topics) {
-                        this.checkKey(this.appSensor, sensorId, gatewayIp);
+                        this.isKeyExisted(this.appSensor, sensorId, gatewayIp);
                         this.appSensor[sensorId][gatewayIp][topic] = this.updateSinglePolicy(topics[topic]);
                     }
                 }
@@ -236,13 +315,16 @@ class PrivacyPolicy extends PolicyBase {
         console.log(`[INFO] Privacy Policy:`);
         this.print();
     }
+    getCondition() {
+        return this.condition;
+    }
     updateSinglePolicy(source) {
         return {
             "block": source["block"],
             "schedule": new Schedule(source["schedule"])
         };
     }
-    checkKey(target, key1, ...restKeys) {
+    isKeyExisted(target, key1, ...restKeys) {
         if(restKeys.length === 0) {
             if(!target.hasOwnProperty(key1)) {
                 target[key1] = {};
@@ -251,8 +333,12 @@ class PrivacyPolicy extends PolicyBase {
             if(!target.hasOwnProperty(key1)) {
                 target[key1] = {};
             }
-            this.checkKey(target[key1], ...restKeys);
+            this.isKeyExisted(target[key1], ...restKeys);
         }
+    }
+    print() {
+        super.print();
+        console.log(`Condition:         ${JSON.stringify(this.condition)}`);
     }
 }
 
@@ -275,22 +361,39 @@ class PolicyEnforcer {
      * @returns {bool} - if the sensor is blocked
      */
     isBlocked(sensorId, ip, topic) {
-        const sensorSpecific = this.rule.getSensorSpecific;
+        const dependency = this.policy.getDependency();
+        if(sensorId in dependency) {
+            const condition = this.policy.getCondition();
+            for(const conditionalSensor of dependency[sensorId]) {
+                if(condition[conditionalSensor].isBlocked()) {
+                    return true;
+                }
+            }
+        }
+        const sensorSpecific = this.rule.getSensorSpecific();
         if(sensorSpecific.includes(sensorId)) {
             return true;
         }
-        const appSpecific = this.rule.getAppSpecific;
+        const appSpecific = this.rule.getAppSpecific();
         if(appSpecific[ip] &&
            appSpecific[ip].includes(topic)) {
             return true;
         }
-        const appSensor = this.rule.getAppSensor;
+        const appSensor = this.rule.getAppSensor();
         if(appSensor[sensorId] &&
            appSensor[sensorId][ip] &&
            appSensor[sensorId][ip].includes(topic)) {
             return true;
         }
         return false;
+    }
+    updateCondition(sensorId, value) {
+        const condition = this.policy.getCondition();
+        for(const targetSensorId in condition) {
+            if(sensorId in condition[targetSensorId]) {
+                condition[targetSensorId][sensorId].update(value);
+            }
+        }
     }
     enforcePolicy() {
         const sensorSpecific = this.policy.getSensorSpecific();
