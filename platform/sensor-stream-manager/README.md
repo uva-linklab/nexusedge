@@ -1,14 +1,42 @@
 # Policy
 
 ### Time-based Policy
-| Privacy Policy |      |               |             |
-|:--------------:|:----:|:-------------:|:-----------:|
-|     sensor     |  app |    interval   | block/allow |
-|       s1       | app1 | * 06-07 * * * |     true    |
-|        *       | app2 | * 08-17 * * * |     true    |
-|      s2,s3     |   *  |  * 0-12 * * * |    false    |
+<table class="tg">
+<thead>
+  <tr>
+    <th class="tg-c3ow" colspan="4">Privacy Policy</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg-c3ow">sensor</td>
+    <td class="tg-c3ow">app</td>
+    <td class="tg-c3ow">interval</td>
+    <td class="tg-c3ow">block/allow</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">s1</td>
+    <td class="tg-c3ow">app1</td>
+    <td class="tg-c3ow">* 06-07 * * *</td>
+    <td class="tg-c3ow">true</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">*</td>
+    <td class="tg-c3ow">app2</td>
+    <td class="tg-c3ow">* 08-17 * * *</td>
+    <td class="tg-c3ow">true</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">s2,s3</td>
+    <td class="tg-c3ow">*</td>
+    <td class="tg-c3ow">* 0-12 * * *</td>
+    <td class="tg-c3ow">false</td>
+  </tr>
+</tbody>
+</table>
 
 ### cron format
+```
 *    *    *    *    *    *
 ┬    ┬    ┬    ┬    ┬    ┬
 │    │    │    │    │    |
@@ -18,17 +46,36 @@
 │    │    └─────────────── hour (0 - 23)
 │    └──────────────────── minute (0 - 59)
 └───────────────────────── second (0 - 59, optional)
-
+```
 ### Conditional Policy
-| Conditional Policy |                                                   |
-|:------------------:|:-------------------------------------------------:|
-|       sensor       |                     condition                     |
-|         co2        | block when occupancy = true and temperature >= 25 |
-|     temperature    |            block when occupancy = true            |
-|      occupancy     |                        n/a                        |
+<table class="tg">
+<thead>
+  <tr>
+    <th class="tg-c3ow" colspan="2">Conditional Policy</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg-c3ow">sensor</td>
+    <td class="tg-c3ow">condition</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">co2</td>
+    <td class="tg-c3ow">block when occupancy = true and temperature &gt;= 25</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">temperature</td>
+    <td class="tg-c3ow">block when occupancy = true</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">occupancy</td>
+    <td class="tg-c3ow">n/a</td>
+  </tr>
+</tbody>
+</table>
 
 ### Policy Format
-```
+```json
 privacyPolicy = {
     "condition": {
         "sensor1": {
