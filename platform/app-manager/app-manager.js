@@ -90,7 +90,7 @@ messagingService.listenForEvent('app-deployment', message => {
                         ]
                     });
                 } else if(appData.runtime === 'python') {
-                    newApp = spawn('python3', [newAppPath], {
+                    newApp = spawn('python3', ['-u', newAppPath], {
                         env: { TOPIC: appId },
                         stdio: [
                             0,
