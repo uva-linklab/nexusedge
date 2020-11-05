@@ -83,12 +83,12 @@ privacyPolicy = {
                 "type": "numerical",
                 "condition": ">=",
                 "value": 25
+            },
+            "occupancy": {
+                "type": "boolean",
+                "condition": true,
+                "value": null
             }
-        },
-        "occupancy": {
-            "type": "boolean",
-            "condition": true,
-            "value": null
         }
     },
     "app-specific": {
