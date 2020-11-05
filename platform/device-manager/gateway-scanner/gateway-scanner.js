@@ -104,7 +104,11 @@ class GatewayScanner {
     getActiveGateways() {
         // find gateways that have been active in the last 15 seconds
         const timeMillis = 15 * 1000;
-        const activeGateways = Object.values(this._discoveredGateways)
+
+        // make a deep copy of the discovered gateways object, since we need to delete the lastActiveTime field
+        // reference: https://stackoverflow.com/a/122704/445964
+        const allGateways = JSON.parse(JSON.stringify(this._discoveredGateways));
+        const activeGateways = Object.values(allGateways)
             .filter(gateway => gateway.lastActiveTime > Date.now() - timeMillis);
         // remove the last active time field
         activeGateways.forEach(gateway => delete gateway.lastActiveTime);
