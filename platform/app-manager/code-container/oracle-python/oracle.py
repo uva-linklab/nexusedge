@@ -65,7 +65,7 @@ clientloop_thread.start()
 
 class Oracle:
     def __init__(self):
-        print('init')
+        print('[oracle] initialized')
 
     def subscribe_for_platform_messages(self, callback):
         platform_callback_list.append(callback)
