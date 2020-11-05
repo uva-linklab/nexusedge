@@ -78,13 +78,13 @@
 ```json
 privacyPolicy = {
     "condition": {
-        "sensor1": {
-            "temperature1": {
+        "sensor1-id": {
+            "sensor2-id": {
                 "type": "numerical",
                 "condition": ">=",
                 "value": 25
             },
-            "occupancy": {
+            "sensor3-id": {
                 "type": "boolean",
                 "condition": true,
                 "value": null
@@ -92,8 +92,8 @@ privacyPolicy = {
         }
     },
     "app-specific": {
-        "gateway1": {
-            "app1": {
+        "gateway1-ip": {
+            "app1-topic": {
                 "block": true,
                 "schedule": "* 09-10,13-15 * * *",
             }
