@@ -32,11 +32,15 @@ class Schedule {
 
 class ConditionalSensor {
     constructor(type, condition, value) {
+        // types: numerical and boolean
         this.type = type || null;
+        // >, >=, <, <=
         this.condtion = condition || null;
         this.value = value || null;
+        // the boolean of the conditional sensor
         this.status = undefined;
     }
+
     update(value) {
         if(this.type === "numerical") {
             if(this.condition === ">") {
@@ -72,6 +76,10 @@ class ConditionalSensor {
             }
         }
     }
+
+    /**
+     * @return {boolean}
+     */
     isBlocked() {
         if(this.status === undefined) return false;
         return this.status;
@@ -94,12 +102,12 @@ class PolicyBase {
     getAppSensor() {
         return this.appSensor;
     }
-    reset() {
+    _reset() {
         this.sensorSpecific = [];
         this.appSpecific = {};
         this.appSensor = {};
     }
-    print() {
+    _print() {
         console.log(`Sensor Specific:   ${JSON.stringify(this.sensorSpecific)}`);
         console.log(`App Specific:      ${JSON.stringify(this.appSpecific)}`);
         console.log(`App Sensor:        ${JSON.stringify(this.appSensor)}`);
@@ -111,54 +119,72 @@ class PrivacyRule extends PolicyBase {
         super(tz, [], {}, {});
         this.nextUpdateTime = undefined;
     }
+
     getNextUpdateTime() {
         return this.nextUpdateTime;
     }
-    reset() {
-        super.reset();
-        this.sensorSpecific = [];
-    }
+
+    /**
+     * @param {Object} sensorSpecificPolicy
+     * @param {Object} appSpecificPolicy
+     * @param {Object} appSensor
+     */
     update(sensorSpecificPolicy, appSpecificPolicy, appSensor) {
-        this.reset();
+        this._reset();
         const now = new Date();
         this.nextUpdateTime = undefined;
-        this.updateSensorSpecific(now, sensorSpecificPolicy);
-        this.updateAppSpecific(now, appSpecificPolicy);
-        this.updateAppSensor(now, appSensor);
+        this._updateSensorSpecific(now, sensorSpecificPolicy);
+        this._updateAppSpecific(now, appSpecificPolicy);
+        this._updateAppSensor(now, appSensor);
         console.log(`[INFO] Privacy Rule:`);
-        this.print();
+        this._print();
     }
-    updateSensorSpecific(now, sensorSpecificPolicy) {
+
+    _reset() {
+        super._reset();
+        this.sensorSpecific = [];
+    }
+    /**
+     * This function walk through sensor-specific policy and update to the
+     * sensor-specific rule.
+     * @param {Object} now - Date object
+     * @param {Object} sensorSpecificPolicy
+     */
+    _updateSensorSpecific(now, sensorSpecificPolicy) {
         for(const sensorId in sensorSpecificPolicy) {
             const sensorPolicy = sensorSpecificPolicy[sensorId];
             const isInSchedule = sensorPolicy.schedule.isInSchedule(now, this.timeZone);
             const updateTime = sensorPolicy.schedule.getNextScheduleChangeTime();
-            this.updateRuleProcedure(isInSchedule, sensorPolicy["block"], sensorId, this.sensorSpecific);
-            this.updateRuleTime(updateTime);
+            this._updateRuleProcedure(isInSchedule, sensorPolicy["block"], sensorId, this.sensorSpecific);
+            this._updateNextTime(updateTime);
         }
     }
     /**
-     * This function walk through app-specific policy and update to `intervalRule`.
+     * This function walk through app-specific policy and update the app-specific rule.
      * @param {Object} now - Date object
+     * @param {Object} appSpecificPolicy
      */
-    updateAppSpecific(now, appSpecificPolicy) {
+    _updateAppSpecific(now, appSpecificPolicy) {
         for(const gatewayIp in appSpecificPolicy) {
             const topics = appSpecificPolicy[gatewayIp];
             for(const topic in topics) {
                 const sensorPolicy = topics[topic];
                 const isInSchedule = sensorPolicy.schedule.isInSchedule(now, this.timeZone);
                 const updateTime = sensorPolicy.schedule.getNextScheduleChangeTime();
-                this.updateRuleProcedure(isInSchedule, sensorPolicy["block"], topic, this.appSpecific, gatewayIp);
-                this.updateRuleTime(updateTime);
+                this._updateRuleProcedure(isInSchedule, sensorPolicy["block"], topic, this.appSpecific, gatewayIp);
+                this._updateNextTime(updateTime);
             }
         }
     }
     /**
-     * This function walk through app-sensor policy and update to `intervalRule`.
+     * This function walk through app-sensor policy and update to app-sensor rule.
      * @param {Object} now - Date object
+     * @param {Object} appSensor
      */
-    updateAppSensor(now, appSensor) {
+    _updateAppSensor(now, appSensor) {
         for(const sensorId in appSensor) {
+            // if the sensor is already blocked
+            // it is not necessary to go through the app sensor policy
             if(this.sensorSpecific.includes(sensorId)) {
                 continue;
             }
@@ -166,83 +192,83 @@ class PrivacyRule extends PolicyBase {
             for(const gatewayIp in gatewayIps) {
                 const topics = gatewayIps[gatewayIp];
                 for(const topic in topics) {
+                    // The application is already blocked
                     if(this.appSpecific.hasOwnProperty(gatewayIp) && this.appSpecific[gatewayIp].includes(topic)) {
                         continue;
                     }
                     const sensorPolicy = topics[topic];
                     const isInSchedule = sensorPolicy.schedule.isInSchedule(now, this.timeZone);
                     const updateTime = sensorPolicy.schedule.getNextScheduleChangeTime();
-                    this.updateRuleProcedure(
+                    this._updateRuleProcedure(
                         isInSchedule,
                         sensorPolicy["block"],
                         topic,
                         this.appSensor,
                         sensorId, gatewayIp
                     );
-                    this.updateRuleTime(updateTime);
+                    this._updateNextTime(updateTime);
                 }
             }
         }
     }
     /**
-     * This function update `intervalRule`. It first pushes the topic to `intervalRuleType`.
-     * It first checks if the sensorId or gatewayIp in the intervalRuleType. Next, push topic or sensorId
-     * to the block lists.
+     * This function first checks the nested keys in the rule and pushes the
+     * topic to rule.
      * @param {string} blockTarget - app topic or sensor id
-     * @param {Object} intervalRuleType - intervalRule[type]
+     * @param {Object} rule - sensorSpecific or appSpecific or appSensor
      * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
      * @param {...string} restkeys - sensorId, gatewayIp
      */
-    updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys) {
+    _updateRule(blockTarget, rule, key1, ...restKeys) {
         if(!key1) {
             // sensor-specific goes here
-            // push blockTarget to inerval policy
-            intervalRuleType.push(blockTarget);
-        } else if(restKeys.length === 0) {
-            if(!intervalRuleType.hasOwnProperty(key1)) {
-                intervalRuleType[key1] = [];
+            // push blockTarget to the rule
+            rule.push(blockTarget);
+        } else if(restKeys.length > 0) {
+            if(!rule.hasOwnProperty(key1)) {
+                // create the key in the rule
+                rule[key1] = {};
             }
-            if(!intervalRuleType[key1].includes(blockTarget)) {
-                // push blockTarget to inerval policy
-                intervalRuleType[key1].push(blockTarget);
-            }
+            this._updateRule(blockTarget, rule[key1], ...restKeys)
         } else {
-            if(!intervalRuleType.hasOwnProperty(key1)) {
-                intervalRuleType[key1] = {};
+            if(!rule.hasOwnProperty(key1)) {
+                rule[key1] = [];
             }
-            this.updateIntervalRule(blockTarget, intervalRuleType[key1], ...restKeys)
+            if(!rule[key1].includes(blockTarget)) {
+                // push blockTarget to the rule
+                rule[key1].push(blockTarget);
+            }
         }
     }
 
     /**
-     * This function checks if the policy should be update to `intervalRule` or not.
+     * This function checks if the policy should be push to the rule.
      * @param {bool} isInInterval - if current time in the interval
      * @param {bool} block - block or allow
      * @param {string} blockTarget - app topic or sensor id
-     * @param {Object} intervalRuleType - intervalRule[type]
+     * @param {Object} rule - intervalRule[type]
      * @param {string} key1 - nested policy keys (sensorId, gatewayIp)
      * @param {...string} restkeys - sensorId, gatewayIp
      */
-    updateRuleProcedure(isInInterval, block, blockTarget, intervalRuleType, key1, ...restKeys) {
+    _updateRuleProcedure(isInInterval, block, blockTarget, rule, key1, ...restKeys) {
         if(isInInterval) {
             if(block) {
-                this.updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys);
+                this._updateRule(blockTarget, rule, key1, ...restKeys);
             }
         } else {
             if(!block) {
-                this.updateIntervalRule(blockTarget, intervalRuleType, key1, ...restKeys);
+                this._updateRule(blockTarget, rule, key1, ...restKeys);
             }
         }
     }
     /**
-     * This function updates `nextRuleTime`. If `nextRuleTime` is further than `tempNextRuleTime`, `nextRuleTime`
-     * will be updated.
+     * This function updates `nextUpdateTime`. If `nextUpdateTime` is further than
+     * `tempNextUpdateTime`, `nextUpdateTime` will be updated.
      * @param {Object} tempNextUpdateTime - CronDate object
      */
-    updateRuleTime(tempNextUpdateTime) {
-        // if orgNextUpdateTime is undefined or
-        // compare the nearest time with orgNextUpdateTime
-        if(!this.nextUpdateTime || tempNextUpdateTime.getTime() < this.nextUpdateTime.getTime()) {
+    _updateNextTime(tempNextUpdateTime) {
+        if(!this.nextUpdateTime ||
+            tempNextUpdateTime.getTime() < this.nextUpdateTime.getTime()) {
             this.nextUpdateTime = tempNextUpdateTime;
         }
     }
@@ -254,12 +280,12 @@ class PrivacyPolicy extends PolicyBase {
         // conditional policy
         this.condition = {};
     }
-    reset() {
-        super.reset();
-        this.condition = {};
-    }
+    /**
+     * update privacy policy
+     * @param {Object} policy
+     */
     update(policy) {
-        this.reset();
+        this._reset();
         if(policy["condition"]) {
             for(const sensorId in policy["condition"]) {
                 this.condition[sensorId] = {};
@@ -274,15 +300,15 @@ class PrivacyPolicy extends PolicyBase {
         }
         if(policy["sensor-specific"]) {
             for(const sensorId in policy["sensor-specific"]) {
-                this.sensorSpecific[sensorId] = this.updateSinglePolicy(policy["sensor-specific"][sensorId]);
+                this.sensorSpecific[sensorId] = this._updateSingleTimeBasedPolicy(policy["sensor-specific"][sensorId]);
             }
         }
         if(policy["app-specific"]) {
             for(const gatewayIp in policy["app-specific"]) {
                 const topics = policy["app-specific"][gatewayIp]
                 for(const topic in topics) {
-                    this.isKeyExisted(this.appSpecific, gatewayIp);
-                    this.appSpecific[gatewayIp][topic] = this.updateSinglePolicy(topics[topic]);
+                    this._isKeyExisted(this.appSpecific, gatewayIp);
+                    this.appSpecific[gatewayIp][topic] = this._updateSingleTimeBasedPolicy(topics[topic]);
                 }
             }
         }
@@ -292,38 +318,52 @@ class PrivacyPolicy extends PolicyBase {
                 for(const gatewayIp in gatewayIps) {
                     const topics = gatewayIps[gatewayIp];
                     for(const topic in topics) {
-                        this.isKeyExisted(this.appSensor, sensorId, gatewayIp);
-                        this.appSensor[sensorId][gatewayIp][topic] = this.updateSinglePolicy(topics[topic]);
+                        this._isKeyExisted(this.appSensor, sensorId, gatewayIp);
+                        this.appSensor[sensorId][gatewayIp][topic] = this._updateSingleTimeBasedPolicy(topics[topic]);
                     }
                 }
             }
         }
         console.log(`[INFO] Privacy Policy:`);
-        this.print();
+        this._print();
     }
     getCondition() {
         return this.condition;
     }
-    updateSinglePolicy(source) {
+    _reset() {
+        super._reset();
+        this.condition = {};
+    }
+    /**
+     * Update privacy policy
+     * @param {Object} sensorPolicy
+     * @return {Object} - compiled single sensor policy
+     */
+    _updateSingleTimeBasedPolicy(sensorPolicy) {
         return {
-            "block": source["block"],
-            "schedule": new Schedule(source["schedule"])
+            "block": sensorPolicy["block"],
+            "schedule": new Schedule(sensorPolicy["schedule"])
         };
     }
-    isKeyExisted(target, key1, ...restKeys) {
+
+    /**
+     * Check if nested key exists
+     * @param {Object} policy
+     */
+    _isKeyExisted(policy, key1, ...restKeys) {
         if(restKeys.length === 0) {
-            if(!target.hasOwnProperty(key1)) {
-                target[key1] = {};
+            if(!policy.hasOwnProperty(key1)) {
+                policy[key1] = {};
             }
         } else {
-            if(!target.hasOwnProperty(key1)) {
-                target[key1] = {};
+            if(!policy.hasOwnProperty(key1)) {
+                policy[key1] = {};
             }
-            this.isKeyExisted(target[key1], ...restKeys);
+            this._isKeyExisted(policy[key1], ...restKeys);
         }
     }
-    print() {
-        super.print();
+    _print() {
+        super._print();
         console.log(`Condition:         ${JSON.stringify(this.condition)}`);
     }
 }
@@ -337,21 +377,21 @@ class PolicyEnforcer {
     }
     update(policy) {
         this.policy.update(policy);
-        this.enforcePolicy();
+        this._enforcePolicy();
     }
+
     /**
-     * This function is used for checking if the sensorId or topic in the block list in `intervalRule`.
+     * Check if the sensorId or topic in the block list in the rule.
      * @param {string} sensorId
-     * @param {string} ip - MQTT broker's ip
+     * @param {string} ip - gateway ip of the application
      * @param {string} topic - application's topic
      * @returns {bool} - if the sensor is blocked
      */
     isBlocked(sensorId, ip, topic) {
-        const dependency = this.policy.getDependency();
-        if(sensorId in dependency) {
-            const condition = this.policy.getCondition();
-            for(const conditionalSensor of dependency[sensorId]) {
-                if(condition[conditionalSensor].isBlocked()) {
+        const condition = this.policy.getCondition();
+        if(sensorId in condition) {
+            for(const conditionalSensorId of condition[sensorId]) {
+                if(condition[sensorId][conditionalSensorId].isBlocked()) {
                     return true;
                 }
             }
@@ -373,6 +413,12 @@ class PolicyEnforcer {
         }
         return false;
     }
+
+    /**
+     * Update sensor status of the conditional policy
+     * @param {string} sensorId
+     * @param {string} value - true/false or numerical
+     */
     updateCondition(sensorId, value) {
         const condition = this.policy.getCondition();
         for(const targetSensorId in condition) {
@@ -381,27 +427,31 @@ class PolicyEnforcer {
             }
         }
     }
-    enforcePolicy() {
+
+    _enforcePolicy() {
         const sensorSpecific = this.policy.getSensorSpecific();
         const appSpecific = this.policy.getAppSpecific();
         const appSensor = this.policy.getAppSensor();
         this.rule.update(sensorSpecific, appSpecific, appSensor);
-        this.updateTimer();
+        this._updateTimer();
     }
+
     /**
-     * This function calculates the time difference between date1 and date2 and returns the time in milliseconds.
+     * Calculate the time difference between date1 and date2 and
+     * returns the time in milliseconds.
      * @param {Object} date1 - Date or CronDate
      * @param {Object} date2 - Date or CronDate
-     * @returns {number} time in millisecond
+     * @returns {Number} time in millisecond
      */
-    getTimeDifference(date1, date2) {
+    _getTimeDifference(date1, date2) {
         return date1.getTime() - date2.getTime();
     }
+
     /**
-     * This function updates `timer`. `timer` is an object returned by `setTimeout` function.
-     * `timer` will count the time set by `nextRuleTime`.
+     * Update `timer`. `timer` is an object returned by `setTimeout` function.
+     * `timer` will count the time set by `nextUpdateTime` in the rule.
      */
-    updateTimer() {
+    _updateTimer() {
         const nextUpdateTime = this.rule.getNextUpdateTime();
         // check if next interval exists
         if(nextUpdateTime) {
@@ -411,10 +461,10 @@ class PolicyEnforcer {
             }
             const now = new Date();
             // calculate the interval for next execution
-            const interval = this.getTimeDifference(nextUpdateTime, now);
+            const interval = this._getTimeDifference(nextUpdateTime, now);
             console.log(`[INFO] Next update time: ${nextUpdateTime}, interval: ${interval}`);
             this.timer = setTimeout(() => {
-                this.enforcePolicy();
+                this._enforcePolicy();
             }, interval);
         }
     }

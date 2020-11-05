@@ -150,7 +150,8 @@ function routeSensorStreamsToApps(client) {
     client.on("message", (topic, message) => {
         const payload = JSON.parse(message.toString());
         const sensorId = payload["_meta"]["device_id"];
-        // need to check the value's key in payload
+        // update conditional sensor status
+        // TODO: need to check the value's key in payload
         policyHelper.updateCondition(sensorId, payload);
         if (sensorId in sensorStreamRouteTable) {
             for (const gatewayIp in sensorStreamRouteTable[sensorId]) {
@@ -258,32 +259,6 @@ messagingService.listenForEvent("register-topic", (message) => {
 });
 
 messagingService.listenForEvent("update-policy", (message) => {
-    // data = {
-    //     "policy": {
-    //         "app-specific": {
-    //             "app1": {
-    //                 "block": true,
-    //                 "cron": "* 09-10,13-15 * * *",
-    //             }
-    //         },
-    //         "sensor-specific": {
-    //             "sensor1-id": {
-    //                 "block": false,
-    //                 "cron": "* 09-10,13-15 * * *",
-    //             }
-    //         },
-    //         "app-sensor": {
-    //             "sensor1-id": {
-    //                 "gateway1-ip": {
-    //                     "app1-topic": {
-    //                         "block": false,
-    //                         "cron": "* 09-10,13-15 * * *",
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // };
     const data = message.data;
     if (data["policy"]) {
         policyHelper.update(data["policy"]);
