@@ -54,6 +54,19 @@ exports.getServerStatus = async function(req, res) {
 };
 
 /**
+ * This call gives the status of the server.
+ * It is primarily intended to be used as a means to check reachability.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getStartTime = async function(req, res) {
+    const response = {startTime: utils.getStartTime()};
+    return res.json(response);
+};
+
+
+/**
  * This call retrieves the self details of the gateway.
  * @param req
  * @param res
