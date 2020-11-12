@@ -159,7 +159,6 @@ function routeSensorStreamsToApps(client) {
                     if (!policyHelper.isBlocked(sensorId, gatewayIp, topic)) {
                         // Publish to application's topic
                         publishData(gatewayIp, topic, JSON.stringify(payload));
-                        console.log(`published to ${gatewayIp}  ${topic}`);
                     }
                 }
             }
