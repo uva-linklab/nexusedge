@@ -13,28 +13,7 @@ touch <serial-number>
 ```
 export BOARD_SERIAL="<serial-number>"
 ```
-* Install node.js v12.x
-```
-# Using Ubuntu
-curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Using Debian, as root
-curl -sL https://deb.nodesource.com/setup_12.x | bash -
-apt-get install -y nodejs
-```
-Reference: https://github.com/nodesource/distributions/blob/master/README.md
-* Install other essential packages  
-    apt install cron build-essential libudev-dev openssh-server git-all mosquitto mosquitto-clients
 * Set up an email alert to send the IP address of the board on reboot. Add scripts/email-script.sh to cron:  
     @reboot sleep 15 && /root/on-the-edge/scripts/email-script.sh
 * Run scripts/start-edge-platform.sh on reboot. Add the following line to cron:   
     @reboot sleep 15 && /root/on-the-edge/scripts/start-edge-platform.sh
-* Add this to /etc/mosquitto/mosquitto.conf for accessing mqtt streams over websocket:
-```
-listener 1883 0.0.0.0 
-
-listener 9001 0.0.0.0
-protocol websockets
-```
- 

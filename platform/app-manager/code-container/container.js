@@ -1,8 +1,9 @@
 const fs = require('fs-extra');
 const path = require("path");
 
+const executableDirPath = path.join(__dirname, 'executables');
+
 exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
-	const executableDirPath = path.join(__dirname, 'executables');
 	//create "executables" directory if not present
 	fs.ensureDirSync(executableDirPath);
 
@@ -26,4 +27,9 @@ exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 
 	// TODO: npm install here
 	return scriptTargetPath;
+};
+
+exports.cleanupExecutablesDir = function() {
+	fs.ensureDirSync(executableDirPath);
+	fs.emptyDirSync(executableDirPath);
 };

@@ -24,7 +24,7 @@ exports.getNeighbors = async function(req, res) {
  */
 exports.getDevices = async function(req, res) {
     const response =
-        await messagingService.query(serviceName, 'device-manager', 'get-active-devices', {});
+        await messagingService.query(serviceName, 'device-manager', 'get-devices', {});
     return res.json(response);
 };
 
@@ -63,6 +63,18 @@ exports.getGatewayDetails = function(req, res) {
     const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
     return res.json(selfDetails);
 };
+
+/**
+ * Give gateway's resource usage statistics.
+ * @param req
+ * @param res
+ * @return {*}
+ */
+exports.getResourceUsage = async function(req, res) {
+    const resourceUsage = await utils.getResourceUsage();
+    return res.json(resourceUsage);
+};
+
 
 /**
  * This endpoint takes the uploaded code and metadata and
