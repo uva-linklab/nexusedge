@@ -47,50 +47,10 @@
 │    └──────────────────── minute (0 - 59)
 └───────────────────────── second (0 - 59, optional)
 ```
-### Conditional Policy
-<table class="tg">
-<thead>
-  <tr>
-    <th class="tg-c3ow" colspan="2">Conditional Policy</th>
-  </tr>
-</thead>
-<tbody>
-  <tr>
-    <td class="tg-c3ow">sensor</td>
-    <td class="tg-c3ow">condition</td>
-  </tr>
-  <tr>
-    <td class="tg-c3ow">co2</td>
-    <td class="tg-c3ow">block when occupancy = true and temperature &gt;= 25</td>
-  </tr>
-  <tr>
-    <td class="tg-c3ow">temperature</td>
-    <td class="tg-c3ow">block when occupancy = true</td>
-  </tr>
-  <tr>
-    <td class="tg-c3ow">occupancy</td>
-    <td class="tg-c3ow">n/a</td>
-  </tr>
-</tbody>
-</table>
 
 ### Policy Format
 ```json
 privacyPolicy = {
-    "condition": {
-        "sensor1-id": {
-            "sensor2-id": {
-                "type": "numerical",
-                "condition": ">=",
-                "value": 25
-            },
-            "sensor3-id": {
-                "type": "boolean",
-                "condition": true,
-                "value": null
-            }
-        }
-    },
     "app-specific": {
         "gateway1-ip": {
             "app1-topic": {

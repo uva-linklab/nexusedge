@@ -150,9 +150,7 @@ function routeSensorStreamsToApps(client) {
     client.on("message", (topic, message) => {
         const payload = JSON.parse(message.toString());
         const sensorId = payload["_meta"]["device_id"];
-        // update conditional sensor status
-        // TODO: need to check the value's key in payload
-        policyHelper.updateCondition(sensorId, payload);
+
         if (sensorId in sensorStreamRouteTable) {
             for (const gatewayIp in sensorStreamRouteTable[sensorId]) {
                 const topics = sensorStreamRouteTable[sensorId][gatewayIp];

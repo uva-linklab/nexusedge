@@ -30,62 +30,6 @@ class Schedule {
     }
 }
 
-class ConditionalSensor {
-    constructor(type, condition, value) {
-        // types: numerical and boolean
-        this.type = type || null;
-        // >, >=, <, <=
-        this.condtion = condition || null;
-        this.value = value || null;
-        // the boolean of the conditional sensor
-        this.status = undefined;
-    }
-
-    update(value) {
-        if(this.type === "numerical") {
-            if(this.condition === ">") {
-                if(value > this.value) {
-                    this.status = true;
-                } else {
-                    this.status = false;
-                }
-            } else if(this.condition === ">=") {
-                if(value >= this.value) {
-                    this.status = true;
-                } else {
-                    this.status = false;
-                }
-            } else if(this.condition === "<") {
-                if(value < this.value) {
-                    this.status = true;
-                } else {
-                    this.status = false;
-                }
-            } else if(this.condition === "<=") {
-                if(value <= this.value) {
-                    this.status = true;
-                } else {
-                    this.status = false;
-                }
-            }
-        } else if(this.type === "boolean") {
-            if(this.condition) {
-                this.status = value;
-            } else {
-                this.status = !value;
-            }
-        }
-    }
-
-    /**
-     * @return {boolean}
-     */
-    isBlocked() {
-        if(this.status === undefined) return false;
-        return this.status;
-    }
-}
-
 class PolicyBase {
     constructor(tz, sensorSpecific, appSpecific, appSensor) {
         this.sensorSpecific = sensorSpecific;
@@ -103,7 +47,7 @@ class PolicyBase {
         return this.appSensor;
     }
     _reset() {
-        this.sensorSpecific = [];
+        this.sensorSpecific = {};
         this.appSpecific = {};
         this.appSensor = {};
     }
@@ -286,18 +230,6 @@ class PrivacyPolicy extends PolicyBase {
      */
     update(policy) {
         this._reset();
-        if(policy["condition"]) {
-            for(const sensorId in policy["condition"]) {
-                this.condition[sensorId] = {};
-                for(const conditionalSensorId in policy["condition"][sensorId]) {
-                    this.condition[sensorId][conditionalSensorId] = new ConditionalSensor(
-                        policy["condition"][sensorId][conditionalSensorId]["type"],
-                        policy["condition"][sensorId][conditionalSensorId]["condition"],
-                        policy["condition"][sensorId][conditionalSensorId]["value"]
-                    );
-                }
-            }
-        }
         if(policy["sensor-specific"]) {
             for(const sensorId in policy["sensor-specific"]) {
                 this.sensorSpecific[sensorId] = this._updateSingleTimeBasedPolicy(policy["sensor-specific"][sensorId]);
@@ -327,13 +259,6 @@ class PrivacyPolicy extends PolicyBase {
         console.log(`[INFO] Privacy Policy:`);
         this._print();
     }
-    getCondition() {
-        return this.condition;
-    }
-    _reset() {
-        super._reset();
-        this.condition = {};
-    }
     /**
      * Update privacy policy
      * @param {Object} sensorPolicy
@@ -362,10 +287,6 @@ class PrivacyPolicy extends PolicyBase {
             this._isKeyExisted(policy[key1], ...restKeys);
         }
     }
-    _print() {
-        super._print();
-        console.log(`Condition:         ${JSON.stringify(this.condition)}`);
-    }
 }
 
 class PolicyEnforcer {
@@ -388,14 +309,6 @@ class PolicyEnforcer {
      * @returns {bool} - if the sensor is blocked
      */
     isBlocked(sensorId, ip, topic) {
-        const condition = this.policy.getCondition();
-        if(sensorId in condition) {
-            for(const conditionalSensorId of condition[sensorId]) {
-                if(condition[sensorId][conditionalSensorId].isBlocked()) {
-                    return true;
-                }
-            }
-        }
         const sensorSpecific = this.rule.getSensorSpecific();
         if(sensorSpecific.includes(sensorId)) {
             return true;
@@ -412,20 +325,6 @@ class PolicyEnforcer {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Update sensor status of the conditional policy
-     * @param {string} sensorId
-     * @param {string} value - true/false or numerical
-     */
-    updateCondition(sensorId, value) {
-        const condition = this.policy.getCondition();
-        for(const targetSensorId in condition) {
-            if(sensorId in condition[targetSensorId]) {
-                condition[targetSensorId][sensorId].update(value);
-            }
-        }
     }
 
     _enforcePolicy() {
