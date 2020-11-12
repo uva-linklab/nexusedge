@@ -53,7 +53,7 @@
 privacyPolicy = {
     "app-specific": {
         "gateway1-ip": {
-            "app1-topic": {
+            "app1-id": {
                 "block": true,
                 "schedule": "* 09-10,13-15 * * *",
             }
@@ -68,7 +68,7 @@ privacyPolicy = {
     "app-sensor": {
         "sensor1-id": {
             "gateway1-ip": {
-                "app1-topic": {
+                "app1-id": {
                     "block": false,
                     "schedule": "* 09-10,13-15 * * *",
                 }
