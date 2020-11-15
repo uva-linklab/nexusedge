@@ -1,7 +1,7 @@
 const codeContainer = require(`${__dirname}/code-container/container`);
 const fs = require("fs-extra");
 const path = require("path");
-const { fork } = require('child_process');
+const { fork, spawn } = require('child_process');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
@@ -58,8 +58,8 @@ function getAppLogTopic(appId) {
 // app-manager will fork a process for executing new app.
 messagingService.listenForEvent('app-deployment', message => {
     let appData = message.data;
-    if(appData.appPath && appData.metadataPath) {
-        codeContainer.setupAppRuntimeEnvironment(appData.appPath, appData.metadataPath)
+    if(appData.appPath && appData.metadataPath && appData.runtime) {
+        codeContainer.setupAppRuntimeEnvironment(appData.appPath, appData.metadataPath, appData.runtime)
             .then((newAppPath) => {
                 // newAppPath = /on-the-edge/app-manager/code-container/executables/1583622378159/app.js
                 let appName = path.basename(newAppPath);
@@ -76,15 +76,29 @@ messagingService.listenForEvent('app-deployment', message => {
                 // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
 
                 const appLogPath = path.join(__dirname, 'logs', `${appName}.out`);
-                const newApp = fork(newAppPath, [], {
-                    env: { TOPIC: appId },
-                    stdio: [
-                        0,
-                        fs.openSync(appLogPath, 'w'),
-                        fs.openSync(appLogPath, 'a'),
-                        "ipc"
-                    ]
-                });
+
+                let newApp;
+
+                if(appData.runtime === 'nodejs') {
+                    newApp = fork(newAppPath, [], {
+                        env: { TOPIC: appId },
+                        stdio: [
+                            0,
+                            fs.openSync(appLogPath, 'w'),
+                            fs.openSync(appLogPath, 'a'),
+                            "ipc"
+                        ]
+                    });
+                } else if(appData.runtime === 'python') {
+                    newApp = spawn('python3', ['-u', newAppPath], {
+                        env: { TOPIC: appId },
+                        stdio: [
+                            0,
+                            fs.openSync(appLogPath, 'w'),
+                            fs.openSync(appLogPath, 'a')
+                        ]
+                    });
+                }
 
                 // Stores the process, id, pid, appPath, and metadataPath in apps
                 // The id is also used for application's topic

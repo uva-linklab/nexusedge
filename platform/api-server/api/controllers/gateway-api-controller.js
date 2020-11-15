@@ -54,6 +54,19 @@ exports.getServerStatus = async function(req, res) {
 };
 
 /**
+ * This call gives the status of the server.
+ * It is primarily intended to be used as a means to check reachability.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getStartTime = async function(req, res) {
+    const response = {startTime: utils.getStartTime()};
+    return res.json(response);
+};
+
+
+/**
  * This call retrieves the self details of the gateway.
  * @param req
  * @param res
@@ -86,12 +99,14 @@ exports.getResourceUsage = async function(req, res) {
 exports.executeApp = async function(req, res) {
     const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
+    const runtime = req.body.runtime;
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
     messagingService.forwardMessage(serviceName, "app-manager", "app-deployment", {
         "appPath": appPath,
-        "metadataPath": metadataPath
+        "metadataPath": metadataPath,
+        "runtime": runtime
     });
     res.send();
 };
