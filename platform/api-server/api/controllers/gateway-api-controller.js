@@ -216,3 +216,8 @@ exports.talkToManager = async function(req, res) {
 
     res.send();
 };
+
+exports.retrievePrivacyPolicy = async function(req, res) {
+    const policy = await messagingService.query(serviceName, "sensor-stream-manager", "retrieve-policy", {});
+    res.json(policy);
+};

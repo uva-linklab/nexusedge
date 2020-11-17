@@ -327,6 +327,17 @@ class PolicyEnforcer {
         return false;
     }
 
+    getPolicy() {
+        const sensorSpecific = this.policy.getSensorSpecific();
+        const appSpecific = this.policy.getAppSpecific();
+        const appSensor = this.policy.getAppSensor();
+        return {
+            "sensor-specific": sensorSpecific,
+            "app-specific": appSpecific,
+            "app-sensor": appSensor
+        };
+    }
+
     _enforcePolicy() {
         const sensorSpecific = this.policy.getSensorSpecific();
         const appSpecific = this.policy.getAppSpecific();

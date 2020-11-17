@@ -261,3 +261,9 @@ messagingService.listenForEvent("update-policy", (message) => {
         policyHelper.update(data["policy"]);
     }
 });
+
+messagingService.listenForQuery('retrieve-policy', message => {
+    const query = message.data.query;
+    const policy = policyHelper.getPolicy();
+    messagingService.respondToQuery(query, policy);
+});
