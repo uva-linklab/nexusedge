@@ -1,4 +1,5 @@
 const cronParser = require('@huanglipang/cron-parser');
+const safeSetTimeout = require('safe-timers').setTimeout;
 
 class Schedule {
     constructor(cronPattern) {
@@ -371,13 +372,13 @@ class PolicyEnforcer {
         if(nextUpdateTime) {
             if(this.timer) {
                 // clear setTimeout when update policy
-                clearTimeout(this.timer);
+                this.timer.clear();
             }
             const now = new Date();
             // calculate the interval for next execution
             const interval = this._getTimeDifference(nextUpdateTime, now);
             console.log(`[INFO] Next update time: ${nextUpdateTime}, interval: ${interval}`);
-            this.timer = setTimeout(() => {
+            this.timer = safeSetTimeout(() => {
                 this._enforcePolicy();
             }, interval);
         }
