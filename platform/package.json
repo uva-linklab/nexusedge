@@ -23,6 +23,7 @@
     "queue-fifo": "^0.2.5",
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
+    "safe-timers": "^1.1.0",
     "tail": "^2.0.4",
     "ws": "^7.2.5"
   },
