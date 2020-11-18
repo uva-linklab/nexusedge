@@ -4,6 +4,7 @@
   "description": "platform",
   "main": "platform-manager.js",
   "dependencies": {
+    "@huanglipang/cron-parser": "^2.16.3",
     "ble-controller": "^1.2.0",
     "body-parser": "latest",
     "cors": "^2.8.5",

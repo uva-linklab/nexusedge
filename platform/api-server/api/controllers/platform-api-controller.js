@@ -3,6 +3,10 @@ const utils = require('../../../utils/utils');
 const MqttController = require('../../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const mqttTopic = 'platform-data';
+const MessagingService = require('../../../messaging-service');
+
+const serviceName = process.env.SERVICE_NAME;
+const messagingService = new MessagingService(serviceName);
 
 exports.disseminateAll = async function (req, res) {
     return platformAPICallHelper(req, res, sendDisseminateAllRequest);
@@ -80,3 +84,18 @@ function sendPostRequest(url, data) {
     };
     request(options);
 }
+
+/**
+ * This endpoint takes the privacy policy and
+ * passes the policy to sensor-stream-manager.
+ * @param req
+ * @param res
+ * @returns {Promise<void>}
+ */
+exports.updatePrivacyPolicy = async function(req, res) {
+    // Forward the privacy policy to sensor-stream-manager
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "update-policy", {
+        "policy": req.body
+    });
+    res.send();
+};

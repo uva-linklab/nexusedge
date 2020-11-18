@@ -36,10 +36,14 @@ module.exports = function(app) {
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',
              gatewayAPIController.registerAppSensorRequirement);
+    app.get('/gateway/retrieve-privacy-policy',
+             gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
     app.post('/platform/query-all', platformAPIController.queryAll);
+    app.post('/platform/update-privacy-policy',
+             platformAPIController.updatePrivacyPolicy);
 };
 
 /**

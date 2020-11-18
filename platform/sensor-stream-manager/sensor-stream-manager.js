@@ -1,10 +1,14 @@
 const fs = require("fs-extra");
 const mqtt = require("mqtt");
 const utils = require("../utils/utils");
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
+const { PolicyEnforcer } = require("./policy");
+
+const timeZone = "America/New_York";
+const policyHelper = new PolicyEnforcer(timeZone);
 
 // TODO: add mqtt-data-collector logic to SSM.
-const MessagingService = require('../messaging-service');
+const MessagingService = require("../messaging-service");
 
 /**
  * This function registers topic for local sensors.
@@ -13,14 +17,14 @@ const MessagingService = require('../messaging-service');
  * @param {string} topic - application's topic
  */
 function registerToLocalGateway(ip, sensorIds, topic) {
-    for(const id of sensorIds) {
-        if(!sensorStream[id]) {
-            sensorStream[id] = {};
+    for (const id of sensorIds) {
+        if (!sensorStreamRouteTable[id]) {
+            sensorStreamRouteTable[id] = {};
         }
-        if(!sensorStream[id][ip]) {
-            sensorStream[id][ip] = [];
+        if (!sensorStreamRouteTable[id][ip]) {
+            sensorStreamRouteTable[id][ip] = [];
         }
-        sensorStream[id][ip].push(topic);
+        sensorStreamRouteTable[id][ip].push(topic);
     }
 }
 
@@ -41,20 +45,24 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
     };
     // Send application's sensor requirement to remote gateway
     fetch(gatewayUrl, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(body),
-        headers: {'Content-Type': 'application/json'},
-        timeout: 5000
-    }).then(res => {
-        if(res.status === 200) {
-            console.log(`[INFO] Sent "${topic}" to ${ip} successfully!`);
-        } else {
-            console.error(`[ERROR] Failed to send "${topic}" to ${ip} with status ${res.status}.`);
-        }
-    }).catch(err => {
-        console.error(`[ERROR] Failed to send "${topic}" to ${ip}.`);
-        console.error(err);
-    });
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000,
+    })
+        .then((res) => {
+            if (res.status === 200) {
+                console.log(`[INFO] Sent "${topic}" to ${ip} successfully!`);
+            } else {
+                console.error(
+                    `[ERROR] Failed to send "${topic}" to ${ip} with status ${res.status}.`
+                );
+            }
+        })
+        .catch((err) => {
+            console.error(`[ERROR] Failed to send "${topic}" to ${ip}.`);
+            console.error(err);
+        });
 }
 
 /**
@@ -63,24 +71,26 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
  */
 function registerMQTTClient(ip) {
     // Check if the MQTT client exists
-    if(!mqttClients[ip]) {
+    if (!mqttClients[ip]) {
         const client = connectToMQTTBroker(ip);
-        client.on('connect', () => {
-            if(ip === gatewayIp) {
+        client.on("connect", () => {
+            if (ip === gatewayIp) {
                 subscribeToGatewayData(client);
                 routeSensorStreamsToApps(client);
             }
-            client.on('disconnect', () => {
+            client.on("disconnect", () => {
                 console.log(`[INFO] Disconnected to MQTT broker at ${ip}.`);
             });
-            console.log(`[INFO] Connected to MQTT broker at ${ip} successfully!`);
+            console.log(
+                `[INFO] Connected to MQTT broker at ${ip} successfully!`
+            );
         });
         mqttClients[ip] = client;
     }
 }
 
 /**
- * This function publishes data to application's topic.
+ * This function connects to MQTT broker
  * @param {string} ip - MQTT broker's ip
  * @returns {Object} - MQTT client
  */
@@ -98,13 +108,13 @@ function connectToMQTTBroker(ip) {
  */
 function publishData(ip, topic, data) {
     // Check if the MQTT client exists
-    if(!mqttClients[ip]) {
+    if (!mqttClients[ip]) {
         console.error(`[ERROR] ${ip} has not been registered.`);
         return;
     }
     const client = mqttClients[ip];
-    client.publish(topic, data, {}, err => {
-        if(err) {
+    client.publish(topic, data, {}, (err) => {
+        if (err) {
             console.error(`[ERROR] Failed to publish to ${ip}.`);
             console.error(err);
         }
@@ -124,28 +134,32 @@ function subscribeToGatewayData(client) {
             console.error(`[ERROR] Failed to subscribe "${mqttTopic}".`);
             console.error(err);
         } else {
-            console.log(`[INFO] Subscribed to "${mqttTopic}" topic successfully!`);
+            console.log(
+                `[INFO] Subscribed to "${mqttTopic}" topic successfully!`
+            );
         }
     });
 }
+
 /**
  * This function lets the local MQTT client route
  * the sensor stream to applications
  * @param {Object} client - MQTT client
  */
 function routeSensorStreamsToApps(client) {
-    client.on('message', (topic, message) => {
+    client.on("message", (topic, message) => {
         const payload = JSON.parse(message.toString());
-        const sensorId = payload['device_id'];
-        if(sensorId in sensorStream) {
-            for(const gatewayIp in sensorStream[sensorId]) {
-                const topics = sensorStream[sensorId][gatewayIp];
-                for(const topic of topics) {
+        const sensorId = payload["_meta"]["device_id"];
 
-                    // TODO: check policy
-
-                    // Publish to application's topic
-                    publishData(gatewayIp, topic, JSON.stringify(payload));
+        if (sensorId in sensorStreamRouteTable) {
+            for (const gatewayIp in sensorStreamRouteTable[sensorId]) {
+                const topics = sensorStreamRouteTable[sensorId][gatewayIp];
+                for (const topic of topics) {
+                    // Check if the app is blocked
+                    if (!policyHelper.isBlocked(sensorId, gatewayIp, topic)) {
+                        // Publish to application's topic
+                        publishData(gatewayIp, topic, JSON.stringify(payload));
+                    }
                 }
             }
         }
@@ -157,18 +171,20 @@ const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
 const gatewayIp = utils.getGatewayIp();
-if(!gatewayIp) {
-    console.error("[ERROR] No IP address found. Please ensure the config files are set properly.");
+if (!gatewayIp) {
+    console.error(
+        "[ERROR] No IP address found. Please ensure the config files are set properly."
+    );
     process.exit(1);
 }
 console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 
-// sensorStream stores the sensor id and application topic mapping
+// sensorStreamRouteTable stores the sensor id and application topic mapping
 // the key is sensor id and the value is an object
 // with the key is gateway ip and the value is an array of application's topics
-// sensor-stream-manager uses sensorStream to publish sensor stream data
+// sensor-stream-manager uses sensorStreamRouteTable to publish sensor stream data
 // check the example below
-// sensorStream = {
+// sensorStreamRouteTable = {
 //     "sensor1-id": {
 //         "gateway1-ip": [ "app1-topic", "app2-topic" ],
 //         "geteway2-ip": [ "app3-topic"]
@@ -178,10 +194,7 @@ console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
 //         "geteway2-ip": [ "app3-topic"]
 //     }
 // }
-const sensorStream = {};
-
-// TODO: policy
-const policy = {};
+const sensorStreamRouteTable = {};
 
 // mqttClients = {
 //     "gateway-ip": client
@@ -190,28 +203,31 @@ const mqttClients = {};
 
 registerMQTTClient(gatewayIp);
 
-messagingService.listenForEvent('connect-to-socket', (message) => {
+messagingService.listenForEvent("connect-to-socket", (message) => {
     const payload = message.data;
     const wsAddress = payload["ws-address"];
 });
 
 // sensor-stream-manager receives an application's topic and sensor requirements and provides it
-messagingService.listenForEvent('request-streams', message => {
+messagingService.listenForEvent("request-streams", (message) => {
     // appData = {
     //     "topic": appId,
     //     "metadataPath": appData.metadataPath
     // }
     const appData = message.data;
-    if(appData.hasOwnProperty('topic') && appData.hasOwnProperty('metadataPath')) {
+    if (
+        appData.hasOwnProperty("topic") &&
+        appData.hasOwnProperty("metadataPath")
+    ) {
         // load application's metadata
         let metadata = fs.readJsonSync(appData["metadataPath"]);
         metadata = metadata["deviceMapping"];
         const topic = appData["topic"];
-        // store application's sensor stream requirement in sensorStream
-        for(const ip in metadata) {
+        // store application's sensor stream requirement in sensorStreamRouteTable
+        for (const ip in metadata) {
             const sensorIds = metadata[ip];
             // store the sensor connected to local gateway
-            if(ip === gatewayIp) {
+            if (ip === gatewayIp) {
                 registerToLocalGateway(ip, sensorIds, topic);
             } else {
                 registerToRemoteGateway(ip, sensorIds, topic);
@@ -221,7 +237,7 @@ messagingService.listenForEvent('request-streams', message => {
     }
 });
 
-messagingService.listenForEvent("register-topic", message => {
+messagingService.listenForEvent("register-topic", (message) => {
     // appData = {
     //     "app": {
     //         "topic": topic,
@@ -230,11 +246,24 @@ messagingService.listenForEvent("register-topic", message => {
     //     }
     // }
     const appData = message.data;
-    if(appData["app"]) {
+    if (appData["app"]) {
         const sensorIds = appData["app"]["sensors"];
         const topic = appData["app"]["topic"];
         const ip = appData["app"]["ip"];
         registerMQTTClient(ip);
         registerToLocalGateway(ip, sensorIds, topic);
     }
+});
+
+messagingService.listenForEvent("update-policy", (message) => {
+    const data = message.data;
+    if (data["policy"]) {
+        policyHelper.update(data["policy"]);
+    }
+});
+
+messagingService.listenForQuery('retrieve-policy', message => {
+    const query = message.data.query;
+    const policy = policyHelper.getPolicy();
+    messagingService.respondToQuery(query, policy);
 });
