@@ -213,6 +213,10 @@ class PrivacyRule extends PolicyBase {
     _updateNextTime(tempNextUpdateTime) {
         if(!this.nextUpdateTime ||
             tempNextUpdateTime.getTime() < this.nextUpdateTime.getTime()) {
+                if(tempNextUpdateTime.getSeconds() != 0) {
+                    tempNextUpdateTime.addMinute();
+                    tempNextUpdateTime.setSeconds(0);
+                }
             this.nextUpdateTime = tempNextUpdateTime;
         }
     }
