@@ -186,7 +186,8 @@ exports.stopLogStreaming = async function(req, res) {
 exports.registerAppSensorRequirement = async function(req, res) {
     // Forward the application's sensor requirement to sensor-stream-manager
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", {
-        "_meta" : {
+        "meta" : {
+            "sender": "api-server",
             "recipient": "sensor-stream-manager",
             "event": "register-topic"
         },
