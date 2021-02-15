@@ -54,6 +54,19 @@ exports.getServerStatus = async function(req, res) {
 };
 
 /**
+ * This call gives the status of the server.
+ * It is primarily intended to be used as a means to check reachability.
+ * @param req
+ * @param res
+ * @returns {Promise<*>}
+ */
+exports.getStartTime = async function(req, res) {
+    const response = {startTime: utils.getStartTime()};
+    return res.json(response);
+};
+
+
+/**
  * This call retrieves the self details of the gateway.
  * @param req
  * @param res
@@ -86,12 +99,14 @@ exports.getResourceUsage = async function(req, res) {
 exports.executeApp = async function(req, res) {
     const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
+    const runtime = req.body.runtime;
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
     messagingService.forwardMessage(serviceName, "app-manager", "app-deployment", {
         "appPath": appPath,
-        "metadataPath": metadataPath
+        "metadataPath": metadataPath,
+        "runtime": runtime
     });
     res.send();
 };
@@ -171,7 +186,14 @@ exports.stopLogStreaming = async function(req, res) {
 exports.registerAppSensorRequirement = async function(req, res) {
     // Forward the application's sensor requirement to sensor-stream-manager
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", {
-        "app": req.body
+        "meta" : {
+            "sender": "api-server",
+            "recipient": "sensor-stream-manager",
+            "event": "register-topic"
+        },
+        "payload": {
+            "app": req.body
+        }
     });
     res.send();
 };
@@ -200,4 +222,9 @@ exports.talkToManager = async function(req, res) {
     }
 
     res.send();
+};
+
+exports.retrievePrivacyPolicy = async function(req, res) {
+    const policy = await messagingService.query(serviceName, "sensor-stream-manager", "retrieve-policy", {});
+    res.json(policy);
 };

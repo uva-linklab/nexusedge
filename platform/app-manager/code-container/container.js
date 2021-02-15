@@ -3,7 +3,7 @@ const path = require("path");
 
 const executableDirPath = path.join(__dirname, 'executables');
 
-exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
+exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath, runtime) {
 	//create "executables" directory if not present
 	fs.ensureDirSync(executableDirPath);
 
@@ -14,16 +14,29 @@ exports.setupAppRuntimeEnvironment = async function (appPath, metadataPath) {
 
 	const scriptTargetPath = path.join(dirPath, path.basename(appPath));
 	const metadataTargetPath = path.join(dirPath, path.basename(metadataPath));
-	const oracleSourcePath = path.join(__dirname, 'oracle');
-	const oracleTargetPath = path.join(dirPath, 'oracle');
+
+	let oracleDirname;
+	switch (runtime) {
+		case 'nodejs': oracleDirname = 'oracle';
+			break;
+		case 'python': oracleDirname = 'oracle-python';
+			break;
+	}
+
+	if(!oracleDirname) {
+		console.error(`unknown runtime option ${runtime} provided for code-container.`);
+	} else {
+		const oracleTargetPath = path.join(dirPath, 'oracle');
+		const oracleSourcePath = path.join(__dirname, oracleDirname);
+		fs.copySync(oracleSourcePath, oracleTargetPath);
+		console.log(`  Oracle library at ${oracleSourcePath} copied to ${oracleTargetPath}`);
+	}
 
 	console.log("[INFO] Copied application and metadata to executable directory.");
 	fs.copySync(appPath, scriptTargetPath);
 	console.log(`  ${appPath} copied to ${scriptTargetPath}`);
 	fs.copySync(metadataPath, metadataTargetPath);
 	console.log(`  ${metadataPath} copied to ${metadataTargetPath}`);
-	fs.copySync(oracleSourcePath, oracleTargetPath);
-	console.log(`  Oracle library at ${oracleSourcePath} copied to ${oracleTargetPath}`);
 
 	// TODO: npm install here
 	return scriptTargetPath;

@@ -1,4 +1,5 @@
 const cronParser = require('@huanglipang/cron-parser');
+const safeSetTimeout = require('safe-timers').setTimeout;
 
 class Schedule {
     constructor(cronPattern) {
@@ -213,6 +214,10 @@ class PrivacyRule extends PolicyBase {
     _updateNextTime(tempNextUpdateTime) {
         if(!this.nextUpdateTime ||
             tempNextUpdateTime.getTime() < this.nextUpdateTime.getTime()) {
+                if(tempNextUpdateTime.getSeconds() != 0) {
+                    tempNextUpdateTime.addMinute();
+                    tempNextUpdateTime.setSeconds(0);
+                }
             this.nextUpdateTime = tempNextUpdateTime;
         }
     }
@@ -327,6 +332,17 @@ class PolicyEnforcer {
         return false;
     }
 
+    getPolicy() {
+        const sensorSpecific = this.policy.getSensorSpecific();
+        const appSpecific = this.policy.getAppSpecific();
+        const appSensor = this.policy.getAppSensor();
+        return {
+            "sensor-specific": sensorSpecific,
+            "app-specific": appSpecific,
+            "app-sensor": appSensor
+        };
+    }
+
     _enforcePolicy() {
         const sensorSpecific = this.policy.getSensorSpecific();
         const appSpecific = this.policy.getAppSpecific();
@@ -356,13 +372,13 @@ class PolicyEnforcer {
         if(nextUpdateTime) {
             if(this.timer) {
                 // clear setTimeout when update policy
-                clearTimeout(this.timer);
+                this.timer.clear();
             }
             const now = new Date();
             // calculate the interval for next execution
             const interval = this._getTimeDifference(nextUpdateTime, now);
             console.log(`[INFO] Next update time: ${nextUpdateTime}, interval: ${interval}`);
-            this.timer = setTimeout(() => {
+            this.timer = safeSetTimeout(() => {
                 this._enforcePolicy();
             }, interval);
         }

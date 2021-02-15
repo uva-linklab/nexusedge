@@ -5,6 +5,13 @@ const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
 
+// store the time when the gateway platform starts up
+const startTime = Date.now();
+
+function getStartTime() {
+	return startTime;
+}
+
 function getFreeCpuPercent() {
 	return new Promise(resolve => {
 		osUtils.cpuFree(cpuFreePercent => {
@@ -155,6 +162,7 @@ function sendPostRequest(url, data) {
 }
 
 module.exports = {
+	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
 	getGatewayId: getGatewayId,
 	getAdvertisementName: getAdvertisementName,
