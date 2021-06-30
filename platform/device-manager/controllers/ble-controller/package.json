@@ -18,7 +18,7 @@
   "homepage": "https://github.com/nabeeln7/on-the-edge#readme",
   "dependencies": {
     "@abandonware/bleno": "^0.5.1-2",
-    "@abandonware/noble": "^1.9.2-9",
+    "@nabeeln7/noble": "^1.0.1",
     "debug": "^4.1.1",
     "eddystone-url-encoding": "^1.0.0"
   }

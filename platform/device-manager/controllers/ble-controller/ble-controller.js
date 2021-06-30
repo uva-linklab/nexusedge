@@ -8,7 +8,7 @@ versions 8 and above.
 https://github.com/noble/node-bluetooth-hci-socket/issues/84
 */
 const bleno = require('@abandonware/bleno');
-const noble = require('@abandonware/noble');
+const noble = require('@nabeeln7/noble');
 const debug = require('debug')('ble-controller');
 const EddystoneBeaconParser = require('./edystone-beacon-parser');
 const eddystoneBeaconParser = EddystoneBeaconParser.getInstance();
