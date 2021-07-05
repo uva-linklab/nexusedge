@@ -16,6 +16,9 @@ const eddystoneBeaconParser = EddystoneBeaconParser.getInstance();
 // uuid -> callback function
 const subscriberCallbackMap = {};
 
+// uuid -> callback function
+const notificationCallbackMap = {};
+
 // This stores pending connection requests if BLE is already connected to a peripheral.
 const connectionQueue = []; // [peripheral]
 
@@ -253,6 +256,10 @@ class BleController {
         return peripheral.discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs, characteristicUUIDs);
     }
 
+    discoverAllServicesAndCharacteristics(peripheral) {
+        return peripheral.discoverAllServicesAndCharacteristicsAsync();
+    }
+
     /**
      * Discover characteristics for a given service
      * @param service
@@ -261,6 +268,24 @@ class BleController {
      */
     discoverCharacteristics(service, uuids) {
         return service.discoverCharacteristicsAsync(uuids);
+    }
+
+    /**
+     * Subscribe for notifications/indications from a characteristic
+     * @param characteristic
+     * @return {Promise<void>}
+     */
+    subscribeToCharacteristic(characteristic) {
+        return characteristic.subscribeAsync();
+    }
+
+    /**
+     * Unsubscribe from notifications/indications from a characteristic
+     * @param characteristic
+     * @return {Promise<void>}
+     */
+    unsubscribeFromCharacteristic(characteristic) {
+        return characteristic.unsubscribeAsync();
     }
 
     /**
@@ -284,6 +309,23 @@ class BleController {
         characteristic.writeAsync(Buffer.from(data, 'utf8'), false);
     }
 
+    /**
+     * Writes specified data to a writeCharacteristic and returns a promise based on
+     * the response received as a notification from a reply characteristic.
+     * @param data array containing the UTF-8 bytes
+     * @param writeCharacteristic characteristic to write to
+     * @param replyCharacteristic characteristic which gives a notification after the write
+     * @return {Promise<void>}
+     */
+    async writeAndAwaitNotification(data, writeCharacteristic, replyCharacteristic) {
+        return new Promise((resolve, reject) => {
+            replyCharacteristic.once('read', function(replyData, isNotification) {
+                resolve();
+            });
+            // instead of awaiting on writeAsync, we wait for the replyCharacteristic notification
+            writeCharacteristic.writeAsync(Buffer.from(data, 'utf8'), false);
+        });
+    }
 }
 
 module.exports = BleController;
