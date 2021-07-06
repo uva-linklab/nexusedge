@@ -18,7 +18,10 @@ class EstimoteHandler {
     start(platformCallback) {
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
-            bleController.subscribeToAdvertisements(ESTIMOTE_SERVICE_UUID, this._handlePeripheral.bind(this));
+            bleController.subscribe(peripheral => {
+                const serviceUuids = peripheral.advertisement.serviceUuids;
+                return serviceUuids && serviceUuids.includes(ESTIMOTE_SERVICE_UUID);
+            }, this._handlePeripheral.bind(this));
             this._startScan();
         });
     }

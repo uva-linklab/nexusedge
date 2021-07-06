@@ -13,6 +13,16 @@ const debug = require('debug')('ble-controller');
 const EddystoneBeaconParser = require('./edystone-beacon-parser');
 const eddystoneBeaconParser = EddystoneBeaconParser.getInstance();
 
+let subscriberCount = 0;
+class Subscriber {
+    constructor(id, predicateFn, callbackFn) {
+        this.id = id;
+        this.predicateFn = predicateFn;
+        this.callbackFn = callbackFn;
+    }
+}
+let subscribers = [];
+
 // uuid -> callback function
 const subscriberCallbackMap = {};
 
@@ -63,13 +73,19 @@ class BleController {
                     this.startScanning();
 
                     noble.on('discover', function(peripheral) {
-                        const serviceUuids = peripheral.advertisement.serviceUuids;
-                        if(serviceUuids) {
-                            // get all UUIDs of the subscribers
-                            Object.keys(subscriberCallbackMap)
-                                .filter(uuid => serviceUuids.includes(uuid)) // check if advert matches a subscriber's
-                                .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
-                        }
+                        subscribers.forEach(subscriber => {
+                            if(subscriber.predicateFn(peripheral)) {
+                                subscriber.callbackFn();
+                            }
+                        });
+
+                        // const serviceUuids = peripheral.advertisement.serviceUuids;
+                        // if(serviceUuids) {
+                        //     // get all UUIDs of the subscribers
+                        //     Object.keys(subscriberCallbackMap)
+                        //         .filter(uuid => serviceUuids.includes(uuid)) // check if advert matches a subscriber's
+                        //         .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
+                        // }
                     });
 
                     resolve();
@@ -143,6 +159,17 @@ class BleController {
 
     stopScanning() {
         noble.stopScanning();
+    }
+
+    subscribe(predicateFn, callback) {
+        // check if the types are proper
+        if(typeof predicateFn === 'function' && typeof callback === 'function') {
+            // generate a new subscriber object for this subscriber
+            const subscriber = new Subscriber(subscriberCount++, predicateFn, callback);
+
+            // keep track of this subscriber
+            subscribers.push(subscriber);
+        }
     }
 
     /**
