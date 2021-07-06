@@ -37,7 +37,7 @@ class GatewayScanner {
             bleController.advertise(encryptedLocalName, [talkToManagerServiceUuid], [talkToManagerService]);
 
             // listen to advertisements for other neighboring gateways using the talkToManagerServiceUuid
-            bleController.subscribeToAdvertisements(talkToManagerServiceUuid, this._handlePeripheral.bind(this));
+            bleController.getPeripheralsWithUuid(talkToManagerServiceUuid, this._handlePeripheral.bind(this));
         });
     }
 
