@@ -14,6 +14,7 @@
     "fs-extra": "^8.1.0",
     "glob": "^7.1.6",
     "ip-address": "^6.3.0",
+    "lodash": "^4.17.21",
     "mqtt": "^4.1.0",
     "multer": "^1.4.2",
     "node-fetch": "^2.6.0",
@@ -24,6 +25,7 @@
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "safe-timers": "^1.1.0",
+    "systeminformation": "^5.7.7",
     "tail": "^2.0.4",
     "ws": "^7.2.5"
   },
