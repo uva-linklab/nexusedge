@@ -39,7 +39,7 @@ class Lab11BleHandler {
         this.platformCallback = platformCallback;
 
         bleController.initialize().then(() => {
-            bleController.subscribeToEddystoneBeacons(this._handleBeacon.bind(this));
+            bleController.getEddystonePeripherals(this._handleBeacon.bind(this));
         });
     }
 

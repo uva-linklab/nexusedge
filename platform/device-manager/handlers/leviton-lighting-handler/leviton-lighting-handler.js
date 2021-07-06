@@ -31,7 +31,10 @@ class LevitonLightingHandler {
     start(platformCallback) {
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
-            bleController.subscribeToAdvertisements(SECURE_CMD_TO_WRITE_CHAR_UUID, this._handlePeripheral.bind(this));
+            bleController.getPeripheralsWithPredicate(peripheral => {
+                const localName = peripheral.advertisement.localName;
+                return localName.includes("$L$");
+            }, this._handlePeripheral.bind(this));
         });
     }
 

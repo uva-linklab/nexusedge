@@ -23,12 +23,6 @@ class Subscriber {
 }
 let subscribers = [];
 
-// uuid -> callback function
-const subscriberCallbackMap = {};
-
-// uuid -> callback function
-const notificationCallbackMap = {};
-
 // This stores pending connection requests if BLE is already connected to a peripheral.
 const connectionQueue = []; // [peripheral]
 
@@ -73,19 +67,13 @@ class BleController {
                     this.startScanning();
 
                     noble.on('discover', function(peripheral) {
+                        // TODO: some optimization needed? keeps on applying predicate fns
+                        //  to peripherals
                         subscribers.forEach(subscriber => {
                             if(subscriber.predicateFn(peripheral)) {
-                                subscriber.callbackFn();
+                                subscriber.callbackFn(peripheral);
                             }
                         });
-
-                        // const serviceUuids = peripheral.advertisement.serviceUuids;
-                        // if(serviceUuids) {
-                        //     // get all UUIDs of the subscribers
-                        //     Object.keys(subscriberCallbackMap)
-                        //         .filter(uuid => serviceUuids.includes(uuid)) // check if advert matches a subscriber's
-                        //         .forEach(uuid => subscriberCallbackMap[uuid](peripheral)); // if so, call the callback function
-                        // }
                     });
 
                     resolve();
@@ -161,7 +149,14 @@ class BleController {
         noble.stopScanning();
     }
 
-    subscribe(predicateFn, callback) {
+    /**
+     * Get notified about BLE peripherals using a custom predicate function to filter
+     * There are some handy functions built on top of this which can filter based on uuid,
+     * name, etc.
+     * @param predicateFn Custom function of the type peripheral -> {true|false}
+     * @param callback function of the type peripheral -> void
+     */
+    getPeripheralsWithPredicate(predicateFn, callback) {
         // check if the types are proper
         if(typeof predicateFn === 'function' && typeof callback === 'function') {
             // generate a new subscriber object for this subscriber
@@ -173,24 +168,35 @@ class BleController {
     }
 
     /**
-     * Get a callback when there is an advertisement for the specified UUID
+     * Get notified about BLE peripherals that have a specific service UUID
      * @param uuid
      * @param callback
      */
-    subscribeToAdvertisements(uuid, callback) {
-        if(!subscriberCallbackMap.hasOwnProperty(uuid)) {
-            subscriberCallbackMap[uuid] = callback;
-        }
+    getPeripheralsWithUuid(uuid, callback) {
+        this.getPeripheralsWithPredicate(peripheral => {
+            const serviceUuids = peripheral.advertisement.serviceUuids;
+            return serviceUuids && serviceUuids.includes(uuid);
+        }, callback);
     }
 
     /**
-     * Get a callback whenever there is an advertisement in an Eddystone beacon format.
-     * TODO: at the moment, assumes only one subscriber.
-     * @param callback provides the beacon and peripheral objects.
+     * Get notified about BLE peripherals that have a specific local name
+     * @param name
+     * @param callback
      */
-    subscribeToEddystoneBeacons(callback) {
-        const eddystoneBeaconUuid = 'feaa';
-        this.subscribeToAdvertisements(eddystoneBeaconUuid, peripheral => {
+    getPeripheralsWithName(name, callback) {
+        this.getPeripheralsWithPredicate(peripheral => {
+            const localName = peripheral.advertisement.localName;
+            return localName === name;
+        }, callback);
+    }
+
+    /**
+     * Get notified about BLE peripherals which use the Eddystone beacon format
+     * @param callback provides the beacon and peripheral objects
+     */
+    getEddystonePeripherals(callback) {
+        this.getPeripheralsWithUuid('feaa', peripheral => {
             const beacon = eddystoneBeaconParser.parse(peripheral);
             if(beacon != null) {
                 callback(beacon, peripheral);

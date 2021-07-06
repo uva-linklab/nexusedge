@@ -18,10 +18,8 @@ class EstimoteHandler {
     start(platformCallback) {
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
-            bleController.subscribe(peripheral => {
-                const serviceUuids = peripheral.advertisement.serviceUuids;
-                return serviceUuids && serviceUuids.includes(ESTIMOTE_SERVICE_UUID);
-            }, this._handlePeripheral.bind(this));
+            bleController.getPeripheralsWithUuid(ESTIMOTE_SERVICE_UUID,
+                this._handlePeripheral.bind(this));
             this._startScan();
         });
     }
@@ -32,12 +30,10 @@ class EstimoteHandler {
             return;
         }
 
-        // TODO check if this is needed
         const estimoteServiceData = peripheral.advertisement.serviceData.find(function(el) {
             return el.uuid === ESTIMOTE_SERVICE_UUID;
         });
 
-        const data = {};
         if((estimoteServiceData !== undefined)) {
             const telemetryData = estimoteServiceData.data;
             const telemetryPacket = estimoteParser.parseEstimoteTelemetryPacket(telemetryData);

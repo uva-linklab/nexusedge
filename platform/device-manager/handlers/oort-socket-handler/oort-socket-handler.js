@@ -31,7 +31,8 @@ class OortSocketHandler {
     start(platformCallback) {
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
-            bleController.subscribeToAdvertisements(OORT_SERVICE_SENSOR_UUID, this._handlePeripheral.bind(this));
+            bleController.getPeripheralsWithUuid(OORT_SERVICE_SENSOR_UUID,
+                this._handlePeripheral.bind(this));
         });
     }
 
