@@ -69,11 +69,13 @@ class BleController {
                     noble.on('discover', function(peripheral) {
                         // TODO: some optimization needed? keeps on applying predicate fns
                         //  to peripherals
-                        subscribers.forEach(subscriber => {
-                            if(subscriber.predicateFn(peripheral)) {
-                                subscriber.callbackFn(peripheral);
-                            }
-                        });
+                        if(peripheral && peripheral.advertisement) {
+                            subscribers.forEach(subscriber => {
+                                if(subscriber.predicateFn(peripheral)) {
+                                    subscriber.callbackFn(peripheral);
+                                }
+                            });
+                        }
                     });
 
                     resolve();

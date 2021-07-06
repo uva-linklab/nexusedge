@@ -33,7 +33,7 @@ class LevitonLightingHandler {
         bleController.initialize().then(() => {
             bleController.getPeripheralsWithPredicate(peripheral => {
                 const localName = peripheral.advertisement.localName;
-                return localName.includes("$L$");
+                return localName && localName.includes("$L$");
             }, this._handlePeripheral.bind(this));
         });
     }
@@ -54,40 +54,41 @@ class LevitonLightingHandler {
     }
 
     async _handlePeripheral(peripheral) {
-        // TODO: give a better device id for this device?
-        const deviceId = peripheral.id;
+        // TODO change when we're ready
 
-        // if device is unregistered, then register it with the platform
-        if(!this.registeredDevices.includes(deviceId)) {
-            this.platformCallback.register(deviceId, this.deviceType, this.handlerId);
-            this.registeredDevices.push(deviceId);
-        }
-
-        // if there are any pending messages for this deviceId, connect to it and send them
-        /*
-         There were instances where two async callbacks would both try to handle the pendingMessages leading to issues.
-         isHandlingMessages is a naive way to implement a critical section to ensure that two handlers don't handle
-         pendingMessages at the same time.
-         */
-        if(pendingMessages.hasOwnProperty(deviceId) && !this.isHandlingMessages) {
-            this.isHandlingMessages = true;
-
-            console.log(`[leviton-handler] There are pending messages to be sent for ${peripheral.id}`);
-
-            //get the list of messages
-            const messageList = pendingMessages[peripheral.id];
-            const message = messageList.shift();
-
-            // TODO change
-            const state = message["state"] === "on";
-            await this._setLevitonState(peripheral, state);
-
-            if(messageList.length === 0) {
-                delete pendingMessages[peripheral.id];
-                console.log("[leviton-handler] Deleted messages for peripheral");
-            }
-            this.isHandlingMessages = false;
-        }
+        // const deviceId = peripheral.id;
+        //
+        // // if device is unregistered, then register it with the platform
+        // if(!this.registeredDevices.includes(deviceId)) {
+        //     this.platformCallback.register(deviceId, this.deviceType, this.handlerId);
+        //     this.registeredDevices.push(deviceId);
+        // }
+        //
+        // // if there are any pending messages for this deviceId, connect to it and send them
+        // /*
+        //  There were instances where two async callbacks would both try to handle the pendingMessages leading to issues.
+        //  isHandlingMessages is a naive way to implement a critical section to ensure that two handlers don't handle
+        //  pendingMessages at the same time.
+        //  */
+        // if(pendingMessages.hasOwnProperty(deviceId) && !this.isHandlingMessages) {
+        //     this.isHandlingMessages = true;
+        //
+        //     console.log(`[leviton-handler] There are pending messages to be sent for ${peripheral.id}`);
+        //
+        //     //get the list of messages
+        //     const messageList = pendingMessages[peripheral.id];
+        //     const message = messageList.shift();
+        //
+        //     // TODO change
+        //     const state = message["state"] === "on";
+        //     await this._setLevitonState(peripheral, state);
+        //
+        //     if(messageList.length === 0) {
+        //         delete pendingMessages[peripheral.id];
+        //         console.log("[leviton-handler] Deleted messages for peripheral");
+        //     }
+        //     this.isHandlingMessages = false;
+        // }
     }
 
     async _initializeLevitonDevice(peripheral) {
