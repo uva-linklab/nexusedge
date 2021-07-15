@@ -1,8 +1,8 @@
 {
-  "name": "estimote-handler",
+  "name": "assist-ekg-handler",
   "version": "1.0.0",
-  "description": "Handler for obtaining data from estimotes.",
-  "main": "estimote-handler.js",
+  "description": "Handler for obtaining EKG data from SIF ASSIST beacons.",
+  "main": "ekg-handler.js",
   "dependencies": {
     "ble-controller": "^1.2.0"
   },
