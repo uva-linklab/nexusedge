@@ -1,3 +1,4 @@
+const debug = require('debug')('leviton-lighting-handler');
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 
@@ -36,14 +37,19 @@ class LevitonLightingHandler {
     }
 
     dispatch(deviceId, data) {
+        debug(`received new send request for deviceId ${deviceId}`);
+
         // check if format is correct
         if(this._isValidData(data)) {
+            debug("accepted message and added to pending messages");
             // add to pendingMessages
             if(pendingMessages.hasOwnProperty(deviceId)) {
                 pendingMessages[deviceId].push(data);
             } else {
                 pendingMessages[deviceId] = [data];
             }
+        } else {
+            debug("rejected msg because data not in valid format");
         }
         // TODO return error if not valid. (currently no way to send error msg to app)
     }
@@ -79,6 +85,7 @@ class LevitonLightingHandler {
 
         // if device is unregistered, then register it with the platform
         if(!this.registeredDevices.includes(deviceId)) {
+            debug(`registered device ${peripheral.advertisement.localName} with id ${deviceId}`);
             this.platformCallback.register(deviceId, this.deviceType, this.handlerId);
             this.registeredDevices.push(deviceId);
         }
@@ -92,16 +99,24 @@ class LevitonLightingHandler {
         if(pendingMessages.hasOwnProperty(deviceId) && !this.isHandlingMessages) {
             this.isHandlingMessages = true;
 
-            console.log(`[leviton-handler] There are pending messages to be sent for ${peripheral.id}`);
+            debug(`there are pending messages to be sent for ${peripheral.id}`);
 
             //get the list of messages
             const messageList = pendingMessages[peripheral.id];
             const message = messageList.shift();
+            debug(message);
 
-            await peripheral.connectAsync();
+            await bleController.connectToPeripheralAsync(peripheral);
+            debug(`connected to ${deviceId}`);
+
             await this._recordRelevantCharacteristics(peripheral);
-            await this.secureReplyNotifiedChar.subscribeAsync(); // this requires pairing
+            debug('recorded relevant characteristics');
 
+            debug(`going to subscribe to characteristic ${SECURE_REPLY_NOTIFIED_CHAR_UUID} for notifications`);
+            await bleController.subscribeToCharacteristic(this.secureReplyNotifiedChar); // this requires pairing
+            debug(`subscribed to characteristic ${SECURE_REPLY_NOTIFIED_CHAR_UUID}`);
+
+            debug(`received a ${message["requestType"]} request`);
             if(message["requestType"] === STATE_CONTROL_MSG_TYPE) {
                 const state = message["payload"]["state"] === "on";
                 await this._setLightState(peripheral, state);
@@ -109,24 +124,33 @@ class LevitonLightingHandler {
                 const brightnessLevel = message["payload"]["brightness"];
                 await this._setBrightnessMaxThreshold(peripheral, brightnessLevel);
             }
+            debug('successfully finished setting state/brightness of light');
 
-            await this.secureReplyNotifiedChar.unsubscribeAsync();
-            await peripheral.disconnectAsync();
+            await bleController.unsubscribeFromCharacteristic(this.secureReplyNotifiedChar);
+            debug(`unsubscribed from characteristic ${SECURE_REPLY_NOTIFIED_CHAR_UUID}`);
+            await bleController.disconnectPeripheral(peripheral);
+            debug(`disconnected from ${deviceId}`);
 
             if(messageList.length === 0) {
                 delete pendingMessages[peripheral.id];
-                console.log("[leviton-handler] Deleted messages for peripheral");
+                debug("deleted messages for peripheral");
             }
             this.isHandlingMessages = false;
         }
     }
 
     async _recordRelevantCharacteristics(peripheral) {
-        const services = await peripheral.discoverServicesAsync([LEVITON_MAIN_SERVICE_UUID]);
+        debug(`awaiting on discovering BLE service ${LEVITON_MAIN_SERVICE_UUID}`);
+        const services = await bleController.discoverServices(peripheral, [LEVITON_MAIN_SERVICE_UUID]);
+
         const levitonService = services.find(service => service.uuid === LEVITON_MAIN_SERVICE_UUID);
+        debug(`service ${LEVITON_MAIN_SERVICE_UUID} found!`);
         const charUuids = [SECURE_REPLY_NOTIFIED_CHAR_UUID, SECURE_CMD_TO_WRITE_CHAR_UUID];
 
-        const characteristics = await levitonService.discoverCharacteristicsAsync(charUuids);
+        debug(`awaiting on discovering BLE characteristics`);
+        const characteristics = await bleController.discoverCharacteristics(levitonService, charUuids);
+
+        debug(`characteristics found!`);
         characteristics.forEach(char => {
             switch (char.uuid) {
                 case SECURE_REPLY_NOTIFIED_CHAR_UUID:
