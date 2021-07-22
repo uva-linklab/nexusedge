@@ -91,15 +91,13 @@ ipc.server.start();
 
 // Create logs directory if not present
 fs.ensureDirSync(`${__dirname}/logs`);
-// start services by fork
+
+// we pass all environment variables of platform-manager to its children
+const childEnv = process.env;
 for(let serviceName in services) {
+    childEnv["SERVICE_NAME"] = serviceName; // used by the IPC platform to set the id of the service
     services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
-        /*
-        We use two environment variables for the child processes.
-        1. SERVICE_NAME: used by the IPC platform to set the id of the service.
-        2. DEBUG: to obtain output logs.
-         */
-        env: { SERVICE_NAME: serviceName, DEBUG: serviceName },
+        env: childEnv,
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
         // 2. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_subprocess_stdio
