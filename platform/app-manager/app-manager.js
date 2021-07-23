@@ -1,12 +1,13 @@
 const codeContainer = require(`${__dirname}/code-container/container`);
 const fs = require("fs-extra");
 const path = require("path");
-const { fork, spawn } = require('child_process');
+const {fork, spawn} = require('child_process');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
+const daoHelper = require('../dao/dao-helper');
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -29,6 +30,14 @@ codeContainer.cleanupExecutablesDir();
 //     }
 // }
 const apps = {};
+
+// load info about startup apps
+daoHelper.appsDao.fetchAll().then(apps => {
+   apps.forEach(app => {
+       // start app
+   })
+});
+
 
 /**
  * This function generates the id of the new application.
@@ -54,81 +63,92 @@ function getAppLogTopic(appId) {
     return `${appId}-log`;
 }
 
-// When app-manager get appPath and metadataPath from platform-manager,
+function executeApplication(appPath, metadataPath, runtime, isStartupApp) {
+    codeContainer.setupAppRuntimeEnvironment(appPath, metadataPath, runtime, isStartupApp)
+        .then((newAppPath) => {
+            // newAppPath = /on-the-edge/app-manager/code-container/.../1583622378159/app.js
+            let appName = path.basename(newAppPath);
+            // Generate application's id
+            // The id is also used for application's topic
+            let appId = generateAppId(appName);
+
+            // Using fork() to create a child process for a new application
+            // Using fork() not spawn() is because fork is a special instance of spawn for creating a Nodejs child process.
+            // Reference:
+            // https://stackoverflow.com/questions/17861362/node-js-child-process-difference-between-spawn-fork
+
+            // use "ipc" in options.stdio to setup ipc between the parent process and the child process
+            // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
+
+            const appLogPath = path.join(__dirname, 'logs', `${appName}.out`);
+
+            let newApp;
+
+            if(appData.runtime === 'nodejs') {
+                newApp = fork(newAppPath, [], {
+                    env: {TOPIC: appId},
+                    stdio: [
+                        0,
+                        fs.openSync(appLogPath, 'w'),
+                        fs.openSync(appLogPath, 'a'),
+                        "ipc"
+                    ]
+                });
+            } else if(appData.runtime === 'python') {
+                newApp = spawn('python3', ['-u', newAppPath], {
+                    env: {TOPIC: appId},
+                    stdio: [
+                        0,
+                        fs.openSync(appLogPath, 'w'),
+                        fs.openSync(appLogPath, 'a')
+                    ]
+                });
+            }
+
+            // Stores the process, id, pid, appPath, and metadataPath in apps
+            // The id is also used for application's topic
+            apps[appId] = {
+                "id": appId,
+                "name": appName,
+                "app": newApp, // instance of process,
+                "pid": newApp.pid,
+                "appPath": newAppPath,
+                "metadataPath": appData.metadataPath,
+                "logPath": appLogPath
+            };
+
+            // if it's a startup app, then store this info in the db as well
+            if(appData.isStartupApp) {
+                daoHelper.appsDao.addApp(new App(appId,
+                    newAppPath,
+                    appData.metadataPath,
+                    appData.runtime,
+                    appData.isStartupApp)
+                ).then(() => console.log("added startup app info to db"));
+            }
+
+            console.log(`[INFO] Launched ${newAppPath} successfully!`);
+            console.log(`   time: ${new Date().toISOString()}`);
+            console.log(`   path: ${newAppPath}`);
+            console.log(`    id: ${appId}`);
+            console.log(`    pid: ${newApp.pid}`);
+            // sends application's information to sensor-stream-manager
+            // for registering the topic and sensor data requirement.
+            messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+                "topic": appId,
+                "metadataPath": appData.metadataPath
+            });
+        })
+        .catch(err => console.error(err));
+}
+
 // app-manager will fork a process for executing new app.
 messagingService.listenForEvent('app-deployment', message => {
     let appData = message.data;
-    if(appData.appPath && appData.metadataPath && appData.runtime) {
-        codeContainer.setupAppRuntimeEnvironment(appData.appPath, appData.metadataPath, appData.runtime)
-            .then((newAppPath) => {
-                // newAppPath = /on-the-edge/app-manager/code-container/executables/1583622378159/app.js
-                let appName = path.basename(newAppPath);
-                // Generate application's id
-                // The id is also used for application's topic
-                let appId  = generateAppId(appName);
-
-                // Using fork() to create a child process for a new application
-                // Using fork() not spawn() is because fork is a special instance of spawn for creating a Nodejs child process.
-                // Reference:
-                // https://stackoverflow.com/questions/17861362/node-js-child-process-difference-between-spawn-fork
-
-                // use "ipc" in options.stdio to setup ipc between the parent process and the child process
-                // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
-
-                const appLogPath = path.join(__dirname, 'logs', `${appName}.out`);
-
-                let newApp;
-
-                if(appData.runtime === 'nodejs') {
-                    newApp = fork(newAppPath, [], {
-                        env: { TOPIC: appId },
-                        stdio: [
-                            0,
-                            fs.openSync(appLogPath, 'w'),
-                            fs.openSync(appLogPath, 'a'),
-                            "ipc"
-                        ]
-                    });
-                } else if(appData.runtime === 'python') {
-                    newApp = spawn('python3', ['-u', newAppPath], {
-                        env: { TOPIC: appId },
-                        stdio: [
-                            0,
-                            fs.openSync(appLogPath, 'w'),
-                            fs.openSync(appLogPath, 'a')
-                        ]
-                    });
-                }
-
-                // Stores the process, id, pid, appPath, and metadataPath in apps
-                // The id is also used for application's topic
-                apps[appId] = {
-                    "id": appId,
-                    "name": appName,
-                    "app": newApp, // instance of process,
-                    "pid": newApp.pid,
-                    "appPath": newAppPath,
-                    "metadataPath": appData.metadataPath,
-                    "logPath": appLogPath
-                };
-
-                console.log(`[INFO] Launched ${newAppPath} successfully!`);
-                console.log(`   time: ${new Date().toISOString()}`);
-                console.log(`   path: ${newAppPath}`);
-                console.log(`    id: ${appId}`);
-                console.log(`    pid: ${newApp.pid}`);
-                // sends application's information to sensor-stream-manager
-                // for registering the topic and sensor data requirement.
-                messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-                    "topic": appId,
-                    "metadataPath": appData.metadataPath
-                });
-            })
-            .catch(err => console.error(err));
-    }
+    executeApplication(appData);
 });
 
-messagingService.listenForQuery( "get-apps", message => {
+messagingService.listenForQuery("get-apps", message => {
     const query = message.data.query;
     // respond back with a list of apps with just the app id and name
     const appsList = [];
@@ -141,8 +161,8 @@ messagingService.listenForQuery( "get-apps", message => {
     messagingService.respondToQuery(query, appsList);
 });
 
-// TODO move the functionality to container.js
-messagingService.listenForQuery( "terminate-app", message => {
+// TODO move the functionality to app-utils.js
+messagingService.listenForQuery("terminate-app", message => {
     const query = message.data.query;
 
     if(query.params.hasOwnProperty('id')) {
@@ -209,7 +229,7 @@ messagingService.listenForQuery('get-log-streaming-topic', message => {
     }
 });
 
-// TODO move the functionality to container.js
+// TODO move the functionality to app-utils.js
 messagingService.listenForQuery('start-log-streaming', message => {
     const query = message.data.query;
     if(query.params.hasOwnProperty('id')) {
@@ -261,7 +281,7 @@ messagingService.listenForQuery('start-log-streaming', message => {
     }
 });
 
-// TODO move the functionality to container.js
+// TODO move the functionality to app-utils.js
 messagingService.listenForQuery('stop-log-streaming', message => {
     const query = message.data.query;
 

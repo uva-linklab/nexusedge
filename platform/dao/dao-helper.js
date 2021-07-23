@@ -3,3 +3,4 @@ Use this helper file to access the DAO objects of any db collections that you wa
  */
 
 exports.devicesDao = require('./collections/devices-dao');
+exports.appsDao = require('./collections/apps-dao');

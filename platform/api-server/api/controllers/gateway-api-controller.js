@@ -100,13 +100,15 @@ exports.executeApp = async function(req, res) {
     const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
     const runtime = req.body.runtime;
+    const isStartupApp = req.body.isStartupApp;
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
     messagingService.forwardMessage(serviceName, "app-manager", "app-deployment", {
         "appPath": appPath,
         "metadataPath": metadataPath,
-        "runtime": runtime
+        "runtime": runtime,
+        "isStartupApp": isStartupApp
     });
     res.send();
 };
