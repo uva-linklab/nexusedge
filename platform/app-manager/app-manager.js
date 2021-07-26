@@ -1,13 +1,12 @@
-const codeContainer = require(`${__dirname}/code-container/container`);
+const deploymentUtils = require("./deployment-utils");
 const fs = require("fs-extra");
 const path = require("path");
-const {fork, spawn} = require('child_process');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
-const daoHelper = require('../dao/dao-helper');
+const appsDao = require('../dao/dao-helper').appsDao;
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -17,27 +16,31 @@ const messagingService = new MessagingService(serviceName);
 fs.ensureDirSync(`${__dirname}/logs`);
 fs.emptyDirSync(`${__dirname}/logs`); // clear directory
 
-codeContainer.cleanupExecutablesDir();
+deploymentUtils.cleanupExecutablesDir();
 
-// Stores the process, id, pid, appPath, and metadataPath in apps
-// apps = {
-//     "app-name": {
-//         "app": instance-of-process,
-//         "pid": application-process-pid,
-//         "id": topic,
-//         "appPath": application-executable-path,
-//         "metadataPath": application-metadata-path
-//     }
-// }
-const apps = {};
+const apps = {}; // list of running apps indexed by id
 
 // load info about startup apps
-daoHelper.appsDao.fetchAll().then(apps => {
+appsDao.fetchAll().then(apps => {
    apps.forEach(app => {
-       // start app
+       const logPath = getLogPath(app.name);
+
+       // restart the app
+       const appProcess = deploymentUtils.executeApplication(app.id,
+           app.executablePath,
+           logPath,
+           app.runtime);
+
+       // record app info in memory
+       storeAppInfo(app, appProcess, logPath);
+
+       // request sensor-stream-manager to provide streams for this app
+       messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+           "topic": app.id,
+           "metadataPath": app.metadataPath
+       });
    })
 });
-
 
 /**
  * This function generates the id of the new application.
@@ -63,89 +66,78 @@ function getAppLogTopic(appId) {
     return `${appId}-log`;
 }
 
-function executeApplication(appPath, metadataPath, runtime, isStartupApp) {
-    codeContainer.setupAppRuntimeEnvironment(appPath, metadataPath, runtime, isStartupApp)
-        .then((newAppPath) => {
-            // newAppPath = /on-the-edge/app-manager/code-container/.../1583622378159/app.js
-            let appName = path.basename(newAppPath);
-            // Generate application's id
-            // The id is also used for application's topic
-            let appId = generateAppId(appName);
-
-            // Using fork() to create a child process for a new application
-            // Using fork() not spawn() is because fork is a special instance of spawn for creating a Nodejs child process.
-            // Reference:
-            // https://stackoverflow.com/questions/17861362/node-js-child-process-difference-between-spawn-fork
-
-            // use "ipc" in options.stdio to setup ipc between the parent process and the child process
-            // Reference: https://nodejs.org/api/child_process.html#child_process_options_stdio
-
-            const appLogPath = path.join(__dirname, 'logs', `${appName}.out`);
-
-            let newApp;
-
-            if(appData.runtime === 'nodejs') {
-                newApp = fork(newAppPath, [], {
-                    env: {TOPIC: appId},
-                    stdio: [
-                        0,
-                        fs.openSync(appLogPath, 'w'),
-                        fs.openSync(appLogPath, 'a'),
-                        "ipc"
-                    ]
-                });
-            } else if(appData.runtime === 'python') {
-                newApp = spawn('python3', ['-u', newAppPath], {
-                    env: {TOPIC: appId},
-                    stdio: [
-                        0,
-                        fs.openSync(appLogPath, 'w'),
-                        fs.openSync(appLogPath, 'a')
-                    ]
-                });
-            }
-
-            // Stores the process, id, pid, appPath, and metadataPath in apps
-            // The id is also used for application's topic
-            apps[appId] = {
-                "id": appId,
-                "name": appName,
-                "app": newApp, // instance of process,
-                "pid": newApp.pid,
-                "appPath": newAppPath,
-                "metadataPath": appData.metadataPath,
-                "logPath": appLogPath
-            };
-
-            // if it's a startup app, then store this info in the db as well
-            if(appData.isStartupApp) {
-                daoHelper.appsDao.addApp(new App(appId,
-                    newAppPath,
-                    appData.metadataPath,
-                    appData.runtime,
-                    appData.isStartupApp)
-                ).then(() => console.log("added startup app info to db"));
-            }
-
-            console.log(`[INFO] Launched ${newAppPath} successfully!`);
-            console.log(`   time: ${new Date().toISOString()}`);
-            console.log(`   path: ${newAppPath}`);
-            console.log(`    id: ${appId}`);
-            console.log(`    pid: ${newApp.pid}`);
-            // sends application's information to sensor-stream-manager
-            // for registering the topic and sensor data requirement.
-            messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-                "topic": appId,
-                "metadataPath": appData.metadataPath
-            });
-        })
-        .catch(err => console.error(err));
+/**
+ * Store the application info in memory
+ * @param app
+ * @param process
+ * @param logPath
+ */
+function storeAppInfo(app, process, logPath) {
+    // stores the details of the app in memory
+    apps[app.id] = {
+        "id": app.id,
+        "name": app.name,
+        "app": process, // instance of process
+        "appPath": app.executablePath,
+        "metadataPath": app.metadataPath,
+        "logPath": logPath
+    };
 }
 
-// app-manager will fork a process for executing new app.
-messagingService.listenForEvent('app-deployment', message => {
-    let appData = message.data;
-    executeApplication(appData);
+function getLogPath(appName) {
+    return path.join(__dirname, 'logs', `${appName}.out`);
+}
+
+/**
+ * This function deploys a given application.
+ 1. generate a new app id from app name
+ 2. copy the app and metadata to a new permanent directory
+ 3. copy oracle library into this new directory (this should be a sin!)
+ 4. start the process for the app
+ 5. store the app's info in the memory obj and in db
+ 6. request SSM to setup streams for this app based on its requirements
+ * @param tempAppPath
+ * @param tempMetadataPath
+ * @param runtime
+ * @param isStartupApp
+ */
+function deployApplication(tempAppPath, tempMetadataPath, runtime, isStartupApp) {
+    const appName = path.basename(tempAppPath);
+    // generate an id for this app
+    const appId = generateAppId(appName);
+
+    // shift this app from the current temporary directory to a permanent directory
+    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath, isStartupApp);
+
+    // copy the oracle library to use for the app.
+    // TODO: ideally this should be reused by all apps!
+    deploymentUtils.copyOracleLibrary(appDirectoryPath, runtime);
+
+    const appExecutablePath = path.join(appDirectoryPath, appName);
+    const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
+    const logPath = getLogPath(appName);
+    const app = new appsDao.App(appId, appExecutablePath, metadataPath, runtime, isStartupApp);
+
+    // execute the app!
+    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
+
+    // record app info in memory and/or db
+    storeAppInfo(app, appProcess, logPath);
+    if(isStartupApp) {
+        appsDao.addApp(app).then(() => console.log("added startup app info to db"));
+    }
+
+    // request sensor-stream-manager to provide streams for this app
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+        "topic": appId,
+        "metadataPath": metadataPath
+    });
+}
+
+// listen to events to deploy applications
+messagingService.listenForEvent('deploy-app', message => {
+    const appData = message.data;
+    deployApplication(appData.appPath, appData.metadataPath, appData.runtime, appData.isStartupApp);
 });
 
 messagingService.listenForQuery("get-apps", message => {
@@ -161,7 +153,7 @@ messagingService.listenForQuery("get-apps", message => {
     messagingService.respondToQuery(query, appsList);
 });
 
-// TODO move the functionality to app-utils.js
+// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery("terminate-app", message => {
     const query = message.data.query;
 
@@ -229,7 +221,7 @@ messagingService.listenForQuery('get-log-streaming-topic', message => {
     }
 });
 
-// TODO move the functionality to app-utils.js
+// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery('start-log-streaming', message => {
     const query = message.data.query;
     if(query.params.hasOwnProperty('id')) {
@@ -281,7 +273,7 @@ messagingService.listenForQuery('start-log-streaming', message => {
     }
 });
 
-// TODO move the functionality to app-utils.js
+// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery('stop-log-streaming', message => {
     const query = message.data.query;
 

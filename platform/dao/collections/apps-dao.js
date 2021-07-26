@@ -4,9 +4,10 @@ const dirtyDbService = DirtyDbService.getInstance();
 const appsDbName = 'apps';
 
 class App {
-    constructor(id, appPath, metadataPath, runtime, isStartupApp) {
+    constructor(id, name, appPath, metadataPath, runtime, isStartupApp) {
         this.id = id;
-        this.appPath = appPath;
+        this.name = name;
+        this.executablePath = appPath;
         this.metadataPath = metadataPath;
         this.runtime = runtime;
         this.isStartupApp = isStartupApp;
@@ -81,7 +82,8 @@ function fetchSpecific(appIds) {
  */
 function getApp(jsObject) {
     return new App(jsObject["id"],
-        jsObject["appPath"],
+        jsObject["name"],
+        jsObject["executablePath"],
         jsObject["metadataPath"],
         jsObject["runtime"],
         jsObject["isStartupApp"],
@@ -96,7 +98,8 @@ function getApp(jsObject) {
 function getJsObject(app) {
     return {
         "id": app.id,
-        "appPath": app.appPath,
+        "name": app.name,
+        "executablePath": app.executablePath,
         "metadataPath": app.metadataPath,
         "runtime": app.runtime,
         "isStartupApp": app.isStartupApp

@@ -104,7 +104,7 @@ exports.executeApp = async function(req, res) {
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
-    messagingService.forwardMessage(serviceName, "app-manager", "app-deployment", {
+    messagingService.forwardMessage(serviceName, "app-manager", "deploy-app", {
         "appPath": appPath,
         "metadataPath": metadataPath,
         "runtime": runtime,
