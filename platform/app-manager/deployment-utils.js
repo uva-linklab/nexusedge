@@ -32,8 +32,8 @@ function storeApp(tempAppPath, tempMetadataPath) {
 	return targetDirectoryPath;
 }
 
-function copyOracleLibrary(path, runtime) {
-	if(!path.existsSync(path)) {
+function copyOracleLibrary(targetPath, runtime) {
+	if(!path.existsSync(targetPath)) {
 		return false;
 	}
 
@@ -49,7 +49,7 @@ function copyOracleLibrary(path, runtime) {
 		console.error(`unknown runtime option ${runtime} provided for app execution.`);
 		return false;
 	} else {
-		const oracleTargetPath = path.join(path, 'oracle');
+		const oracleTargetPath = path.join(targetPath, 'oracle');
 		const oracleSourcePath = path.join(__dirname, oracleDirname);
 		fs.copySync(oracleSourcePath, oracleTargetPath);
 		console.log(`Oracle library at ${oracleSourcePath} copied to ${oracleTargetPath}`);
