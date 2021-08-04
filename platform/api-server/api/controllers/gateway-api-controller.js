@@ -90,8 +90,7 @@ exports.getResourceUsage = async function(req, res) {
 
 
 /**
- * This endpoint takes the uploaded code and metadata and
- * executes it using the code-container module.
+ * This endpoint takes the uploaded code and metadata and requests app-manager to execute it.
  * @param req
  * @param res
  * @returns {Promise<void>}

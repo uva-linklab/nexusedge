@@ -46,7 +46,7 @@ function copyOracleLibrary(path, runtime) {
 	}
 
 	if(!oracleDirname) {
-		console.error(`unknown runtime option ${runtime} provided for code-container.`);
+		console.error(`unknown runtime option ${runtime} provided for app execution.`);
 		return false;
 	} else {
 		const oracleTargetPath = path.join(path, 'oracle');

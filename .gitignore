@@ -8,7 +8,7 @@ socket/
 
 # deployments
 platform/api-server/deployed-apps/
-platform/app-manager/code-container/executables/
+platform/app-manager/executables/
 platform/device-manager/handlers/lab11-ble-handler/cached_parsers.json
 platform/device-manager/handlers/lab11-ble-handler/cached_urls.json
 
