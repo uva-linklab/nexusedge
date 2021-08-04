@@ -3,26 +3,20 @@ const path = require("path");
 const {fork, spawn} = require('child_process');
 
 const executableDirPath = path.join(__dirname, 'executables');
-const startupAppsDirPath = path.join(__dirname, 'startup-apps');
 
 /**
  * This function takes an app and its metadata file and stores it in a permanent directory.
  * @param tempAppPath
  * @param tempMetadataPath
- * @param isStartupApp flag indicating whether the app is a startup app or not
  * @return {string} the path of the directory where the app and metadata was stored
  */
-function storeApp(tempAppPath, tempMetadataPath, isStartupApp) {
-	// we place all startup apps in one directory and non-startup apps in another directory
-	// here we pick which directory this app should be moved to
-	const baseDirPath = isStartupApp ? startupAppsDirPath : executableDirPath;
-
-	// create "executables" / "startup-apps" directory if not present
-	fs.ensureDirSync(baseDirPath);
+function storeApp(tempAppPath, tempMetadataPath) {
+	// create "executables" directory if not present
+	fs.ensureDirSync(executableDirPath);
 
 	// create a new target directory for this app
 	const targetDirectoryName = Date.now().toString();
-	const targetDirectoryPath = path.join(baseDirPath, targetDirectoryName);
+	const targetDirectoryPath = path.join(executableDirPath, targetDirectoryName);
 	fs.ensureDirSync(targetDirectoryPath);
 
 	// get the target paths for the app and metadata

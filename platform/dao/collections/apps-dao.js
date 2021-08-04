@@ -1,16 +1,14 @@
-// currently this dao is used only for startup apps (regular apps don't require persistent state info)
 const DirtyDbService = require('../dirty-db-service');
 const dirtyDbService = DirtyDbService.getInstance();
 const appsDbName = 'apps';
 
 class App {
-    constructor(id, name, appPath, metadataPath, runtime, isStartupApp) {
+    constructor(id, name, appPath, metadataPath, runtime) {
         this.id = id;
         this.name = name;
         this.executablePath = appPath;
         this.metadataPath = metadataPath;
         this.runtime = runtime;
-        this.isStartupApp = isStartupApp;
     }
 }
 
@@ -85,8 +83,7 @@ function getApp(jsObject) {
         jsObject["name"],
         jsObject["executablePath"],
         jsObject["metadataPath"],
-        jsObject["runtime"],
-        jsObject["isStartupApp"],
+        jsObject["runtime"]
     );
 }
 
@@ -101,8 +98,7 @@ function getJsObject(app) {
         "name": app.name,
         "executablePath": app.executablePath,
         "metadataPath": app.metadataPath,
-        "runtime": app.runtime,
-        "isStartupApp": app.isStartupApp
+        "runtime": app.runtime
     }
 }
 

@@ -20,7 +20,7 @@ deploymentUtils.cleanupExecutablesDir();
 
 const apps = {}; // list of running apps indexed by id
 
-// load info about startup apps
+// resume all apps that were executing on this gateway
 appsDao.fetchAll().then(apps => {
    apps.forEach(app => {
        const logPath = getLogPath(app.name);
@@ -73,7 +73,6 @@ function getAppLogTopic(appId) {
  * @param logPath
  */
 function storeAppInfo(app, process, logPath) {
-    // stores the details of the app in memory
     apps[app.id] = {
         "id": app.id,
         "name": app.name,
@@ -99,15 +98,14 @@ function getLogPath(appName) {
  * @param tempAppPath
  * @param tempMetadataPath
  * @param runtime
- * @param isStartupApp
  */
-function deployApplication(tempAppPath, tempMetadataPath, runtime, isStartupApp) {
+function deployApplication(tempAppPath, tempMetadataPath, runtime) {
     const appName = path.basename(tempAppPath);
     // generate an id for this app
     const appId = generateAppId(appName);
 
     // shift this app from the current temporary directory to a permanent directory
-    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath, isStartupApp);
+    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
 
     // copy the oracle library to use for the app.
     // TODO: ideally this should be reused by all apps!
@@ -116,16 +114,14 @@ function deployApplication(tempAppPath, tempMetadataPath, runtime, isStartupApp)
     const appExecutablePath = path.join(appDirectoryPath, appName);
     const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
     const logPath = getLogPath(appName);
-    const app = new appsDao.App(appId, appExecutablePath, metadataPath, runtime, isStartupApp);
+    const app = new appsDao.App(appId, appExecutablePath, metadataPath, runtime);
 
     // execute the app!
     const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
 
     // record app info in memory and/or db
     storeAppInfo(app, appProcess, logPath);
-    if(isStartupApp) {
-        appsDao.addApp(app).then(() => console.log("added startup app info to db"));
-    }
+    appsDao.addApp(app).then(() => console.log("added app info to db"));
 
     // request sensor-stream-manager to provide streams for this app
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
@@ -137,7 +133,7 @@ function deployApplication(tempAppPath, tempMetadataPath, runtime, isStartupApp)
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
-    deployApplication(appData.appPath, appData.metadataPath, appData.runtime, appData.isStartupApp);
+    deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
 });
 
 messagingService.listenForQuery("get-apps", message => {
