@@ -31,6 +31,24 @@ function addApp(app) {
 }
 
 /**
+ * Remove an app from the db
+ * @param appId id of the app to be removed
+ * @return {Promise<void>}
+ */
+function removeApp(appId) {
+    return new Promise((resolve, reject) => {
+        dirtyDbService.getDb(appsDbName).then(db => {
+            // check if it's in the db first
+            if(db.get(appId)) {
+                db.rm(appId, resolve());
+            } else {
+                reject();
+            }
+        });
+    });
+}
+
+/**
  * Finds app based on appId
  * @param {string} appId app's id
  * @returns {Promise<App | null>}
@@ -105,6 +123,7 @@ function getJsObject(app) {
 module.exports = {
     App: App,
     addApp: addApp,
+    removeApp: removeApp,
     find: find,
     fetchAll: fetchAll,
     fetchSpecific: fetchSpecific

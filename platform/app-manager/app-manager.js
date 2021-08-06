@@ -149,7 +149,6 @@ messagingService.listenForQuery("get-apps", message => {
     messagingService.respondToQuery(query, appsList);
 });
 
-// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery("terminate-app", message => {
     const query = message.data.query;
 
@@ -180,6 +179,11 @@ messagingService.listenForQuery("terminate-app", message => {
 
             // remove item from apps object
             delete apps[appId];
+
+            // remove the app's entry from db as well
+            appsDao.removeApp(appId)
+                .then(() => console.log(`app ${appName} (${appId}) removed from db`))
+                .catch(() => console.log(`error removing app from db`));
 
             messagingService.respondToQuery(query, {
                 'status': true
