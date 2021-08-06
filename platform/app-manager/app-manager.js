@@ -76,7 +76,7 @@ function storeAppInfo(app, process, logPath) {
     apps[app.id] = {
         "id": app.id,
         "name": app.name,
-        "app": process, // instance of process
+        "process": process, // instance of process
         "appPath": app.executablePath,
         "metadataPath": app.metadataPath,
         "logPath": logPath
@@ -160,12 +160,12 @@ messagingService.listenForQuery("terminate-app", message => {
             // fetch details of the app
             const app = apps[appId];
             const appName = app['name'];
-            const appInstance = app['app'];
+            const appProcess = app['process'];
             const appPath = app['appPath'];
             const appLogPath = app['logPath'];
 
             // kill the process
-            appInstance.kill('SIGINT');
+            appProcess.kill('SIGINT');
             console.log(`app ${appName} killed.`);
 
             // remove logs
@@ -221,7 +221,6 @@ messagingService.listenForQuery('get-log-streaming-topic', message => {
     }
 });
 
-// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery('start-log-streaming', message => {
     const query = message.data.query;
     if(query.params.hasOwnProperty('id')) {
@@ -273,7 +272,6 @@ messagingService.listenForQuery('start-log-streaming', message => {
     }
 });
 
-// TODO move the functionality to deployment-utils.js
 messagingService.listenForQuery('stop-log-streaming', message => {
     const query = message.data.query;
 
