@@ -69,7 +69,7 @@ function executeApplication(id, executablePath, logPath, runtime) {
 	let appProcess;
 	if(runtime === 'nodejs') {
 		appProcess = fork(executablePath, [], {
-			env: {APP_ID: id}, // pass the application's id to the app as the MQTT Topic
+			env: {APP_DATA_TOPIC: id}, // pass the application's id to the app as the MQTT Topic
 			stdio: [
 				0,
 				fs.openSync(logPath, 'w'),
@@ -79,7 +79,7 @@ function executeApplication(id, executablePath, logPath, runtime) {
 		});
 	} else if(runtime === 'python') {
 		appProcess = spawn('python3', ['-u', executablePath], {
-			env: {APP_ID: id},
+			env: {APP_DATA_TOPIC: id},
 			stdio: [
 				0,
 				fs.openSync(logPath, 'w'),
@@ -87,7 +87,7 @@ function executeApplication(id, executablePath, logPath, runtime) {
 			]
 		});
 	}
-	console.log(`[INFO] Launched ${app.name} successfully!`);
+	console.log(`[INFO] Launched app successfully!`);
 	console.log(`   time: ${new Date().toISOString()}`);
 	console.log(`   path: ${executablePath}`);
 	console.log(`    id: ${id}`);

@@ -10,7 +10,7 @@ class Oracle extends EventEmitter {
     constructor() {
         super();
         const platformApiTopic = 'platform-data'; // this topic is used for disseminate and query apis
-        const applicationTopic = process.env.TOPIC; // receive the application's topic as an environment variable
+        const applicationTopic = process.env.APP_DATA_TOPIC; // receive the application's topic as an environment variable
 
         if(!applicationTopic) {
             console.error("Application did not receive a topic from App Manager. Exiting.");

@@ -114,7 +114,7 @@ function deployApplication(tempAppPath, tempMetadataPath, runtime) {
     const appExecutablePath = path.join(appDirectoryPath, appName);
     const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
     const logPath = getLogPath(appName);
-    const app = new appsDao.App(appId, appExecutablePath, metadataPath, runtime);
+    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, runtime);
 
     // execute the app!
     const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);

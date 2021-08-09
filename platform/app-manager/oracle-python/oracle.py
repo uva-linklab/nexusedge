@@ -5,7 +5,7 @@ from threading import Thread
 import requests
 import socket
 
-app_topic = os.environ['TOPIC']
+app_topic = os.environ['APP_DATA_TOPIC']
 platform_topic = "platform-data"
 callback_map = {}
 platform_callback_list = []
