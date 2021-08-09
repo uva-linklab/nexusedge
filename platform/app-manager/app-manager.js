@@ -12,35 +12,44 @@ console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
+const apps = {}; // list of running apps indexed by id
+
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 fs.emptyDirSync(`${__dirname}/logs`); // clear directory
 
-deploymentUtils.cleanupExecutablesDir();
+setTimeout(() => {
+    restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
+    // service to initialize.
+}, 2000);
 
-const apps = {}; // list of running apps indexed by id
+/**
+ * Resumes all apps that were executing on this gateway
+ */
+function restartAllApps() {
+    appsDao.fetchAll().then(apps => {
+        apps.forEach(app => {
+            const logPath = getLogPath(app.name);
 
-// resume all apps that were executing on this gateway
-appsDao.fetchAll().then(apps => {
-   apps.forEach(app => {
-       const logPath = getLogPath(app.name);
+            // restart the app
+            const appProcess = deploymentUtils.executeApplication(app.id,
+                app.executablePath,
+                logPath,
+                app.runtime);
 
-       // restart the app
-       const appProcess = deploymentUtils.executeApplication(app.id,
-           app.executablePath,
-           logPath,
-           app.runtime);
+            // record app info in memory
+            storeAppInfo(app, appProcess, logPath);
 
-       // record app info in memory
-       storeAppInfo(app, appProcess, logPath);
+            // request sensor-stream-manager to provide streams for this app
+            messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+                "topic": app.id,
+                "metadataPath": app.metadataPath
+            });
+        })
+    });
+}
 
-       // request sensor-stream-manager to provide streams for this app
-       messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-           "topic": app.id,
-           "metadataPath": app.metadataPath
-       });
-   })
-});
+
 
 /**
  * This function generates the id of the new application.
