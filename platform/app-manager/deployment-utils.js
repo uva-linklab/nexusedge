@@ -33,7 +33,7 @@ function storeApp(tempAppPath, tempMetadataPath) {
 }
 
 function copyOracleLibrary(targetPath, runtime) {
-	if(!path.existsSync(targetPath)) {
+	if(!fs.existsSync(targetPath)) {
 		return false;
 	}
 
