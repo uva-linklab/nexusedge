@@ -3,6 +3,7 @@ const mqtt = require("mqtt");
 const utils = require("../utils/utils");
 const fetch = require("node-fetch");
 const { PolicyEnforcer } = require("./policy");
+const debug = require('debug')('ssm');
 
 const timeZone = "America/New_York";
 const policyHelper = new PolicyEnforcer(timeZone);
@@ -151,6 +152,8 @@ function routeSensorStreamsToApps(client) {
         const payload = JSON.parse(message.toString());
         const sensorId = payload["device_id"];
 
+        debug(`received mqtt message from ${sensorId}`);
+
         if (sensorId in sensorStreamRouteTable) {
             for (const gatewayIp in sensorStreamRouteTable[sensorId]) {
                 const topics = sensorStreamRouteTable[sensorId][gatewayIp];
@@ -159,6 +162,7 @@ function routeSensorStreamsToApps(client) {
                     if (!policyHelper.isBlocked(sensorId, gatewayIp, topic)) {
                         // Publish to application's topic
                         publishData(gatewayIp, topic, JSON.stringify(payload));
+                        debug(`publishing data of ${sensorId} to ${topic} @ ${gatewayIp}`);
                     }
                 }
             }
