@@ -7,7 +7,6 @@ let gatewayDetails = undefined;
 
 const deviceIdCallbackMap = {};
 const deviceTypeCallbackMap = {};
-let anyDeviceCallback = null;
 
 class Oracle extends EventEmitter {
     constructor() {
@@ -36,9 +35,6 @@ class Oracle extends EventEmitter {
             }
             if(deviceType in deviceTypeCallbackMap) {
                 deviceTypeCallbackMap[deviceType](messageJson);
-            }
-            if(anyDeviceCallback !== null) {
-                anyDeviceCallback(messageJson);
             }
         });
 
@@ -74,19 +70,6 @@ class Oracle extends EventEmitter {
         if(typeof callback === 'function') {
             deviceTypeCallbackMap[deviceType] = callback;
             console.log(`[oracle] added callback for ${deviceType}`);
-        } else {
-            throw Error('callback not a function');
-        }
-    }
-
-    /**
-     * Receive a callback when there's new data available for any device
-     * @param callback
-     */
-    receiveAny(callback) {
-        if(typeof callback === 'function') {
-            anyDeviceCallback = callback;
-            console.log(`[oracle] added callback for data from any device`);
         } else {
             throw Error('callback not a function');
         }

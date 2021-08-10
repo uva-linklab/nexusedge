@@ -6,6 +6,10 @@ oracle.receive("d0b5c2900bfd", message => {
     console.log(message);
 });
 
+oracle.receiveType("PowerBlade", message => {
+    console.log(message);
+});
+
 // to send data to a specific device
 oracle.send("ab123cd323d", {
     "state": "on"
