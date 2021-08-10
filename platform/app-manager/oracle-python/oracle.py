@@ -7,7 +7,9 @@ import socket
 
 app_topic = os.environ['APP_DATA_TOPIC']
 platform_topic = "platform-data"
-callback_map = {}
+device_id_callback_map = {}
+device_type_callback_map = {}
+
 platform_callback_list = []
 
 
@@ -30,9 +32,13 @@ def on_message(client, userdata, mqtt_message):
     if topic == app_topic:
         message_json = json.loads(payload)
         device_id = message_json["device_id"]
+        device_type = message_json["device_type"]
 
-        if device_id in callback_map:
-            callback_map[device_id](message_json)  # call the callback fn
+        if device_id in device_id_callback_map:
+            device_id_callback_map[device_id](message_json)  # call the callback fn
+
+        if device_type in device_type_callback_map:
+            device_type_callback_map[device_type](message_json)
 
     elif topic == platform_topic:
         print("topic == platform_topic")
@@ -72,8 +78,12 @@ class Oracle:
         print(f'[oracle] added platform msg callback')
 
     def receive(self, device_id, callback):
-        callback_map[device_id] = callback
+        device_id_callback_map[device_id] = callback
         print(f'[oracle] added callback for {device_id}')
+
+    def receiveType(self, device_type, callback):
+        device_type_callback_map[device_type] = callback
+        print(f'[oracle] added callback for {device_type}')
 
     def disseminate_all(self, tag, data):
         ip_address = self.__get_ip_address()
