@@ -26,6 +26,11 @@ const services = {
         socket: undefined,
         process: undefined
     },
+    "data-publish-manager": {
+        path: __dirname + "/data-publish-manager/data-publish-manager.js",
+        socket: undefined,
+        process: undefined
+    },
 };
 
 // ipcCallback stores all the call back function used by ipc server.
@@ -96,7 +101,7 @@ fs.ensureDirSync(`${__dirname}/logs`);
 const childEnv = process.env;
 for(let serviceName in services) {
     childEnv["SERVICE_NAME"] = serviceName; // used by the IPC platform to set the id of the service
-    services[serviceName]["process"] = fork(services[serviceName]["path"], [], {
+    const forkedProcess = fork(services[serviceName]["path"], [], {
         env: childEnv,
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
@@ -108,5 +113,19 @@ for(let serviceName in services) {
             "ipc"
         ]
     });
+    services[serviceName]["process"] = forkedProcess;
     console.log(`[INFO] ${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
+
+    // listen for error messages from child services
+    forkedProcess.on("message", messageStr => {
+       const message = JSON.parse(messageStr);
+       if(message.hasOwnProperty("error") && message.hasOwnProperty("service")) {
+           const error = message["error"];
+           const service = message["service"];
+           console.error(`Error in ${service}: ${error}`);
+           console.log("Exiting...");
+           process.exit(1);
+       }
+    });
 }
+

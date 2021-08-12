@@ -21,11 +21,23 @@ const pendingDeviceBuffer = {};
 
 let handlerMap = {};
 
+/**
+ * notifies platform manager that we have a problem
+ * @param errorMsg the error message
+ */
+function throwPlatformError(errorMsg) {
+    const errorObj = {
+        "service": "device-manager",
+        "error": errorMsg
+    };
+    process.send(JSON.stringify(errorObj));
+    console.error("errorMsg");
+}
+
 handlerUtils.loadHandlers().then(map => {
     if(map == null) {
-    // TODO notify platform manager that we have a problem and exit
-        console.error("There was a problem loading the handlers. Exiting device-manager.");
-        process.exit(1);
+        // notify platform manager that we have a problem and exit
+        throwPlatformError("loadHandler(): There was a problem loading the handlers.");
     }
     handlerMap = map;
 
@@ -49,7 +61,7 @@ handlerUtils.loadHandlers().then(map => {
             if(typeof handler.start === 'function') {
                 handler.start(platformCallback)
             } else {
-                console.error(`${handlerId} does not implement a start() function`)
+                throwPlatformError(`${handlerId} does not implement a start() function`);
             }
         });
     });
