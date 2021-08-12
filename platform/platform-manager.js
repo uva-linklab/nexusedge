@@ -123,7 +123,7 @@ for(let serviceName in services) {
            const error = message["error"];
            const service = message["service"];
            console.error(`Error in ${service}: ${error}`);
-           console.log("Exiting...");
+           console.log("Exiting platform-manager...");
            process.exit(1);
        }
     });

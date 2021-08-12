@@ -10,7 +10,7 @@ const messagingService = new MessagingService(serviceName);
 let publishers = [];
 
 /**
- * notifies platform manager that we have a problem
+ * notifies platform manager that we have a problem, and exit
  * @param errorMsg the error message
  */
 function throwPlatformError(errorMsg) {
@@ -19,7 +19,8 @@ function throwPlatformError(errorMsg) {
         "error": errorMsg
     };
     process.send(JSON.stringify(errorObj));
-    console.error("errorMsg");
+    console.error(errorMsg);
+    process.exit(1);
 }
 
 publisherUtils.loadPublishers().then(publisherList => {

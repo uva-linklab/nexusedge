@@ -1,3 +1,6 @@
+const path = require('path');
+const fs = require('fs-extra');
+
 /**
  * Loads publishers for data-publish-manager (dpm).
  * Any directory under dpm/publishers/ is considered to be a publisher.
@@ -43,7 +46,7 @@ async function getPublishersDetails() {
 
     // ensure that the config file is well-formed
     try {
-        return fs.readJson(publishersJsonPath);
+        return await fs.readJson(publishersJsonPath);
     } catch (e) {
         // if there's a JSON parse error, throw an error message
         if(e instanceof SyntaxError) {
