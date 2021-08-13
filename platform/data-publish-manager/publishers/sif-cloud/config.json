@@ -1,0 +1,5 @@
+{
+  "cloud_ip_address": "34.230.161.172",
+  "ingest_mqtt_topic": "default/transform",
+  "forwarded_topic": "linklab/nexusedge"
+}

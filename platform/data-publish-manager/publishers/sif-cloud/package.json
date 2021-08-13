@@ -1,0 +1,15 @@
+{
+  "name": "sif-cloud",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sif-cloud-publisher.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": "^10.0.0",
+    "mqtt": "^4.2.8"
+  }
+}
