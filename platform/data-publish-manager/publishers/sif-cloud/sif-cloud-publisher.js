@@ -120,7 +120,7 @@ class SIFCloudPublisher {
                 if(value !== null) {
                     // iterate over each key-value pair and recursively obtain the payload and metadata fields
                     for(const [innerKey, innerValue] of Object.entries(value)) {
-                        const innerOutput = getFields(innerKey, innerValue);
+                        const innerOutput = this._getOpenTsdbFriendlyFields(innerKey, innerValue);
                         // append the key to each payload/metadata field in innerOutput
                         for(const [payloadField, payloadValue] of Object.entries(innerOutput.payload)) {
                             const newKey = key === '' ? payloadField : `${key}_${payloadField}`;
