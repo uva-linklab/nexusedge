@@ -19,6 +19,7 @@ class SIFCloudPublisher {
 
     onData(data) {
         const formattedData = this._getCloudFormattedData(data);
+        // TODO remove logging and uncomment when ready
         console.log(JSON.stringify(formattedData));
         // this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
     }
