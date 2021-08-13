@@ -25,7 +25,7 @@ function throwPlatformError(errorMsg) {
 
 publisherUtils.loadPublishers().then(publisherList => {
     if(publisherList == null) {
-        throwPlatformError("loadPublishers(): There was a problem loading the handlers.");
+        throwPlatformError("loadPublishers(): There was a problem loading the publishers.");
     }
     publishers = publisherList;
 
