@@ -57,8 +57,8 @@ const ipcCallback = {
                 data: data["payload"]
             };
             ipc.server.emit(services[data["meta"]["recipient"]].socket,
-                            data["meta"]["event"],
-                            message);
+                data["meta"]["event"],
+                message);
             console.log("[INFO] Forwarded msg.");
             console.log(`  Event: ${data["meta"]["event"]}`);
             console.log(`   From: ${data["meta"]["sender"]}`);
@@ -101,7 +101,7 @@ fs.ensureDirSync(`${__dirname}/logs`);
 const childEnv = process.env;
 for(let serviceName in services) {
     childEnv["SERVICE_NAME"] = serviceName; // used by the IPC platform to set the id of the service
-    const forkedProcess = fork(services[serviceName]["path"], [], {
+    const childProcess = fork(services[serviceName]["path"], [], {
         env: childEnv,
         // References:
         // 1. https://nodejs.org/docs/latest-v8.x/api/child_process.html#child_process_options_stdio
@@ -113,19 +113,39 @@ for(let serviceName in services) {
             "ipc"
         ]
     });
-    services[serviceName]["process"] = forkedProcess;
+    services[serviceName]["process"] = childProcess;
     console.log(`[INFO] ${serviceName} process forked with pid: ${services[serviceName]["process"].pid}.`);
 
     // listen for error messages from child services
-    forkedProcess.on("message", messageStr => {
-       const message = JSON.parse(messageStr);
-       if(message.hasOwnProperty("error") && message.hasOwnProperty("service")) {
-           const error = message["error"];
-           const service = message["service"];
-           console.error(`Error in ${service}: ${error}`);
-           console.log("Exiting platform-manager...");
-           process.exit(1);
-       }
+    childProcess.on("message", messageStr => {
+        const message = JSON.parse(messageStr);
+        if(message.hasOwnProperty("error") && message.hasOwnProperty("service")) {
+            const error = message["error"];
+            const service = message["service"];
+            console.error(`Error in ${service}: ${error}`);
+            quit();
+        }
+    });
+
+    childProcess.on("exit", (code, signal) => {
+        console.error(`${serviceName}: exited with exit code = ${code}.`);
+        console.error(`Please check logs/${serviceName}.out for more details`);
+        quit();
     });
 }
 
+function killAllServices() {
+    for(const [serviceName, service] of Object.entries(services)) {
+        if(!service.process.killed) {
+            service.process.kill();
+            console.error(`Killed ${serviceName}`);
+        }
+    }
+}
+
+function quit() {
+    console.error("Killing other services to gracefully exit.");
+    killAllServices();
+    console.error("Exiting platform-manager...");
+    process.exit(1);
+}
