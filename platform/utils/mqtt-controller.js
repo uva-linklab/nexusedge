@@ -56,7 +56,7 @@ class MqttController {
      * receive callback when there is new data on a specified MQTT topic at a given ip address
      * @param ip broker's ip address
      * @param topic mqtt topic
-     * @param callback callback function
+     * @param callback a fn of type string -> void
      */
     subscribe(ip, topic, callback) {
         const client = this._getMqttClient(ip);
@@ -77,7 +77,7 @@ class MqttController {
 
     /**
      * subscribe to the localhost's PLATFORM_MQTT_TOPIC
-     * @param callback
+     * @callback a fn of type string -> void
      */
     subscribeToPlatformMqtt(callback) {
         this.subscribe("localhost", PLATFORM_MQTT_TOPIC, callback);

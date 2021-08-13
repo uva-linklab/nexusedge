@@ -42,6 +42,6 @@ publisherUtils.loadPublishers().then(publisherList => {
 
 mqttController.subscribeToPlatformMqtt(data => {
     Object.values(publishers).forEach(publisher => {
-        publisher.onData(data);
+        publisher.onData(JSON.parse(data));
     });
 });
