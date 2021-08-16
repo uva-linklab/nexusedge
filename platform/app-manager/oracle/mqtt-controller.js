@@ -1,5 +1,5 @@
 const mqtt = require('mqtt');
-const PLATFORM_MQTT_TOPIC = 'gateway-data';
+const PLATFORM_MQTT_TOPIC = 'nexusedge-data';
 
 /**
  * MqttController is a singleton that maintains state of multiple MQTT clients.

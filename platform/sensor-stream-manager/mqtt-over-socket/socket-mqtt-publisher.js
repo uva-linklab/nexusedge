@@ -1,6 +1,6 @@
 /*
 - run as a worker thread for Sensor Stream Manager
-- subscribes to localhost gateway-data MQTT topic
+- subscribes to localhost platform MQTT topic
 - takes a websocket server address and opens a socket
     - it listens to messages from the other end
         - parses it in json format

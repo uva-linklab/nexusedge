@@ -124,12 +124,11 @@ function publishData(ip, topic, data) {
 
 /**
  * This function lets the local MQTT client
- * subscribes to "gateway-data" topic
+ * subscribes to "nexusedge-data" topic
  * @param {Object} client - MQTT client
  */
 function subscribeToGatewayData(client) {
-    const mqttTopic = "gateway-data";
-    // Subscribe to "gateway-data"
+    const mqttTopic = "nexusedge-data";
     client.subscribe(mqttTopic, (err) => {
         if (err) {
             console.error(`[ERROR] Failed to subscribe "${mqttTopic}".`);
