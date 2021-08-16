@@ -2,25 +2,29 @@ const path = require('path');
 const fs = require('fs-extra');
 const mqtt = require('mqtt');
 
+const configPath = path.join(__dirname, './config.json');
+
 class SIFCloudPublisher {
     constructor() {
     }
 
     initialize() {
-        // read the config file
-        const config = fs.readJsonSync(path.join(__dirname, './config.json'));
-
-        this.cloudIpAddress = config['cloud_ip_address'];
-        this.mqttTopic = config['ingest_mqtt_topic'];
-        this.forwardedTopic = config['forwarded_topic'];
-
-        this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}`);
+        try{
+            // read the config file
+            const config = fs.readJsonSync(configPath);
+            this.cloudIpAddress = config['cloud_ip_address'];
+            this.mqttTopic = config['ingest_mqtt_topic'];
+            this.forwardedTopic = config['forwarded_topic'];
+            this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}`);
+        } catch (e) {
+            console.error(`[sif-cloud-publisher] unable to read config file at ${configPath}`);
+            process.exit(1);
+        }
     }
 
     onData(data) {
         const formattedData = this._getCloudFormattedData(data);
         // TODO remove logging and uncomment when ready
-        console.log(JSON.stringify(formattedData));
         // this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
     }
 
@@ -38,11 +42,11 @@ class SIFCloudPublisher {
         const metadataFields = {};
 
         // set the directly available metadata fields
-        metadataFields["time"] = new Date().toISOString();
+        metadataFields["time"] = sensorData["_meta"]["received_time"];
         metadataFields["handler_id"] = sensorData["_meta"]["handler_id"];
         metadataFields["controller_id"] = sensorData["_meta"]["controller_id"];
         metadataFields["gateway_address"] = sensorData["_meta"]["gateway_address"];
-        metadataFields["deviceType"] = sensorData["device_type"];
+        metadataFields["device_type"] = sensorData["device_type"];
 
         /*
         OpenTSDB only supports integer or floating point metric values.
@@ -82,10 +86,10 @@ class SIFCloudPublisher {
      - if value is a number (int/float), add to payload fields
      - if value is a string, add as a metadata field (tag)
      - if value is an object, recursively get fields for each key and append each key of the object to the external key
-        * eg: for "acceleration": {"x": 5, "y": 10, "unit": "mph"}
-            payload fields -> "acceleration_x": 5, "acceleration_y": 10
-            metadata fields -> "acceleration_unit": "mph"
-        * if there are nested objects, then do this recursively
+     * eg: for "acceleration": {"x": 5, "y": 10, "unit": "mph"}
+     payload fields -> "acceleration_x": 5, "acceleration_y": 10
+     metadata fields -> "acceleration_unit": "mph"
+     * if there are nested objects, then do this recursively
      - if value is a boolean, convert to int
      * @param key
      * @param value
@@ -132,8 +136,8 @@ class SIFCloudPublisher {
                             output["metadata"][newKey] = metadataValue;
                         }
                     }
-                    break;
                 }
+                break;
         }
         return output;
     }
