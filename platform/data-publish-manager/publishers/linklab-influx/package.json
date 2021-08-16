@@ -1,0 +1,14 @@
+{
+  "name": "linklab-influx",
+  "version": "1.0.0",
+  "description": "Converts all data available on the gateway to a format expected by the linklab influxdb. To obtain data from NexusEdge to flow to the linklab influxdb, there are two steps: 1. Convert data in a format recognizable by linklab's gateway software.  2. Publish the data to the `gateway-data` MQTT topic.  3. Run [linklab's script](https://github.com/lab11/gateway/blob/master/software/gateway-mqtt-influxdb/gateway-mqtt-influxdb.js)  which picks up data from this topic and publishes to influxdb.",
+  "main": "linklab-influx-publisher.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^4.2.8"
+  }
+}
