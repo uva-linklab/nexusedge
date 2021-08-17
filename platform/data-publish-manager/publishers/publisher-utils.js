@@ -14,7 +14,6 @@ async function loadPublishers() {
     }
 
     // ensure that the publishers listed in publishers.json are all in place
-    // also ensure that there are no publishers that exist without an entry in publishers.json
     const publisherNames = Object.keys(publisherDetails);
 
     // ensure that the 'main' script listed for each publisher exists
