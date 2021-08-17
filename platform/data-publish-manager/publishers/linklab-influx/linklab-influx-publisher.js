@@ -10,13 +10,8 @@ class LinklabInfluxPublisher {
     }
 
     onData(data) {
-        console.log("in onData");
-        console.log(data);
         const formattedData = this._getFormattedData(data);
-        console.log(formattedData);
-
-        // TODO uncomment when ready
-        // this.mqttClient.publish(linklabGatewayTopic, JSON.stringify(formattedData));
+        this.mqttClient.publish(linklabGatewayTopic, JSON.stringify(formattedData));
     }
 
     _getFormattedData(sensorData) {
