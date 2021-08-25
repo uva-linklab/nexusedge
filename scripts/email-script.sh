@@ -1,6 +1,6 @@
 #!/bin/bash
 #expects the board's serial number in the env var BOARD_SERIAL
-source $HOME/.bash_profile
+source /root/.bash_profile
 echo -e "\
 From: "Artik Status" <artikstatus@gmail.com>\n\
 To: "Nabeel Nasir" <nn5rh@virginia.edu>\n\
