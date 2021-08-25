@@ -1,0 +1,13 @@
+[Unit]
+Description=Start the service which publishes data to the linklab influxDB
+After=network-online.target mosquitto.service
+
+[Service]
+ExecStart=/usr/bin/node /root/gateway/software/gateway-mqtt-influxdb/gateway-mqtt-influxdb.js
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=linklab-influxdb-publisher
+
+[Install]
+WantedBy=multi-user.target

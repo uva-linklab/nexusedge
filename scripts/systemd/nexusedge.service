@@ -1,0 +1,13 @@
+[Unit]
+Description=Start the NexusEdge service
+After=network-online.target bluetooth.target
+
+[Service]
+ExecStart=/usr/bin/node /root/on-the-edge/platform/platform-manager.js
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=nexusedge
+
+[Install]
+WantedBy=multi-user.target
