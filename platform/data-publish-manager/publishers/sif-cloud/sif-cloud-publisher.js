@@ -15,6 +15,7 @@ class SIFCloudPublisher {
             this.cloudIpAddress = config['cloud_ip_address'];
             this.mqttTopic = config['ingest_mqtt_topic'];
             this.forwardedTopic = config['forwarded_topic'];
+            // TODO add port!
             this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}`);
         } catch (e) {
             console.error(`[sif-cloud-publisher] unable to read config file at ${configPath}`);
@@ -34,7 +35,6 @@ class SIFCloudPublisher {
      */
     _getCloudFormattedData(sensorData) {
         const formattedData = {};
-        formattedData['topic'] = this.forwardedTopic;
         formattedData['app_id'] = sensorData['device_id'];
         formattedData['counter'] = 0;
 
