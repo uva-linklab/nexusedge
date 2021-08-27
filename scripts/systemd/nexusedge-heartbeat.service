@@ -1,6 +1,7 @@
 [Unit]
 Description=Send a heartbeat every 5 minutes from a NexusEdge gateway
-After=ensure-internet.service linklab-influxdb-publisher.service
+After=linklab-influxdb-publisher.service
+Wants=linklab-influxdb-publisher.service
 
 [Service]
 ExecStart=/usr/bin/node /root/on-the-edge/platform/utils/send-heartbeat.js
