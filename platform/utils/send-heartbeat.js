@@ -18,4 +18,5 @@ function send() {
     mqttController.publish("localhost", "gateway-data", getHeartbeatMessage());
 }
 
-setInterval(send, 15*60*1000);
+send();
+setInterval(send, 5*60*1000);
