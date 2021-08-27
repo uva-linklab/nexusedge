@@ -1,0 +1,13 @@
+[Unit]
+Description=Keeps pinging google until successful
+After=network-online.target
+
+[Service]
+ExecStart=/bin/sh -c 'until ping -c1 google.com; do sleep 1; done;'
+Type=oneshot
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=ensure-internet
+
+[Install]
+WantedBy=multi-user.target

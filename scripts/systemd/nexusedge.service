@@ -1,6 +1,6 @@
 [Unit]
 Description=Start the NexusEdge service
-After=network-online.target bluetooth.target
+After=ensure-internet.service bluetooth.target
 
 [Service]
 ExecStart=/usr/bin/node /root/on-the-edge/platform/platform-manager.js

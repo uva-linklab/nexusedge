@@ -1,6 +1,6 @@
 [Unit]
 Description=Send an email when a NexusEdge gateway reboots
-After=network-online.target
+After=ensure-internet.service
 
 [Service]
 ExecStart=/root/on-the-edge/scripts/email-script.sh
