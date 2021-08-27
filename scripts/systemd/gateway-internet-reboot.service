@@ -1,0 +1,14 @@
+# Reference: https://github.com/lab11/gateway/blob/master/systemd/gateway-internet-reboot.service
+[Unit]
+Description=Reboot gateway if it looses internet connection.
+After=ensure-internet.service
+
+[Service]
+ExecStart=/root/gateway/software/gateway-internet-reboot/gateway-internet-reboot.js
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=gateway-internet-reboot
+
+[Install]
+WantedBy=multi-user.target
