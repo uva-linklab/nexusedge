@@ -4,6 +4,8 @@ After=linklab-influxdb-publisher.service
 Wants=linklab-influxdb-publisher.service
 
 [Service]
+# just wait until the linklab mqtt publisher is setup and functioning
+ExecStartPre=/bin/sh -c 'sleep 5'
 ExecStart=/usr/bin/node /root/on-the-edge/platform/utils/send-heartbeat.js
 Restart=always
 StandardOutput=syslog
