@@ -17,6 +17,7 @@ platform/dao/data/
 
 # configuration files
 platform/utils/config.json
+platform/data-publish-manager/publishers/sif-cloud/sif-cloud.json
 
 # npm package related
 package-lock.json

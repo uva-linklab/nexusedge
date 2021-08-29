@@ -1,5 +1,0 @@
-{
-  "cloud_ip_address": "34.230.161.172",
-  "port": 2883,
-  "ingest_mqtt_topic": "data/ingest"
-}

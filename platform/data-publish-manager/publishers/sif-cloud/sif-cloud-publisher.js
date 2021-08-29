@@ -12,11 +12,10 @@ class SIFCloudPublisher {
         try{
             // read the config file
             const config = fs.readJsonSync(configPath);
-            this.cloudIpAddress = config['cloud_ip_address'];
-            this.mqttTopic = config['ingest_mqtt_topic'];
-            this.forwardedTopic = config['forwarded_topic'];
-            // TODO add port!
-            this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}`);
+            this.cloudIpAddress = config['server_ip_address'];
+            this.port = config['port'];
+            this.mqttTopic = config['mqtt_topic'];
+            this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}:${this.port}`);
         } catch (e) {
             console.error(`[sif-cloud-publisher] unable to read config file at ${configPath}`);
             process.exit(1);
@@ -25,8 +24,7 @@ class SIFCloudPublisher {
 
     onData(data) {
         const formattedData = this._getCloudFormattedData(data);
-        // TODO remove logging and uncomment when ready
-        // this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
+        this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
     }
 
     /**
@@ -35,14 +33,13 @@ class SIFCloudPublisher {
      */
     _getCloudFormattedData(sensorData) {
         const formattedData = {};
-        formattedData['app_id'] = sensorData['device_id'];
-        formattedData['counter'] = 0;
+        formattedData["app_id"] = sensorData["device_id"];
+        formattedData["time"] = sensorData["_meta"]["received_time"];
 
         const payloadFields = {};
         const metadataFields = {};
 
         // set the directly available metadata fields
-        metadataFields["time"] = sensorData["_meta"]["received_time"];
         metadataFields["handler_id"] = sensorData["_meta"]["handler_id"];
         metadataFields["controller_id"] = sensorData["_meta"]["controller_id"];
         metadataFields["gateway_address"] = sensorData["_meta"]["gateway_address"];
