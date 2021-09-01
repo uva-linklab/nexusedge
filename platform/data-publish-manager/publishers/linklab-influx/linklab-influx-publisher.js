@@ -25,7 +25,7 @@ class LinklabInfluxPublisher {
         metadataFields["device_id"] = sensorData['device_id'];
         metadataFields["handler_id"] = sensorData["_meta"]["handler_id"];
         metadataFields["controller_id"] = sensorData["_meta"]["controller_id"];
-        metadataFields["gateway_address"] = sensorData["_meta"]["gateway_address"];
+        metadataFields["gateway_id"] = sensorData["_meta"]["gateway_id"];
 
         const fields = this._getConvertedFields("", sensorData['device_data']);
         for(const [key, value] of Object.entries(fields.payload)) {

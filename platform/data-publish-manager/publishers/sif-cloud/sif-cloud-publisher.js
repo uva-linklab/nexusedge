@@ -42,7 +42,7 @@ class SIFCloudPublisher {
         // set the directly available metadata fields
         metadataFields["handler_id"] = sensorData["_meta"]["handler_id"];
         metadataFields["controller_id"] = sensorData["_meta"]["controller_id"];
-        metadataFields["gateway_address"] = sensorData["_meta"]["gateway_address"];
+        metadataFields["gateway_id"] = sensorData["_meta"]["gateway_id"];
         metadataFields["device_type"] = sensorData["device_type"];
 
         /*

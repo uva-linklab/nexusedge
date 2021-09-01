@@ -110,7 +110,7 @@ function deliver(handlerId, deviceId, deviceType, deviceData) {
         "received_time": new Date().toISOString(),
         "handler_id": handlerId,
         "controller_id": controllerId,
-        "gateway_address": utils.getGatewayIp()
+        "gateway_id": utils.getGatewayId()
     };
 
     if(isAwaitingRegistration(deviceId)) {

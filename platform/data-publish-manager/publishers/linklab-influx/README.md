@@ -28,7 +28,7 @@ Let's say we have this data from a sensor on the NexusEdge platform:
             "received_time": "2021-07-01T09:41:00.000000Z",
             "handler_id": "lab11-handler",
             "controller_id": "ble-controller",
-            "gateway_address": "xx.xx.xx.xx"
+            "gateway_id": "some-id"
     }
 }
 ```
@@ -53,7 +53,7 @@ This will be converted to this format:
         
         "handler_id": "lab11-handler",
         "controller_id": "ble-controller",
-        "gateway_address": "xx.xx.xx.xx"
+        "gateway_id": "some-id"
         
         // any other metadata fields can go here
     }
