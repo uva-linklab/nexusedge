@@ -4,6 +4,7 @@ const fetch = require('node-fetch');
 const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
+const fs = require('fs');
 
 // store the time when the gateway platform starts up
 const startTime = Date.now();
@@ -65,21 +66,28 @@ function getGatewayIp() {
 }
 
 /**
- * Returns the gateway's id (mac address) of the network interface defined in config.network.interface
+ * Returns an id for the gateway. Tries to obtain the gateway id in the following order:
+ * 1) if /etc/gateway-id is present, then return the contents
+ * 2) mac address of the network interface defined in config.network.interface
  * @return {string}
  */
 function getGatewayId() {
-	const interfaceInConfig = getConfig('network')['interface'];
-	const systemInterfaces = os.networkInterfaces();
-	if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
-		const sysInterface = systemInterfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
-		if(sysInterface) {
-			return sysInterface.mac.replace(/:/g, ''); // remove all colon chars
+	try {
+		return fs.readFileSync('/etc/gateway-id', 'utf-8').trim();
+	} catch (e) {
+		console.log("/etc/gateway-id not found or unreadable");
+		const interfaceInConfig = getConfig('network')['interface'];
+		const systemInterfaces = os.networkInterfaces();
+		if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
+			const sysInterface = systemInterfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
+			if(sysInterface) {
+				return sysInterface.mac.replace(/:/g, ''); // remove all colon chars
+			} else {
+				throw new Error(`${interfaceInConfig} interface defined in utils/config.json is not an IPv4 interface`);
+			}
 		} else {
-			throw new Error(`${interfaceInConfig} interface defined in utils/config.json is not an IPv4 interface`);
+			throw new Error(`interface ${interfaceInConfig} defined in utils/config.json is not valid`);
 		}
-	} else {
-		throw new Error(`interface ${interfaceInConfig} defined in utils/config.json is not valid`);
 	}
 }
 
