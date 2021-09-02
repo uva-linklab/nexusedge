@@ -12,7 +12,6 @@ class EstimoteHandler {
     constructor(handlerId) {
         this.handlerId = handlerId;
         this.deviceType = "estimote";
-        this.scanPaused = false;
     }
 
     start(platformCallback) {
@@ -20,16 +19,10 @@ class EstimoteHandler {
         bleController.initialize().then(() => {
             bleController.getPeripheralsWithUuid(ESTIMOTE_SERVICE_UUID,
                 this._handlePeripheral.bind(this));
-            this._startScan();
         });
     }
 
     _handlePeripheral(peripheral) {
-        // handle peripherals only during the time periods define in startScan and stopScan
-        if(this.scanPaused) {
-            return;
-        }
-
         const estimoteServiceData = peripheral.advertisement.serviceData.find(function(el) {
             return el.uuid === ESTIMOTE_SERVICE_UUID;
         });
@@ -44,18 +37,6 @@ class EstimoteHandler {
             // deliver data to platform
             this.platformCallback.deliver(this.handlerId, telemetryPacket.shortIdentifier, this.deviceType, telemetryPacket);
         }
-    }
-
-    _startScan() {
-        this.scanPaused = false;
-        setTimeout(this._stopScan.bind(this), 60000); // scan for 1min
-        console.log("Start handling peripherals");
-    }
-
-    _stopScan() {
-        this.scanPaused = true;
-        setTimeout(this._startScan.bind(this), 180000); // scan every 3mins
-        console.log("Stopped handling peripherals");
     }
 }
 
