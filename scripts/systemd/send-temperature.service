@@ -1,0 +1,16 @@
+[Unit]
+Description=Send temperature of the gateway every minute from a NexusEdge gateway
+After=linklab-influxdb-publisher.service
+Wants=linklab-influxdb-publisher.service
+
+[Service]
+# just wait until the linklab mqtt publisher is setup and functioning
+ExecStartPre=/bin/sh -c 'sleep 5'
+ExecStart=/root/on-the-edge/scripts/send-temperature.sh
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=nexusedge-temperature
+
+[Install]
+WantedBy=multi-user.target
