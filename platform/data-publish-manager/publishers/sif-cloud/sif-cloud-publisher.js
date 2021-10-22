@@ -1,8 +1,9 @@
 const path = require('path');
 const fs = require('fs-extra');
 const mqtt = require('mqtt');
+const AmazonCognitoIdentity = require("amazon-cognito-identity-js");
 
-const configPath = path.join(__dirname, './config.json');
+const configPath = path.join(__dirname, './sif-cloud.json');
 
 class SIFCloudPublisher {
     constructor() {
@@ -16,25 +17,75 @@ class SIFCloudPublisher {
             this.port = config['port'];
             this.mqttTopic = config['mqtt_topic'];
             this.mqttClient = mqtt.connect(`mqtt://${this.cloudIpAddress}:${this.port}`);
+            this.credentials = {
+                "username": config['username'],
+                "password": config['password'],
+                "userPoolId": config['userPoolId'],
+                "clientId": config['clientId']
+            };
+
+            // obtain access token from cognito
+            this._getCognitoToken().then(token => {
+                console.log(`[sif-cloud-publisher] obtained access token`);
+                this.token = token;
+            }).catch(error => {
+                console.error(`[sif-cloud-publisher] unable to obtain access token`);
+                console.error(error);
+                process.exit(1);
+            });
+
         } catch (e) {
             console.error(`[sif-cloud-publisher] unable to read config file at ${configPath}`);
             process.exit(1);
         }
     }
 
+    _getCognitoToken() {
+        const authDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+            Username: this.credentials.username,
+            Password: this.credentials.password
+        });
+
+        const cognitoUser = new AmazonCognitoIdentity.CognitoUser({
+            Username: this.credentials.username,
+            Pool: new AmazonCognitoIdentity.CognitoUserPool({
+                UserPoolId: this.credentials.userPoolId,
+                ClientId: this.credentials.clientId
+            })
+        });
+
+        return new Promise((resolve, reject) => {
+            cognitoUser.authenticateUser(
+                authDetails,
+                {
+                    onSuccess: function(result) {
+                        const accessToken = result.getAccessToken().getJwtToken();
+                        resolve(accessToken);
+                    },
+                    onFailure: function(error) {
+                        reject(error);
+                    }
+                }
+            );
+        });
+    }
+
     onData(data) {
-        const formattedData = this._getCloudFormattedData(data);
-        this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
+        if(this.token && this.token.length > 0) {
+            const formattedData = this._getCloudFormattedData(data, this.token);
+            this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
+        }
     }
 
     /**
      * Returns a JSON object in the format expected by the SIF cloud
      * @param sensorData data in the nexusedge data format
      */
-    _getCloudFormattedData(sensorData) {
-        const formattedData = {};
-        formattedData["app_id"] = sensorData["device_id"];
-        formattedData["time"] = sensorData["_meta"]["received_time"];
+    _getCloudFormattedData(sensorData, token) {
+        // construct the data object
+        const dataObject = {};
+        dataObject["app_name"] = sensorData["device_id"];
+        dataObject["time"] = sensorData["_meta"]["received_time"];
 
         const payloadFields = {};
         const metadataFields = {};
@@ -57,16 +108,21 @@ class SIFCloudPublisher {
         for(const [key, value] of Object.entries(fields.payload)) {
             payloadFields[key] = {
                 "displayName": key,
-                "unit": "",
+                "unit": "na",
                 "value": value
             };
         }
         for(const [key, value] of Object.entries(fields.metadata)) {
             metadataFields[key] = value;
         }
-        formattedData["payload_fields"] = payloadFields;
-        formattedData["metadata"] = metadataFields;
-        return formattedData;
+        dataObject["payload_fields"] = payloadFields;
+        dataObject["metadata"] = metadataFields;
+
+        return {
+            "app_name": sensorData["device_id"],
+            "token": token,
+            "data": dataObject
+        };
     }
 
     // reference: https://www.codegrepper.com/code-examples/javascript/javascript+check+if+string+is+number

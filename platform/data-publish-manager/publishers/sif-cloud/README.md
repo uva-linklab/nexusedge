@@ -32,34 +32,36 @@ Let's say we have this data from a sensor on the NexusEdge platform:
 This would be converted to this format:
 ```json
 {
-    "topic": <forwarded_topic>
-    "app_id": "pb1",
-    "counter": 0,
-    "payload_fields": {
-        "sequence_number": {
-            "displayName": "sequence_number",
-            "unit": "",
-            "value": 28810585
-        },
-        "rms_voltage": {
-            "displayName": "rms_voltage",
-            "unit": "",
-            "value": 121.20
-        },
-        "power": {
-            "displayName": "power",
-            "unit": "",
-            "value": 3.56
-        },
-        ...
-    },
-    "metadata": {
-        "time": "2021-07-01T09:41:00.000000Z",
-        "handler_id": "lab11-handler",
-        "controller_id": "ble-controller",
-        "gateway_id": "some-id",
-        "device_type": "powerblade"
-    }
+	"app_name": "pb1",
+	"token": <cognito-access-token>,
+	"data": {
+	    "app_name": "pb1",
+	    "time": "2021-07-01T09:41:00.000000Z",
+	    "payload_fields": {
+	        "sequence_number": {
+	            "displayName": "sequence_number",
+	            "unit": "na",
+	            "value": 28810585
+	        },
+	        "rms_voltage": {
+	            "displayName": "rms_voltage",
+	            "unit": "na",
+	            "value": 121.20
+	        },
+	        "power": {
+	            "displayName": "power",
+	            "unit": "na",
+	            "value": 3.56
+	        },
+	        ...
+	    },
+	    "metadata": {
+	        "handler_id": "lab11-handler",
+	        "controller_id": "ble-controller",
+	        "gateway_id": "some-id",
+	        "device_type": "powerblade"
+    	}
+	}	
 }
 ``` 
 
