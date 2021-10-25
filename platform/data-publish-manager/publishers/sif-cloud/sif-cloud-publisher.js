@@ -24,20 +24,36 @@ class SIFCloudPublisher {
                 "clientId": config['clientId']
             };
 
-            // obtain access token from cognito
-            this._getCognitoToken().then(token => {
-                console.log(`[sif-cloud-publisher] obtained access token`);
-                this.token = token;
-            }).catch(error => {
-                console.error(`[sif-cloud-publisher] unable to obtain access token`);
-                console.error(error);
-                process.exit(1);
-            });
+            this._obtainTokenAndScheduleNext();
 
         } catch (e) {
             console.error(`[sif-cloud-publisher] unable to read config file at ${configPath}`);
             process.exit(1);
         }
+    }
+
+    _obtainTokenAndScheduleNext() {
+        this._getCognitoToken().then(result => {
+            console.log(`[sif-cloud-publisher] obtained access token`);
+
+            this.token = result.token;
+            const expirationTimeSec = result.expirationTimeSec;
+
+            // schedule the renewal
+            const currentTimeSec = Math.round(Date.now() / 1000);
+
+            // renew 1min before the expiration time
+            const scheduledRenewalTimeSec = expirationTimeSec - currentTimeSec - 60;
+
+            setTimeout(() => {
+                this._obtainTokenAndScheduleNext();
+            }, scheduledRenewalTimeSec * 1000);
+
+        }).catch(error => {
+            console.error(`[sif-cloud-publisher] unable to obtain access token`);
+            console.error(error);
+            process.exit(1);
+        });
     }
 
     _getCognitoToken() {
@@ -60,7 +76,12 @@ class SIFCloudPublisher {
                 {
                     onSuccess: function(result) {
                         const accessToken = result.getAccessToken().getJwtToken();
-                        resolve(accessToken);
+                        const expirationTimeSec = result.getAccessToken().payload.exp;
+
+                        resolve({
+                            "token": accessToken,
+                            "expirationTimeSec": expirationTimeSec
+                        });
                     },
                     onFailure: function(error) {
                         reject(error);
@@ -80,6 +101,7 @@ class SIFCloudPublisher {
     /**
      * Returns a JSON object in the format expected by the SIF cloud
      * @param sensorData data in the nexusedge data format
+     * @param token access token required by the SIF cloud
      */
     _getCloudFormattedData(sensorData, token) {
         // construct the data object
