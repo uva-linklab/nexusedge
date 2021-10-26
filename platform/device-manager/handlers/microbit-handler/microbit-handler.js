@@ -14,6 +14,7 @@ class MicrobitHandler {
     }
 
     start(platformCallback) {
+        console.log(`[microbit-handler] started microbit-handler`);
         this.platformCallback = platformCallback;
         bleController.initialize().then(() => {
             bleController.getPeripheralsWithPredicate(peripheral => {
@@ -31,7 +32,7 @@ class MicrobitHandler {
     }
 
     _handlePeripheral(peripheral) {
-        debug(`[microbit-handler] discovered a peripheral with address = ${peripheral.address}`);
+        console.log(`[microbit-handler] discovered a peripheral with address = ${peripheral.address}`);
         // if it has a localName, add it as metadata
         const localName = peripheral.advertisement.localName;
 
