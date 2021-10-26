@@ -19,6 +19,10 @@
         "main": "ekg-handler.js",
         "controller": "ble-controller"
     },
+    "microbit-handler": {
+        "main": "microbit-handler.js",
+        "controller": "ble-controller"
+    },
     "enocean-handler": {
         "main": "enocean-handler.js",
         "controller": "enocean-controller"
