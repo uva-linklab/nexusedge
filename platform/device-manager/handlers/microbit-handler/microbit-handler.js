@@ -1,10 +1,11 @@
 /*
-Handler to parse SIF ASSIST EKG beacon data.
+Handler to parse cps1 microbit beacons.
  */
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 const debug = require('debug')('microbit-handler');
 
+// TODO change to 0xcb51
 const MICROBIT_BEACON_COMPANY_ID = 0xFFEE;
 
 class MicrobitHandler {
@@ -32,7 +33,7 @@ class MicrobitHandler {
     }
 
     _handlePeripheral(peripheral) {
-        console.log(`[microbit-handler] discovered a peripheral with address = ${peripheral.address}`);
+        console.log(`[microbit-handler] discovered a peripheral with address = ${peripheral.id}`);
         // if it has a localName, add it as metadata
         const localName = peripheral.advertisement.localName;
 
@@ -40,20 +41,23 @@ class MicrobitHandler {
         let bufferIndex = 0;
 
         // this does not include the length and AD Type bytes. so first two bytes would be company id
-        const companyId = manufacturerData.readUInt16LE(bufferIndex);
+        const companyId = manufacturerData.readUInt16LE(bufferIndex).toString('hex');
+        bufferIndex+=2;
 
         // convert rest of the payload buffer to string
-        const payloadBuffer = manufacturerData.slice(bufferIndex).toString();
+        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf-8');
         const data = {
-            "manufacturer_data": payloadBuffer
+            "manufacturer_data": payloadBuffer, // will go as payload
+            "local_name": localName, // this will end up as metadata,
+            "company_id": companyId
         };
 
-        // TODO: what to do with id? for now using the ble hardware address
         this.platformCallback.deliver(this.handlerId,
-            peripheral.address,
+            peripheral.id,
             this.deviceType,
             data);
     }
 }
 
 module.exports = MicrobitHandler;
+

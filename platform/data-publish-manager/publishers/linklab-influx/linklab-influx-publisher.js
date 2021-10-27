@@ -18,6 +18,10 @@ class LinklabInfluxPublisher {
         const formattedData = {};
         formattedData['device'] = sensorData['device_type'];
 
+        // TODO temporary code to ensure microbit data is sent as string to influxdb
+        // we don't have any other sensors with string payloads
+        this.isMicrobitSensor = sensorData['device_type'] === 'microbit';
+
         const metadataFields = {};
 
         // set the directly available metadata fields
@@ -75,13 +79,21 @@ class LinklabInfluxPublisher {
                 output["payload"][key] = value;
                 break;
             case 'string':
-                // check if this can be type converted to a number
-                if(this._isNumeric(value)) {
-                    // then convert it!
-                    output["payload"][key] = parseFloat(value);
+                if(this.isMicrobitSensor) {
+                    if(key === "manufacturer_data") {
+                        output["payload"][key] = value;
+                    } else {
+                        output["metadata"][key] = value;
+                    }
                 } else {
-                    // if not, add it as a metadata field
-                    output["metadata"][key] = value;
+                    // check if this can be type converted to a number
+                    if(this._isNumeric(value)) {
+                        // then convert it!
+                        output["payload"][key] = parseFloat(value);
+                    } else {
+                        // if not, add it as a metadata field
+                        output["metadata"][key] = value;
+                    }
                 }
                 break;
             case 'boolean':

@@ -93,6 +93,10 @@ class SIFCloudPublisher {
 
     onData(data) {
         if(this.token && this.token.length > 0) {
+            if(data['device_type'] === 'microbit') {
+                console.log("skipped microbit data publish to sif");
+                return;
+            }
             const formattedData = this._getCloudFormattedData(data, this.token);
             this.mqttClient.publish(this.mqttTopic, JSON.stringify(formattedData));
         }
