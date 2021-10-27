@@ -41,11 +41,11 @@ class MicrobitHandler {
         let bufferIndex = 0;
 
         // this does not include the length and AD Type bytes. so first two bytes would be company id
-        const companyId = manufacturerData.readUInt16LE(bufferIndex).toString('hex');
+        const companyId = manufacturerData.slice(0, 2).toString('hex');
         bufferIndex+=2;
 
         // convert rest of the payload buffer to string
-        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf-8');
+        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf8');
         const data = {
             "manufacturer_data": payloadBuffer, // will go as payload
             "local_name": localName, // this will end up as metadata,
