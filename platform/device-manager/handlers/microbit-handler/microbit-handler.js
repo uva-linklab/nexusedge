@@ -44,7 +44,7 @@ class MicrobitHandler {
         bufferIndex+=2;
 
         // convert rest of the payload buffer to string
-        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf8');
+        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('hex');
         const data = {
             "manufacturer_data": payloadBuffer, // will go as payload
             "local_name": localName, // this will end up as metadata,
