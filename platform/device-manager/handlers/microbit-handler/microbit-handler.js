@@ -5,7 +5,6 @@ const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 const debug = require('debug')('microbit-handler');
 
-// TODO change to 0xcb51
 const MICROBIT_BEACON_COMPANY_ID = 0xcb51;
 
 class MicrobitHandler {
@@ -33,30 +32,29 @@ class MicrobitHandler {
     }
 
     _handlePeripheral(peripheral) {
-        console.log(`[microbit-handler] discovered a peripheral with address = ${peripheral.id}`);
+        // console.log(`[microbit-handler] discovered a peripheral with address = ${peripheral.id}`);
         // if it has a localName, add it as metadata
-        // TODO uncomment
-        // const localName = peripheral.advertisement.localName;
-        //
-        // const manufacturerData = peripheral.advertisement.manufacturerData;
-        // let bufferIndex = 0;
-        //
-        // // this does not include the length and AD Type bytes. so first two bytes would be company id
-        // const companyId = manufacturerData.slice(0, 2).toString('hex');
-        // bufferIndex+=2;
-        //
-        // // convert rest of the payload buffer to string
-        // const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf8');
-        // const data = {
-        //     "manufacturer_data": payloadBuffer, // will go as payload
-        //     "local_name": localName, // this will end up as metadata,
-        //     "company_id": companyId
-        // };
-        //
-        // this.platformCallback.deliver(this.handlerId,
-        //     peripheral.id,
-        //     this.deviceType,
-        //     data);
+        const localName = peripheral.advertisement.localName;
+
+        const manufacturerData = peripheral.advertisement.manufacturerData;
+        let bufferIndex = 0;
+
+        // this does not include the length and AD Type bytes. so first two bytes would be company id
+        const companyId = manufacturerData.slice(0, 2).toString('hex');
+        bufferIndex+=2;
+
+        // convert rest of the payload buffer to string
+        const payloadBuffer = manufacturerData.slice(bufferIndex).toString('utf8');
+        const data = {
+            "manufacturer_data": payloadBuffer, // will go as payload
+            "local_name": localName, // this will end up as metadata,
+            "company_id": companyId
+        };
+
+        this.platformCallback.deliver(this.handlerId,
+            peripheral.id,
+            this.deviceType,
+            data);
     }
 }
 
