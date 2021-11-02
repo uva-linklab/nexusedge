@@ -1,9 +1,11 @@
 # Reference: https://github.com/lab11/gateway/blob/master/systemd/gateway-internet-reboot.service
 [Unit]
 Description=Reboot gateway if it looses internet connection.
-After=ensure-internet.service
+# TODO wait for the network manager service
+# After=ensure-internet.service
 
 [Service]
+# the gateway internet reboot code tries multiple times and only reboots after 10 mins
 ExecStart=/root/gateway/software/gateway-internet-reboot/gateway-internet-reboot.js
 Restart=always
 StandardOutput=syslog

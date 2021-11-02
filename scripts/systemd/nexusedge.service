@@ -4,7 +4,8 @@ After=ensure-internet.service bluetooth.target
 
 [Service]
 ExecStart=/usr/bin/node /root/on-the-edge/platform/platform-manager.js
-Restart=always
+# we want to debug what the issue is. restarting will make the service encounter the same error.
+Restart=no
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=nexusedge
