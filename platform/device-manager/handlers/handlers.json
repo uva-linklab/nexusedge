@@ -22,5 +22,9 @@
     "enocean-handler": {
         "main": "enocean-handler.js",
         "controller": "enocean-controller"
+    },
+    "ibeacon-handler": {
+        "main": "ibeacon-handler.js",
+        "controller": "ble-controller"
     }
 }
