@@ -46,8 +46,6 @@ class IBeaconHandler {
         const minor = manufacturerData.readUInt16BE(22);
         const measuredPower = manufacturerData.readInt8(24);
 
-        console.log(peripheral.advertisement.localName);
-
         const data = {
             "uuid": uuid,
             "major": major,
