@@ -34,7 +34,7 @@ class SIFCloudPublisher {
 
     _obtainTokenAndScheduleNext() {
         this._getCognitoToken().then(result => {
-            console.log(`[sif-cloud-publisher] obtained access token`);
+            console.log(`[sif-cloud-publisher] obtained id token`);
 
             this.token = result.token;
             const expirationTimeSec = result.expirationTimeSec;
@@ -50,7 +50,7 @@ class SIFCloudPublisher {
             }, scheduledRenewalTimeSec * 1000);
 
         }).catch(error => {
-            console.error(`[sif-cloud-publisher] unable to obtain access token`);
+            console.error(`[sif-cloud-publisher] unable to obtain id token`);
             console.error(error);
             process.exit(1);
         });
@@ -75,12 +75,11 @@ class SIFCloudPublisher {
                 authDetails,
                 {
                     onSuccess: function(result) {
-                        const accessToken = result.getAccessToken().getJwtToken();
-                        const expirationTimeSec = result.getAccessToken().payload.exp;
+                        const idToken = result.getIdToken().getJwtToken();
 
                         resolve({
-                            "token": accessToken,
-                            "expirationTimeSec": expirationTimeSec
+                            "token": idToken, // expires in an hour
+                            "expirationTimeSec": (new Date().getTime() / 1000) + (1 * 60 * 60) // get epoch time for now + 1hr
                         });
                     },
                     onFailure: function(error) {
@@ -107,7 +106,8 @@ class SIFCloudPublisher {
         // construct the data object
         const dataObject = {};
         dataObject["app_name"] = sensorData["device_id"];
-        dataObject["time"] = sensorData["_meta"]["received_time"];
+        // convert iso date string (eg: 2022-02-20T02:09:12.926Z) to ms and then to seconds
+        dataObject["time"] = Date.parse(sensorData["_meta"]["received_time"]) / 1000;
 
         const payloadFields = {};
         const metadataFields = {};
@@ -128,16 +128,12 @@ class SIFCloudPublisher {
 
         const fields = this._getOpenTsdbFriendlyFields("", sensorData['device_data']);
         for(const [key, value] of Object.entries(fields.payload)) {
-            payloadFields[key] = {
-                "displayName": key,
-                "unit": "na",
-                "value": value
-            };
+            payloadFields[key] = value;
         }
         for(const [key, value] of Object.entries(fields.metadata)) {
             metadataFields[key] = value;
         }
-        dataObject["payload_fields"] = payloadFields;
+        dataObject["payload"] = payloadFields;
         dataObject["metadata"] = metadataFields;
 
         return {
