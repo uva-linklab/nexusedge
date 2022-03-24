@@ -26,7 +26,7 @@ do
                     --arg ne_status "$ne_status" \
                     --arg received_time "$timestamp" \
                     --arg device_id "$id"\
-                    '{device: $device, gateway_ip: $gateway_ip, status: $ne_status, _meta: {received_time: $received_time, device_id: $device_id}}' )
+                    '{device: $device, gateway_ip: $gateway_ip, ne_status: $ne_status, _meta: {received_time: $received_time, device_id: $device_id}}' )
 
   # publish data to the linklab influxdb mqtt topic
   mosquitto_pub -t gateway-data -m "$message_json"
