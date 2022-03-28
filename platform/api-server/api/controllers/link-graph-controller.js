@@ -15,7 +15,10 @@ exports.getLinkGraphData = async function(req, res) {
 	const neighborsDict = {};
 
 	// pick up self's id and ip address and enqueue it first
-	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
+	const selfDetails = {
+        id: utils.getGatewayId(),
+        ip: utils.getGatewayIp()
+    };
 	queue.enqueue(selfDetails);
 
 	const reachabilityCache = {};
@@ -49,7 +52,11 @@ exports.getLinkGraphData = async function(req, res) {
 				neighborsOfNode.push(neighborId);
 			}
 		}
-		nodeDict[node.id] = {"ip": node.ip};
+
+		nodeDict[node.id] = {
+            "ip": node.ip,
+            "tags": node.tags,
+        };
 		neighborsDict[node.id] = neighborsOfNode;
 	}
 
@@ -59,6 +66,7 @@ exports.getLinkGraphData = async function(req, res) {
 
 		nodeDict[node]["devices"] = await getDevices(ip);
 		nodeDict[node]["apps"] = await getApps(ip);
+        nodeDict[node]["tags"] = await getTags(ip);
 	}
 
 	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
@@ -96,6 +104,12 @@ async function getApps(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/gateway/apps`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
+}
+
+async function getTags(gatewayIP) {
+    const execUrl = `http://${gatewayIP}:5000/gateway/tags`;
+    const body = await request({method: 'GET', uri: execUrl});
+    return JSON.parse(body);
 }
 
 /**

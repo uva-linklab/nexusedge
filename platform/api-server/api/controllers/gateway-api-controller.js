@@ -40,6 +40,11 @@ exports.getApps = async function(req, res) {
     return res.json(response);
 };
 
+exports.getTags = function(req, res) {
+    const tags = utils.getGatewayTags();
+    return res.json(tags);
+};
+
 /**
  * This call gives the status of the server.
  * It is primarily intended to be used as a means to check reachability.
