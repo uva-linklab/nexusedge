@@ -16,7 +16,6 @@ const apps = {}; // list of running apps indexed by id
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
-fs.emptyDirSync(`${__dirname}/logs`); // clear directory
 
 setTimeout(() => {
     restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
