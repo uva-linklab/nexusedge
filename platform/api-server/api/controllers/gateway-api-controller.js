@@ -101,16 +101,13 @@ exports.getResourceUsage = async function(req, res) {
  * @returns {Promise<void>}
  */
 exports.executeApp = async function(req, res) {
-    const appPath = req["files"]["app"][0]["path"];
-    const metadataPath = req["files"]["metadata"][0]["path"];
-    const runtime = req.body.runtime;
+    const packagePath = req["files"]["app-package"][0]["path"];
+    console.log("Received app package at ${packagePath}")
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
     messagingService.forwardMessage(serviceName, "app-manager", "deploy-app", {
-        "appPath": appPath,
-        "metadataPath": metadataPath,
-        "runtime": runtime
+        "packagePath": packagePath
     });
     res.send();
 };

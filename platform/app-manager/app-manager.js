@@ -1,6 +1,7 @@
 const deploymentUtils = require("./deployment-utils");
 const fs = require("fs-extra");
 const path = require("path");
+const child_process = require('child_process');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
@@ -16,6 +17,10 @@ const apps = {}; // list of running apps indexed by id
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
+
+// Create a persistent temporary directory for executing applications in.
+const APP_DEPLOY_PATH = '/var/tmp/nexus-edge/apps';
+fs.ensureDirSync(APP_DEPLOY_PATH);
 
 setTimeout(() => {
     restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
@@ -103,14 +108,22 @@ function getLogPath(appName) {
  4. start the process for the app
  5. store the app's info in the memory obj and in db
  6. request SSM to setup streams for this app based on its requirements
- * @param tempAppPath
- * @param tempMetadataPath
- * @param runtime
+ * @param packagePath Path to the uploaded application package.
  */
-function deployApplication(tempAppPath, tempMetadataPath, runtime) {
-    const appName = path.basename(tempAppPath);
+function deployApplication(packagePath) {
+    const appName = path.basename(packagePath);
     // generate an id for this app
     const appId = generateAppId(appName);
+
+    // Unpackage the application in its own directory in the deployment directory.
+    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
+    fs.ensureDirSync(runPath);
+
+    console.log(`Extracting ${appName} to '${runPath}'...`);
+    child_process.execFile(
+        '/usr/bin/tar',
+        ['-x', '-f', packagePath],
+        { cwd: runPath });
 
     // shift this app from the current temporary directory to a permanent directory
     const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
@@ -141,7 +154,7 @@ function deployApplication(tempAppPath, tempMetadataPath, runtime) {
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
-    deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
+    deployApplication(appData.packagePath);
 });
 
 messagingService.listenForQuery("get-apps", message => {

@@ -25,7 +25,7 @@ module.exports = function(app) {
     app.get('/gateway/start-time', gatewayAPIController.getStartTime);
     app.get('/gateway/apps', gatewayAPIController.getApps);
     app.get('/gateway/tags', gatewayAPIController.getTags);
-    app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
+    app.post('/gateway/execute-app', uploader.fields([{name: 'app-package'}]),
         gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
