@@ -23,28 +23,58 @@ var StorageInfo = sysinfo.fsSize()
         // Just try to open the expected location.
         // If that fails, then we do not use the mount in question.
         var neFiles = fileSystems.map((fsInfo) => {
-            return fs.promises.readFile(path.normalize(fsInfo.mount + '/.nexus-edge.json'))
+            const metadataPath = path.normalize(fsInfo.mount + '/.nexus-edge.json');
+            return fs.promises.readFile(metadataPath)
                 .then((contents) => {
                     var neMetadata = JSON.parse(contents);
+                    var storageInfo = { mount: fsInfo.mount, device: fsInfo.fs };
                     if (neMetadata.storagePath !== undefined) {
-                        return { mount: fsInfo.mount, path: neMetadata.storagePath };
+                        storageInfo.path = neMetadata.storagePath;
                     } else {
-                        return { mount: fsInfo.mount, path: null };
+                        storageInfo.path = null;
                     }
+
+                    return storageInfo;
                 })
-                .catch((err) => { return { mount: fsInfo.mount, path: null } });
+                .catch((err) => {
+                    return { mount: fsInfo.mount, device: fsInfo.fs, path: null };
+                });
         });
 
+        // Get information for storages NE can use.
         var storageConfiguration = Promise.all(neFiles)
             .then((storages) => {
                 // Filter out those mounts without the .nexus-edge.json file.
-                storages = storages.filter(mountInfo => mountInfo.path != null);
+                // Keep the root file system, though.
+                storages = storages.filter(mountInfo => mountInfo.path != null || mountInfo.mount == '/');
 
-                // Add the root filesystem if necessary.
-                const rootPresent = storages.find(info => info.mount == '/') === undefined;
-                if (!rootPresent) {
-                    storages.push({ mount: '/', path: '/var/tmp/nexus-edge' });
+                // Set the root file system's path in /var/tmp if necessary.
+                var idx = storages.findIndex(s => s.mount == '/');
+                if (storages[idx].path == null) {
+                    storages[idx].path = '/var/tmp/nexus-edge';
                 }
+
+                return storages;
+            });
+
+        // Classify the usable storages based on their block devices' type.
+        storageConfiguration = Promise.all([storageConfiguration, sysinfo.blockDevices()])
+            .then(([storages, blockDevs]) => {
+                // Map by iterating through the block devices and applying their type to matching storages.
+                // This assumes that we can match all storages from the provided block devices.
+                // We match storage to the source block device by doing string matching on the path.
+
+                blockDevs
+                    .filter((blockDev) => blockDev.type == 'disk') // Reduce iterations.
+                    .forEach((blockDev) => {
+                        storages.forEach((storage) => {
+                            if (storage.device.search(blockDev.name) != -1) {
+                                storage.type = classifyStorage(blockDev);
+                            } else {
+                                storage.type = '';
+                            }
+                        });
+                    });
 
                 return storages;
             });
@@ -53,23 +83,38 @@ var StorageInfo = sysinfo.fsSize()
         var createDirs = storageConfiguration.then((storages) => {
             return storages.map(storage => {
                 const neDir = path.normalize(storage.mount + storage.path);
-                console.log(`Ensuring ${neDir} exists...`);
-                return fs.promises.mkdir(neDir);
+                return fs.promises.mkdir(neDir, { recursive: true });
             });
         });
 
         // Return the storage configuration information in the end.
         return Promise.all([storageConfiguration, createDirs])
             .then(([storages, _dirsCreated]) => {
-                console.log('Storage configured.');
-
-                for (var s in storages) {
-                    console.log(`Storage available at ${path.normalize(s.mount + '/' + s.path)}`);
-                }
-
                 return storages;
             });
     });
+
+/** Place a classification on storage based on its info.
+ *
+ * Possible classifications:
+ * - '': nothing special
+ * - 'fast': generally fast storage (i.e., SSD disk, NVMe)
+ *
+ * param info Block device object obtained from systeminformation.blockDevices().
+ * @return string
+ */
+function classifyStorage(info) {
+    if (info.physical == 'SSD') {
+        // SD cards are not fast.
+        if (info.name.search('mmcblk') != -1) {
+            return '';
+        } else {
+            return 'fast';
+        }
+    } else {
+        return '';
+    }
+}
 
 function getStartTime() {
 	return startTime;
@@ -106,12 +151,19 @@ function getResourceUsage() {
 function getResources() {
     return Promise.all([sysinfo.currentLoad(),
                         sysinfo.mem(),
-                        sysinfo.fsSize()])
-        .then(([load, mem, storage]) => {
+                        sysinfo.fsSize(),
+                        StorageInfo])
+        .then(([load, mem, fileSystems, storageInfo]) => {
             return {
                 cpuFreePercent: load.currentLoad,
                 memoryFreeMB: mem.available,
-                storage: storage
+                storage: storageInfo.map((storage) => {
+                    const fileSystem = fileSystems.find((f) => f.fs == storage.device);
+                    return {
+                        tag: storage.type,
+                        free: fileSystem.available
+                    };
+                })
             };
         });
 }
