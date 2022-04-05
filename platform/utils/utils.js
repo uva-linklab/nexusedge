@@ -5,9 +5,71 @@ const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
 const fs = require('fs');
+const path = require('path');
+const sysinfo = require('systeminformation');
 
 // store the time when the gateway platform starts up
 const startTime = Date.now();
+
+// Find configured storage locations.
+// Except for the root file system, each file system to be considered available for use
+// should be marked with a '.nexus-edge.json' file at the top level.
+// This file should contain a JSON object with the 'storagePath' string property providing
+// the path to the directory where applications will be able to store data.
+// This path must be relative to the root of the file system in question.
+var StorageInfo = sysinfo.fsSize()
+    .then((fileSystems) => {
+        // See which file systems have the .nexus-edge.json file.
+        // Just try to open the expected location.
+        // If that fails, then we do not use the mount in question.
+        var neFiles = fileSystems.map((fsInfo) => {
+            return fs.promises.readFile(path.normalize(fsInfo.mount + '/.nexus-edge.json'))
+                .then((contents) => {
+                    var neMetadata = JSON.parse(contents);
+                    if (neMetadata.storagePath !== undefined) {
+                        return { mount: fsInfo.mount, path: neMetadata.storagePath };
+                    } else {
+                        return { mount: fsInfo.mount, path: null };
+                    }
+                })
+                .catch((err) => { return { mount: fsInfo.mount, path: null } });
+        });
+
+        var storageConfiguration = Promise.all(neFiles)
+            .then((storages) => {
+                // Filter out those mounts without the .nexus-edge.json file.
+                storages = storages.filter(mountInfo => mountInfo.path != null);
+
+                // Add the root filesystem if necessary.
+                const rootPresent = storages.find(info => info.mount == '/') === undefined;
+                if (!rootPresent) {
+                    storages.push({ mount: '/', path: '/var/tmp/nexus-edge' });
+                }
+
+                return storages;
+            });
+
+        // Ensure the storage directories exist.
+        var createDirs = storageConfiguration.then((storages) => {
+            return storages.map(storage => {
+                const neDir = path.normalize(storage.mount + storage.path);
+                console.log(`Ensuring ${neDir} exists...`);
+                return fs.promises.mkdir(neDir);
+            });
+        });
+
+        // Return the storage configuration information in the end.
+        return Promise.all([storageConfiguration, createDirs])
+            .then(([storages, _dirsCreated]) => {
+                console.log('Storage configured.');
+
+                for (var s in storages) {
+                    console.log(`Storage available at ${path.normalize(s.mount + '/' + s.path)}`);
+                }
+
+                return storages;
+            });
+    });
 
 function getStartTime() {
 	return startTime;
@@ -36,6 +98,22 @@ function getResourceUsage() {
 			memoryFreeMB: getFreeMemoryMB()
 		};
 	})
+}
+
+/**
+ * Returns a snapshot of the gateways resource usage and capabilities.
+ */
+function getResources() {
+    return Promise.all([sysinfo.currentLoad(),
+                        sysinfo.mem(),
+                        sysinfo.fsSize()])
+        .then(([load, mem, storage]) => {
+            return {
+                cpuFreePercent: load.currentLoad,
+                memoryFreeMB: mem.available,
+                storage: storage
+            };
+        });
 }
 
 function getConfig(key) {
@@ -201,5 +279,6 @@ module.exports = {
 	sendPostRequest: sendPostRequest,
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
-	getResourceUsage: getResourceUsage
+	getResourceUsage: getResourceUsage,
+    getResources: getResources
 };
