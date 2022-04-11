@@ -72,18 +72,28 @@ function getResources() {
     return Promise.all([sysinfo.currentLoad(),
                         sysinfo.mem(),
                         getStorageFilesystem(),
-                        sysinfo.cpu()])
-        .then(([load, mem, storageFs, cpuInfo]) => {
+                        sysinfo.cpu(),
+                        sysinfo.graphics()])
+        .then(([load, mem, storageFs, cpuInfo, gpuInfo]) => {
             // Look for secure enclave support in CPU flags.
             const cpuFlags = cpuInfo.flags.split(' ');
             const secureEnclaveAvailable = ['sgx', 'sev']
                   .reduce((acc, cur) => { return (acc || (cur in cpuFlags)); }, false);
 
+            // Build graphics card information.
+            const gpus = gpuInfo.controllers.map((gpu) => {
+                return {
+                    memoryFreeMB: Math.trunc(gpu.memoryFree / (1024 * 1024)),
+                    utilization: gpu.utilizationGpu
+                };
+            });
+
             return {
                 cpuFreePercent: load.currentLoad,
                 memoryFreeMB: Math.trunc(mem.available / (1024 * 1024)),
                 storageFreeMB: Math.trunc(storageFs.available / (1024 * 1024)),
-                secureEnclave: secureEnclaveAvailable
+                secureEnclave: secureEnclaveAvailable,
+                gpus: gpus
             };
         });
 }
