@@ -11,109 +11,29 @@ const sysinfo = require('systeminformation');
 // store the time when the gateway platform starts up
 const startTime = Date.now();
 
-// Find configured storage locations.
-// Except for the root file system, each file system to be considered available for use
-// should be marked with a '.nexus-edge.json' file at the top level.
-// This file should contain a JSON object with the 'storagePath' string property providing
-// the path to the directory where applications will be able to store data.
-// This path must be relative to the root of the file system in question.
-var StorageInfo = sysinfo.fsSize()
-    .then((fileSystems) => {
-        // See which file systems have the .nexus-edge.json file.
-        // Just try to open the expected location.
-        // If that fails, then we do not use the mount in question.
-        var neFiles = fileSystems.map((fsInfo) => {
-            const metadataPath = path.normalize(fsInfo.mount + '/.nexus-edge.json');
-            return fs.promises.readFile(metadataPath)
-                .then((contents) => {
-                    var neMetadata = JSON.parse(contents);
-                    var storageInfo = { mount: fsInfo.mount, device: fsInfo.fs };
-                    if (neMetadata.storagePath !== undefined) {
-                        storageInfo.path = neMetadata.storagePath;
-                    } else {
-                        storageInfo.path = null;
-                    }
+const StoragePath = '/var/tmp';
 
-                    return storageInfo;
-                })
-                .catch((err) => {
-                    return { mount: fsInfo.mount, device: fsInfo.fs, path: null };
-                });
-        });
+function getStorageFilesystem() {
+    // Find which filesystem has the configured StoragePath under it.
+    return sysinfo.fsSize().then((filesystems) => {
+        // Shortest relative path back to the mount wins.
+        var mountFs = null;
+        var levels = -1;
+        for (var i = 0; i < filesystems.length; i++) {
+            const relativePath = path.relative(StoragePath, filesystems[i].mount);
+            const isParent = relativePath.split(path.sep)
+                  .reduce((acc, cur) => { return (acc && cur == '..'); }, true);
+            const levelsUp = relativePath.split('..').length;
 
-        // Get information for storages NE can use.
-        var storageConfiguration = Promise.all(neFiles)
-            .then((storages) => {
-                // Filter out those mounts without the .nexus-edge.json file.
-                // Keep the root file system, though.
-                storages = storages.filter(mountInfo => mountInfo.path != null || mountInfo.mount == '/');
-
-                // Set the root file system's path in /var/tmp if necessary.
-                var idx = storages.findIndex(s => s.mount == '/');
-                if (storages[idx].path == null) {
-                    storages[idx].path = '/var/tmp/nexus-edge';
-                }
-
-                return storages;
-            });
-
-        // Classify the usable storages based on their block devices' type.
-        storageConfiguration = Promise.all([storageConfiguration, sysinfo.blockDevices()])
-            .then(([storages, blockDevs]) => {
-                // Map by iterating through the block devices and applying their type to matching storages.
-                // This assumes that we can match all storages from the provided block devices.
-                // We match storage to the source block device by doing string matching on the path.
-
-                blockDevs
-                    .filter((blockDev) => blockDev.type == 'disk') // Reduce iterations.
-                    .forEach((blockDev) => {
-                        storages.forEach((storage) => {
-                            if (storage.device.search(blockDev.name) != -1) {
-                                storage.type = classifyStorage(blockDev);
-                            } else {
-                                storage.type = '';
-                            }
-                        });
-                    });
-
-                return storages;
-            });
-
-        // Ensure the storage directories exist.
-        var createDirs = storageConfiguration.then((storages) => {
-            return storages.map(storage => {
-                const neDir = path.normalize(storage.mount + storage.path);
-                return fs.promises.mkdir(neDir, { recursive: true });
-            });
-        });
-
-        // Return the storage configuration information in the end.
-        return Promise.all([storageConfiguration, createDirs])
-            .then(([storages, _dirsCreated]) => {
-                return storages;
-            });
-    });
-
-/** Place a classification on storage based on its info.
- *
- * Possible classifications:
- * - '': nothing special
- * - 'fast': generally fast storage (i.e., SSD disk, NVMe)
- *
- * param info Block device object obtained from systeminformation.blockDevices().
- * @return string
- */
-function classifyStorage(info) {
-    if (info.physical == 'SSD') {
-        // SD cards are not fast.
-        if (info.name.search('mmcblk') != -1) {
-            return '';
-        } else {
-            return 'fast';
+            if (isParent && (relativePath.split(path.sep).length - 1 < levels || mountFs === null)) {
+                mountFs = filesystems[i];
+                levels = levelsUp;
+            }
         }
-    } else {
-        return '';
-    }
+
+        return mountFs;
+    })
+        .catch((e) => { console.log(`Getting FSs failed: ${e}`); });
 }
 
 function getStartTime() {
@@ -151,19 +71,12 @@ function getResourceUsage() {
 function getResources() {
     return Promise.all([sysinfo.currentLoad(),
                         sysinfo.mem(),
-                        sysinfo.fsSize(),
-                        StorageInfo])
-        .then(([load, mem, fileSystems, storageInfo]) => {
+                        getStorageFilesystem()])
+        .then(([load, mem, storageFs]) => {
             return {
                 cpuFreePercent: load.currentLoad,
-                memoryFreeMB: mem.available,
-                storage: storageInfo.map((storage) => {
-                    const fileSystem = fileSystems.find((f) => f.fs == storage.device);
-                    return {
-                        tag: storage.type,
-                        free: fileSystem.available
-                    };
-                })
+                memoryFreeMB: Math.trunc(mem.available / (1024 * 1024)),
+                storageFreeMB: Math.trunc(storageFs.available / (1024 * 1024))
             };
         });
 }

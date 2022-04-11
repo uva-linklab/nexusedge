@@ -24,7 +24,6 @@ module.exports = function(app) {
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
     app.get('/gateway/start-time', gatewayAPIController.getStartTime);
     app.get('/gateway/apps', gatewayAPIController.getApps);
-    app.get('/gateway/tags', gatewayAPIController.getTags);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app-package'}]),
         gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
@@ -33,6 +32,7 @@ module.exports = function(app) {
     app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopLogStreaming);
     app.get('/gateway/details', gatewayAPIController.getGatewayDetails);
     app.get('/gateway/resource-usage', gatewayAPIController.getResourceUsage);
+    app.get('/gateway/resources', gatewayAPIController.getResources);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',

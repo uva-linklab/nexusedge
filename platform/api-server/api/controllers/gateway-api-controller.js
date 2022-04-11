@@ -40,11 +40,6 @@ exports.getApps = async function(req, res) {
     return res.json(response);
 };
 
-exports.getTags = function(req, res) {
-    const tags = utils.getGatewayTags();
-    return res.json(tags);
-};
-
 /**
  * This call gives the status of the server.
  * It is primarily intended to be used as a means to check reachability.
@@ -93,6 +88,14 @@ exports.getResourceUsage = async function(req, res) {
     return res.json(resourceUsage);
 };
 
+exports.getResources = async function(req, res) {
+    return utils.getResources()
+        .then(r => res.json(r))
+        .catch(e => {
+            console.log(`Could not get resource information: ${e}`);
+            return res.status(500);
+        });
+}
 
 /**
  * This endpoint takes the uploaded code and metadata and requests app-manager to execute it.
