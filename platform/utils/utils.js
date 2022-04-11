@@ -71,12 +71,19 @@ function getResourceUsage() {
 function getResources() {
     return Promise.all([sysinfo.currentLoad(),
                         sysinfo.mem(),
-                        getStorageFilesystem()])
-        .then(([load, mem, storageFs]) => {
+                        getStorageFilesystem(),
+                        sysinfo.cpu()])
+        .then(([load, mem, storageFs, cpuInfo]) => {
+            // Look for secure enclave support in CPU flags.
+            const cpuFlags = cpuInfo.flags.split(' ');
+            const secureEnclaveAvailable = ['sgx', 'sev']
+                  .reduce((acc, cur) => { return (acc || (cur in cpuFlags)); }, false);
+
             return {
                 cpuFreePercent: load.currentLoad,
                 memoryFreeMB: Math.trunc(mem.available / (1024 * 1024)),
-                storageFreeMB: Math.trunc(storageFs.available / (1024 * 1024))
+                storageFreeMB: Math.trunc(storageFs.available / (1024 * 1024)),
+                secureEnclave: secureEnclaveAvailable
             };
         });
 }
