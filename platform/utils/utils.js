@@ -151,26 +151,6 @@ function getGatewayId() {
 	}
 }
 
-function getGatewayTags() {
-    try {
-        var tagText = fs.readFileSync('/etc/gateway-tags.json');
-        var arr = JSON.parse(tagText);
-
-        if (!(arr instanceof Array)) {
-            throw new Error('/etc/gateway-tags.json is not a JSON array.');
-        } else {
-            return arr;
-        }
-    } catch (e) {
-        if (e instanceof SyntaxError) {
-            throw new Error('/etc/gateway-tags.json is not valid JSON.');
-        } else {
-            console.log('Could not read /etc/gateway-tags.json');
-            return [];
-        }
-    }
-}
-
 // TODO: move getAdvertisementName() and getGateway() into a separate file that is available on npm for aux devices to use
 /**
  * Returns an encrypted string that has embedded information about the id and ip address of the gateway. The encryption
@@ -253,7 +233,6 @@ module.exports = {
 	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
 	getGatewayId: getGatewayId,
-    getGatewayTags: getGatewayTags,
 	getAdvertisementName: getAdvertisementName,
 	getGatewayDetails: getGatewayDetails,
 	getLinkGraph: getLinkGraph,

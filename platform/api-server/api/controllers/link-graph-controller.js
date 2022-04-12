@@ -55,7 +55,6 @@ exports.getLinkGraphData = async function(req, res) {
 
 		nodeDict[node.id] = {
             "ip": node.ip,
-            "tags": node.tags,
         };
 		neighborsDict[node.id] = neighborsOfNode;
 	}
@@ -66,7 +65,6 @@ exports.getLinkGraphData = async function(req, res) {
 
 		nodeDict[node]["devices"] = await getDevices(ip);
 		nodeDict[node]["apps"] = await getApps(ip);
-        nodeDict[node]["tags"] = await getTags(ip);
 	}
 
 	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
@@ -104,12 +102,6 @@ async function getApps(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/gateway/apps`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
-}
-
-async function getTags(gatewayIP) {
-    const execUrl = `http://${gatewayIP}:5000/gateway/tags`;
-    const body = await request({method: 'GET', uri: execUrl});
-    return JSON.parse(body);
 }
 
 /**

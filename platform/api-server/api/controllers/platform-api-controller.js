@@ -1,5 +1,6 @@
 const request = require('request-promise');
 const utils = require('../../../utils/utils');
+const child_process = require('child_process');
 const MqttController = require('../../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const mqttTopic = 'platform-data';
@@ -99,3 +100,45 @@ exports.updatePrivacyPolicy = async function(req, res) {
     });
     res.send();
 };
+
+exports.deployApplication = async function(req, res) {
+    const deployMetadataPath = req['files']['deployMetadata'][0]['path'];
+    const packagePath = req['files']['appPackage'][0]['path'];
+    console.log(`Received deploy metadata at ${deployMetadataPath}`);
+    console.log(`Received app package at ${packagePath}`);
+
+    // Unpackage the app metadata.
+    try {
+        child_process.execFileSync(
+            '/usr/bin/tar',
+            ['-x', '-f', packagePath, '_metadata.json'],
+            { cwd: '/tmp', timeout: 1000 });
+    } catch (e) {
+        console.log(`Failed to unpackage app metadata: ${e}.`);
+        res.sendStatus(500);
+        return;
+    }
+
+    // Obtain gateway resource information.
+    const graph = await utils.getLinkGraph();
+    const gatewayIPs = getGatewayIPAddressList(graph);
+    const gatewayResources = await Promise.all(gatewayIPs.map((ip) => {
+        const opts = {
+            method: 'GET',
+            uri: `http://${ip}:5000/gateway/resources`,
+            json: true
+        };
+
+        return request(opts)
+            .then((res) => { return { ip: ip, resources: res } });
+    }));
+
+    const gateway = schedule(null, null, gatewayResources);
+    console.log(`Executing application on ${gateway.ip}.`);
+
+    res.sendStatus(204);
+};
+
+function schedule(deployMetadata, runMetadata, gateways) {
+    return gateways[0];
+}
