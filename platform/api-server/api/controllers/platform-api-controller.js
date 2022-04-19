@@ -1,4 +1,6 @@
 const request = require('request-promise');
+const fs = require('fs');
+const path = require('path');
 const utils = require('../../../utils/utils');
 const child_process = require('child_process');
 const MqttController = require('../../../utils/mqtt-controller');
@@ -108,16 +110,20 @@ exports.deployApplication = async function(req, res) {
     console.log(`Received app package at ${packagePath}`);
 
     // Unpackage the app metadata.
+    const extractDir = '/tmp';
     try {
         child_process.execFileSync(
             '/usr/bin/tar',
             ['-x', '-f', packagePath, '_metadata.json'],
-            { cwd: '/tmp', timeout: 1000 });
+            { cwd: extractDir, timeout: 1000 });
     } catch (e) {
         console.log(`Failed to unpackage app metadata: ${e}.`);
         res.sendStatus(500);
         return;
     }
+
+    const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
+    const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
 
     // Obtain gateway resource information.
     const graph = await utils.getLinkGraph();
@@ -133,12 +139,164 @@ exports.deployApplication = async function(req, res) {
             .then((res) => { return { ip: ip, resources: res } });
     }));
 
-    const gateway = schedule(null, null, gatewayResources);
-    console.log(`Executing application on ${gateway.ip}.`);
-
-    res.sendStatus(204);
+    const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
+    if (gateway !== null) {
+        console.log(`Executing application on ${gateway.ip}.`);
+        res.sendStatus(204);
+    } else {
+        // No gateways available for the application.
+        // Send back 503 Service Unavailable.
+        res.sendStatus(503);
+    }
 };
 
 function schedule(deployMetadata, runMetadata, gateways) {
-    return gateways[0];
+    // (1) Remove gateways based on specs, requirements, and connected devices.
+    // Remove overloaded gateways.
+    // Inspect CPU and memory load and removes gateways that are above the threshold.
+    var candidates = gateways.filter((gw) => {
+        return gw.resources.cpuFreePercent < 80
+            && gw.resources.memoryFreeMB > 200;
+    });
+
+    // Include only gateways that fulfill all essential capabilities.
+    candidates = candidates.filter((gw) => {
+        for (var i = 0; i < runMetadata.requires.length; i++) {
+            const r = runMetadata.requires[i];
+            if (evaluate_capability(gw, r) != true) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    // TODO: include only gateways that have the devices required.
+
+    // Make sure we still have gateways to work with after this filtering.
+    if (candidates.length == 0) {
+        return null;
+    }
+
+    // (2) Prioritize gateways with preferred capabilities.
+    // Tier gateways by the number of optional requirements they fulfill
+    // and take the gateways fulfilling the most preferences.
+    // This does mean that each preferential capability is weighted evenly.
+    //
+    // Also the decision made here may run counter to the optimization step.
+    // Example: single gateway with 10 preferential capabilities filled but is loaded
+    // vs. five gateways with 9 preferential capabilities filled but less loaded.
+    var most_fulfilled = 0;
+    candidates = candidates.map((gw) => {
+        var no_fulfilled = 0;
+        runMetadata.prefers.forEach((p) => {
+            if (evaluate_capability(gw, p)) {
+                no_fulfilled += 1;
+            }
+        });
+
+        gw.preferences_fulfilled = no_fulfilled;
+        // Cache the most fulfilled for selecting the most preferential.
+        if (no_fulfilled > most_fulfilled) {
+            most_fulfilled = no_fulfilled;
+        }
+
+        return gw;
+    });
+    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled)
+        .map((gw) => { return { ip: gw.ip, resources: gw.resources }; });
+    // TODO: factor in devices requested and favor those with more devices.
+
+    // (3) Aim to balance loads and for a tight requirements fit.
+    const optimizationSortFns = [
+        (gwa, gwb) => gwa.resources.memoryFreeMB > gwb.resources.memoryFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
+            const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
+            const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
+            return a > b;
+        },
+        (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
+            const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            return a < b;
+        },
+        (gwa, gwb) => gwa.resources.cpuFreePercent < gwa.resources.cpuFreePercent,
+        // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
+        (gwa, gwb) => capability_count(gwa.resources) < capability_count(gwb.resources)
+    ];
+    optimizationSortFns.forEach((sortFn) => { candidates = merge_sort(candidates, sortFn); });
+
+    if (candidates.length > 0) {
+        return candidates[0];
+    } else {
+        return null;
+    }
+}
+
+function evaluate_capability(gw, tag) {
+    if (r == 'gpu') {
+        // At least one GPU must have sufficient memory and idle compute.
+        return gw.gpus.reduce((acc, cur) => {
+            return acc || (cur.memoryFreeMB > 200 && cur.utilization < 80);
+        }, false);
+    } else if (r == 'secure-enclave') {
+        // Just a flag check.
+        return gw.secureEnclave;
+    } else {
+        // Unknown requirement.
+        console.log(`Unknown requirement specified: '${r}'`);
+        return null;
+    }
+}
+
+function capability_count(resources) {
+    var count = 0;
+
+    if (resources.gpus.length > 0) { count += 1; }
+    if (resources.secureEnclave) { count += 1; }
+    if (resources.storageFreeMB > 1024) { count += 1; }
+
+}
+
+/** Sort elements of an array using a stable merge sort.
+ *
+ * Provides a stable sorting method which Array.sort does not guarantee.
+ *
+ * @param a Array to sort.
+ * @param comp Comparison function, (a, b) => bool, that returns true if a occurs before b.
+ *
+ * @returns New, sorted array.
+ */
+function merge_sort(a, comp) {
+    // Base cases.
+    if (a.length == 0) {
+        return [];
+    } else if (a.length == 1) {
+        return a;
+    }
+
+    const l = ms(a.slice(0, (a.length/2)), comp);
+    const r = ms(a.slice((a.length/2), a.length), comp);
+
+    var out = [];
+    var li = 0;
+    var ri = 0;
+
+    while (li < l.length && ri < r.length) {
+        if (comp(l[li], r[ri])) {
+            out.push(l[li]);
+            li += 1;
+        } else {
+            out.push(r[ri]);
+            ri += 1;
+        }
+
+        if (li == l.length) { out.push(r[ri]); }
+        else if (ri == r.length) { out.push(l[li]); }
+    }
+
+    return out;
 }
