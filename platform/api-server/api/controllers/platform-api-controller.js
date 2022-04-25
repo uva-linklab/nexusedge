@@ -99,3 +99,21 @@ exports.updatePrivacyPolicy = async function(req, res) {
     });
     res.send();
 };
+
+exports.executeApp = async function(req, res) {
+    const appPath = req["files"]["app"][0]["path"];
+    const metadataPath = req["files"]["metadata"][0]["path"];
+    const runtime = req.body.runtime;
+
+    // TODO uncomment!
+    // // Forward the application path and metadata.
+    // // The data format is described in the platform-manager.js
+    // messagingService.forwardMessage(serviceName, "app-manager", "schedule-app", {
+    //     "appPath": appPath,
+    //     "metadataPath": metadataPath,
+    //     "runtime": runtime
+    // });
+    console.log("reached execute app route!");
+
+    res.send();
+};

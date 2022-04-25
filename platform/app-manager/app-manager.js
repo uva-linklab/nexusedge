@@ -1,4 +1,5 @@
 const deploymentUtils = require("./deployment-utils");
+const scheduler = require("./scheduler");
 const fs = require("fs-extra");
 const path = require("path");
 const crypto = require('crypto');
@@ -323,3 +324,15 @@ messagingService.listenForQuery('stop-log-streaming', message => {
 messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
+
+// schedule an application
+messagingService.listenForEvent('schedule-app', message => {
+    const appData = message.data;
+    scheduleApplication(appData.appPath, appData.metadataPath, appData.runtime);
+});
+
+
+function scheduleApplication(tempAppPath, tempMetadataPath, runtime) {
+    // scheduling logic goes here
+
+}
