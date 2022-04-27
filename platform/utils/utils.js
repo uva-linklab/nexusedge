@@ -5,6 +5,7 @@ const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
 const fs = require('fs');
+const httpFileTransfer = require("./http-file-transfer");
 
 // store the time when the gateway platform starts up
 const startTime = Date.now();
@@ -169,6 +170,18 @@ function sendPostRequest(url, data) {
 	});
 }
 
+/**
+ * * Calls the execute-app API to run an app on a specified gateway
+ * @param gatewayIP The ip of the gateway where the app needs to run
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @return {*}
+ */
+function executeAppOnGateway(gatewayIP, appFiles) {
+	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/execute-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+	});
+}
+
 module.exports = {
 	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
@@ -180,5 +193,6 @@ module.exports = {
 	sendPostRequest: sendPostRequest,
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
-	getResourceUsage: getResourceUsage
+	getResourceUsage: getResourceUsage,
+	executeAppOnGateway: executeAppOnGateway
 };

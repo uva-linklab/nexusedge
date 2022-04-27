@@ -109,7 +109,7 @@ function getLogPath(appName) {
  * @param tempMetadataPath
  * @param runtime
  */
-function deployApplication(tempAppPath, tempMetadataPath, runtime) {
+function executeApplication(tempAppPath, tempMetadataPath) {
     const appName = path.basename(tempAppPath);
     // generate an id for this app
     const appId = generateAppId(appName);
@@ -141,9 +141,9 @@ function deployApplication(tempAppPath, tempMetadataPath, runtime) {
 }
 
 // listen to events to deploy applications
-messagingService.listenForEvent('deploy-app', message => {
+messagingService.listenForEvent('execute-app', message => {
     const appData = message.data;
-    deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
+    executeApplication(appData.appPath, appData.metadataPath);
 });
 
 messagingService.listenForQuery("get-apps", message => {
@@ -326,13 +326,32 @@ messagingService.listenForEvent('send-to-device', message => {
 });
 
 // schedule an application
-messagingService.listenForEvent('schedule-app', message => {
+messagingService.listenForQuery('schedule-app', message => {
+    const query = message.data.query;
     const appData = message.data;
-    scheduleApplication(appData.appPath, appData.metadataPath, appData.runtime);
+
+    scheduler.schedule(appData.appPath, appData.metadataPath)
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
+        })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
+        })
+        .finally(() => {
+            deleteFile(appData.appPath);
+            deleteFile(appData.metadataPath);
+        });
 });
 
-
-function scheduleApplication(tempAppPath, tempMetadataPath, runtime) {
-    // scheduling logic goes here
-
+function deleteFile(filePath) {
+    try {
+        fs.unlinkSync(filePath);
+    } catch (err) {
+        console.error(err);
+    }
 }
