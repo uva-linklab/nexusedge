@@ -127,8 +127,19 @@ exports.deployApplication = async function(req, res) {
 
     // Obtain gateway resource information.
     const graph = await utils.getLinkGraph();
-    const gatewayIPs = getGatewayIPAddressList(graph);
-    const gatewayResources = await Promise.all(gatewayIPs.map((ip) => {
+    const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
+        const gatewayInfo = graph.data[gatewayId];
+        const ip = gatewayInfo.ip;
+
+        var deviceTypes = new Map();
+        gatewayInfo.devices.forEach((device) => {
+            if (deviceTypes.has(device.type)) {
+                deviceTypes[device.type] += 1;
+            } else {
+                deviceTypes.set(device.type) = 1;
+            }
+        });
+
         const opts = {
             method: 'GET',
             uri: `http://${ip}:5000/gateway/resources`,
@@ -136,7 +147,17 @@ exports.deployApplication = async function(req, res) {
         };
 
         return request(opts)
-            .then((res) => { return { ip: ip, resources: res } });
+            .then((resources) => {
+                const deviceInfo = {
+                    id: gatewayId,
+                    ip: ip,
+                    resources: resources,
+                    deviceIds: gatewayInfo.devices.map(device => device.id),
+                    deviceTypes: deviceTypes
+                };
+
+                return deviceInfo;
+            });
     }));
 
     const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
@@ -205,25 +226,60 @@ function schedule(deployMetadata, runMetadata, gateways) {
     });
     candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled)
         .map((gw) => { return { ip: gw.ip, resources: gw.resources }; });
-    // TODO: factor in devices requested and favor those with more devices.
 
     // (3) Aim to balance loads and for a tight requirements fit.
+    const requestedDeviceIds = new Set(runMetadata.deviceIds);
     const optimizationSortFns = [
-        (gwa, gwb) => gwa.resources.memoryFreeMB > gwb.resources.memoryFreeMB,
+        (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
         (gwa, gwb) => {
             const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
             const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
             const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
-            return a > b;
+            return b - a;
         },
         (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
         (gwa, gwb) => {
             const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
             const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
             const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
-            return a < b;
+            return b - a;
         },
-        (gwa, gwb) => gwa.resources.cpuFreePercent < gwa.resources.cpuFreePercent,
+        (gwa, gwb) => gwb.resources.cpuFreePercent - gwa.resources.cpuFreePercent,
+        // Prefer gateways with more of a type of connected devices requested of the application.
+        (gwa, gwb) => {
+            // Accumulate the counts of all the device types that the application will make use of.
+            const sumDeviceTypes = function (gw) {
+                return Object.keys(gwa.deviceTypes)
+                    .filter((deviceType) => {
+                        return deviceType in deployMetadata.deviceTypes
+                            || deviceType in runMetadata.deviceTypes;
+                    })
+                    .reduce((count, deviceType) => count + gwa.deviceTypes[deviceType]);
+            };
+
+            const gwaSum = sumDeviceTypes(gwa);
+            const gwbSum = sumDeviceTypes(gwb);
+
+            return gwbSum - gwaSum;
+        },
+        // Prefer gateways with the most specifically requested devices connected.
+        (gwa, gwb) => {
+            const sumRequestedDevices = function (gw) {
+                    return gw.deviceIds.reduce(
+                        (acc, id) => {
+                            if (requestedDeviceIds.has(id)) {
+                                return acc + 1;
+                            } else {
+                                return acc;
+                            }
+                        }, 0);
+            };
+
+            const gwaCount = sumRequestedDevices(gwa);
+            const gwbCount = sumRequestedDevices(gwb);
+
+            return gwbCount - gwaCount;
+        },
         // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
         (gwa, gwb) => capability_count(gwa.resources) < capability_count(gwb.resources)
     ];
