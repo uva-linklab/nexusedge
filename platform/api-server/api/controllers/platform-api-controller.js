@@ -227,7 +227,7 @@ function schedule(deployMetadata, runMetadata, gateways) {
         // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
         (gwa, gwb) => capability_count(gwa.resources) < capability_count(gwb.resources)
     ];
-    optimizationSortFns.forEach((sortFn) => { candidates = merge_sort(candidates, sortFn); });
+    optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
 
     if (candidates.length > 0) {
         return candidates[0];
@@ -259,44 +259,4 @@ function capability_count(resources) {
     if (resources.secureEnclave) { count += 1; }
     if (resources.storageFreeMB > 1024) { count += 1; }
 
-}
-
-/** Sort elements of an array using a stable merge sort.
- *
- * Provides a stable sorting method which Array.sort does not guarantee.
- *
- * @param a Array to sort.
- * @param comp Comparison function, (a, b) => bool, that returns true if a occurs before b.
- *
- * @returns New, sorted array.
- */
-function merge_sort(a, comp) {
-    // Base cases.
-    if (a.length == 0) {
-        return [];
-    } else if (a.length == 1) {
-        return a;
-    }
-
-    const l = ms(a.slice(0, (a.length/2)), comp);
-    const r = ms(a.slice((a.length/2), a.length), comp);
-
-    var out = [];
-    var li = 0;
-    var ri = 0;
-
-    while (li < l.length && ri < r.length) {
-        if (comp(l[li], r[ri])) {
-            out.push(l[li]);
-            li += 1;
-        } else {
-            out.push(r[ri]);
-            ri += 1;
-        }
-
-        if (li == l.length) { out.push(r[ri]); }
-        else if (ri == r.length) { out.push(l[li]); }
-    }
-
-    return out;
 }
