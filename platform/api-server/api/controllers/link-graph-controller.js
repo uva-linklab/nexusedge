@@ -11,33 +11,29 @@ const queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	console.time("linkgraph");
 	const visited = new Set();
 	const data = {};
 	const graph = {};
 
 	// pick up self's id and ip address and enqueue it first
-	console.time("time for utils.getGatewayId() & utils.getGatewayIp()");
 	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
-	console.timeEnd("time for utils.getGatewayId() & utils.getGatewayIp()");
 
 	visited.add(selfDetails.id);
 	queue.enqueue(selfDetails);
 
-	console.time("while loop");
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
-		const neighborsOfNode = [];
-
-		console.log(`dequeued ${node.id}`);
 
 		// request for the neighbor data of a node is an API call made to that node's server
-		console.time(`getNeighborData(${node.id})`);
 		// TODO remove if node is unreachable
-		const neighbors = await getPartialLinkGraphData(node.ip);
-		console.timeEnd(`getNeighborData(${node.id})`);
+		const partialLinkGraph = await getPartialLinkGraphData(node.ip);
 
-		for(const neighborNode of neighbors) {
+		data[node.id] = {"ip": node.ip};
+		data[node.id]["devices"] = partialLinkGraph["devices"];
+		data[node.id]["apps"] = partialLinkGraph["apps"];
+		graph[node.id] = partialLinkGraph["neighbors"].map(_ => _.id);
+
+		for(const neighborNode of partialLinkGraph["neighbors"]) {
 			const neighborId = neighborNode.id;
 			const neighborIPAddress = neighborNode.ip;
 
@@ -48,30 +44,9 @@ exports.getLinkGraphData = async function(req, res) {
 				visited.add(neighborId);
 				queue.enqueue(neighborNode);
 			}
-
-			// add this to the neighbor list of current node
-			neighborsOfNode.push(neighborId);
 		}
-		data[node.id] = {"ip": node.ip};
-		graph[node.id] = neighborsOfNode;
 	}
-	console.timeEnd("while loop");
-
-	for(const entry of Object.entries(data)) {
-		const node = entry[0];
-		const ip = entry[1].ip;
-
-		console.time(`getDevices(${ip})`);
-		data[node]["devices"] = await getDevices(ip);
-		console.timeEnd(`getDevices(${ip})`);
-
-		console.time(`getApps(${ip})`);
-		data[node]["apps"] = await getApps(ip);
-		console.timeEnd(`getApps(${ip})`);
-	}
-
 	const linkGraph = {"graph": graph, "data": data};
-	console.timeEnd("linkgraph");
 	return res.json(linkGraph);
 };
 
