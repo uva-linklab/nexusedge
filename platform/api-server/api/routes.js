@@ -41,8 +41,6 @@ module.exports = function(app) {
         gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
-    app.post('/platform/schedule-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
-        platformAPIController.scheduleApp);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
     app.post('/platform/query-all', platformAPIController.queryAll);
     app.post('/platform/update-privacy-policy',
