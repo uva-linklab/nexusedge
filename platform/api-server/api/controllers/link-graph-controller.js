@@ -11,57 +11,67 @@ const queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
-	const nodeDict = {};
-	const neighborsDict = {};
+	console.time("linkgraph");
+	const visited = new Set();
+	const data = {};
+	const graph = {};
 
 	// pick up self's id and ip address and enqueue it first
+	console.time("time for utils.getGatewayId() & utils.getGatewayIp()");
 	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
+	console.timeEnd("time for utils.getGatewayId() & utils.getGatewayIp()");
+
+	visited.add(selfDetails.id);
 	queue.enqueue(selfDetails);
 
-	const reachabilityCache = {};
-	reachabilityCache[selfDetails.id] = true; // set self's reachable to true
-
+	console.time("while loop");
 	while(!queue.isEmpty()) {
 		const node = queue.dequeue();
 		const neighborsOfNode = [];
 
+		console.log(`dequeued ${node.id}`);
+
 		// request for the neighbor data of a node is an API call made to that node's server
-		const neighbors = await getNeighborData(node.ip);
+		console.time(`getNeighborData(${node.id})`);
+		// TODO remove if node is unreachable
+		const neighbors = await getPartialLinkGraphData(node.ip);
+		console.timeEnd(`getNeighborData(${node.id})`);
 
 		for(const neighborNode of neighbors) {
 			const neighborId = neighborNode.id;
 			const neighborIPAddress = neighborNode.ip;
 
-			// if not in cache, check reachability
-			if(!reachabilityCache.hasOwnProperty(neighborId)) {
-				reachabilityCache[neighborId] = await isGatewayReachable(neighborIPAddress);
-
-				// Add this node to the traversal queue, if is not already traversed.
-				// All traversed nodes are added as keys to the neighborsDict. So the key set can be used to check
-				// if traversed or not.
-				if(!(Object.keys(neighborsDict).includes(neighborId))) {
-					queue.enqueue(neighborNode);
-				}
+			// Add this node to the traversal queue, if is not already traversed.
+			// All traversed nodes are added as keys to the graph dictionary. So the key set can be used to check
+			// if traversed or not.
+			if(!visited.has(neighborId)) {
+				visited.add(neighborId);
+				queue.enqueue(neighborNode);
 			}
 
-			// if it is a reachable node, add this to the neighbor list of current node
-			if(reachabilityCache[neighborId]) {
-				neighborsOfNode.push(neighborId);
-			}
+			// add this to the neighbor list of current node
+			neighborsOfNode.push(neighborId);
 		}
-		nodeDict[node.id] = {"ip": node.ip};
-		neighborsDict[node.id] = neighborsOfNode;
+		data[node.id] = {"ip": node.ip};
+		graph[node.id] = neighborsOfNode;
 	}
+	console.timeEnd("while loop");
 
-	for(const entry of Object.entries(nodeDict)) {
+	for(const entry of Object.entries(data)) {
 		const node = entry[0];
 		const ip = entry[1].ip;
 
-		nodeDict[node]["devices"] = await getDevices(ip);
-		nodeDict[node]["apps"] = await getApps(ip);
+		console.time(`getDevices(${ip})`);
+		data[node]["devices"] = await getDevices(ip);
+		console.timeEnd(`getDevices(${ip})`);
+
+		console.time(`getApps(${ip})`);
+		data[node]["apps"] = await getApps(ip);
+		console.timeEnd(`getApps(${ip})`);
 	}
 
-	const linkGraph = {"graph": neighborsDict, "data": nodeDict};
+	const linkGraph = {"graph": graph, "data": data};
+	console.timeEnd("linkgraph");
 	return res.json(linkGraph);
 };
 
@@ -99,12 +109,12 @@ async function getApps(gatewayIP) {
 }
 
 /**
- * Uses the gateway API to query for the neighbors of a given gateway
+ * Uses the gateway API to query partial data for the link graph from a gateway
  * @param gatewayIP IP address of the gateway
  * @returns {Promise<any>} promise of a list of list of gateway_name and gateway_IP
  */
-async function getNeighborData(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/gateway/neighbors`;
+async function getPartialLinkGraphData(gatewayIP) {
+	const execUrl = `http://${gatewayIP}:5000/gateway/link-graph-data`;
 	const body = await request({method: 'GET', uri: execUrl});
 	return JSON.parse(body);
 }

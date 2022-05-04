@@ -24,6 +24,7 @@ module.exports = function(app) {
     app.get('/gateway/status', gatewayAPIController.getServerStatus);
     app.get('/gateway/start-time', gatewayAPIController.getStartTime);
     app.get('/gateway/apps', gatewayAPIController.getApps);
+    app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
@@ -35,15 +36,17 @@ module.exports = function(app) {
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',
-             gatewayAPIController.registerAppSensorRequirement);
+        gatewayAPIController.registerAppSensorRequirement);
     app.get('/gateway/retrieve-privacy-policy',
-             gatewayAPIController.retrievePrivacyPolicy);
+        gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
+    app.post('/platform/schedule-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
+        platformAPIController.scheduleApp);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
     app.post('/platform/query-all', platformAPIController.queryAll);
     app.post('/platform/update-privacy-policy',
-             platformAPIController.updatePrivacyPolicy);
+        platformAPIController.updatePrivacyPolicy);
 };
 
 /**

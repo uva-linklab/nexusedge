@@ -4,6 +4,20 @@ const utils = require('../../../utils/utils');
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
+exports.getLinkGraphData = async function(req, res) {
+    const neighbors =
+        await messagingService.query(serviceName, 'device-manager', 'get-neighbors', {});
+    const devices =
+        await messagingService.query(serviceName, 'device-manager', 'get-devices', {});
+    const apps =
+        await messagingService.query(serviceName, 'app-manager', 'get-apps', {});
+    return res.json({
+        "neighbors": neighbors,
+        "devices": devices,
+        "apps": apps
+    });
+};
+
 /**
  * Return the neighboring gateways.
  * @param req
@@ -98,14 +112,12 @@ exports.getResourceUsage = async function(req, res) {
 exports.executeApp = async function(req, res) {
     const appPath = req["files"]["app"][0]["path"];
     const metadataPath = req["files"]["metadata"][0]["path"];
-    const runtime = req.body.runtime;
 
     // Forward the application path and metadata.
     // The data format is described in the platform-manager.js
-    messagingService.forwardMessage(serviceName, "app-manager", "deploy-app", {
+    messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
         "appPath": appPath,
         "metadataPath": metadataPath,
-        "runtime": runtime
     });
     res.send();
 };
@@ -116,8 +128,8 @@ exports.terminateApp = async function(req, res) {
         // Forward the termination request to app-manager
         const response =
             await messagingService.query(serviceName, "app-manager", "terminate-app", {
-            "id": appId
-        });
+                "id": appId
+            });
         return res.json(response);
     } else {
         res.status(400).send({
