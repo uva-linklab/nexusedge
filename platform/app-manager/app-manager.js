@@ -351,11 +351,6 @@ messagingService.listenForEvent('watch-app', message => {
 });
 
 
-messagingService.listenForEvent('execute-app', message => {
-    const appData = message.data;
-    executeApplication(appData.appId, appData.appPath, appData.metadataPath);
-});
-
 function deleteFile(filePath) {
     try {
         fs.unlinkSync(filePath);
