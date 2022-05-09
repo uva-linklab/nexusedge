@@ -174,12 +174,36 @@ function sendPostRequest(url, data) {
  * * Calls the execute-app API to run an app on a specified gateway
  * @param gatewayIP The ip of the gateway where the app needs to run
  * @param appFiles Object with key-value pairs app and metadata paths
+ * @param appId
  * @return {*}
  */
-function executeAppOnGateway(gatewayIP, appFiles) {
+function executeAppOnGateway(gatewayIP, appFiles, appId) {
 	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/execute-app`;
 	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+		"appId": appId
 	});
+}
+
+/**
+ * * Calls the watch-app API to watch the app on a specified gateway
+ * @param gatewayIP The ip of the gateway where the app needs to run
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @param appId
+ * @param executorGatewayId
+ * @return {*}
+ */
+function watchAppOnGateway(gatewayIP, appFiles, appId, executorGatewayId) {
+	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/watch-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+		"appId": appId,
+		"executorGatewayId": executorGatewayId
+	});
+}
+
+
+async function getGatewayResourceUsage(gatewayIp) {
+	const execUrl = `http://${gatewayIp}:5000/gateway/resource-usage`;
+	return fetch(execUrl, {method: 'GET'}).then(body => body.json());
 }
 
 module.exports = {
@@ -194,5 +218,7 @@ module.exports = {
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
 	getResourceUsage: getResourceUsage,
-	executeAppOnGateway: executeAppOnGateway
+	getGatewayResourceUsage: getGatewayResourceUsage,
+	executeAppOnGateway: executeAppOnGateway,
+	watchAppOnGateway: watchAppOnGateway
 };

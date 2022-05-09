@@ -27,6 +27,8 @@ module.exports = function(app) {
     app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
         gatewayAPIController.executeApp);
+    app.post('/gateway/watch-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
+        gatewayAPIController.watchApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);

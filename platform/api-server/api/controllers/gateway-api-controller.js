@@ -110,16 +110,53 @@ exports.getResourceUsage = async function(req, res) {
  * @returns {Promise<void>}
  */
 exports.executeApp = async function(req, res) {
-    const appPath = req["files"]["app"][0]["path"];
-    const metadataPath = req["files"]["metadata"][0]["path"];
+    const appId = req.body.appId;
+    if(!appId) {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    } else {
+        const appPath = req["files"]["app"][0]["path"];
+        const metadataPath = req["files"]["metadata"][0]["path"];
 
-    // Forward the application path and metadata.
-    // The data format is described in the platform-manager.js
-    messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
-        "appPath": appPath,
-        "metadataPath": metadataPath,
-    });
-    res.send();
+        // Forward the application path and metadata.
+        // The data format is described in the platform-manager.js
+        messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
+            "appId": appId,
+            "appPath": appPath,
+            "metadataPath": metadataPath
+        });
+        res.send();
+    }
+};
+
+/**
+ * This endpoint takes a copy of the  uploaded code and metadata and requests app-manager to watch it.
+ * @param req
+ * @param res
+ * @returns {Promise<void>}
+ */
+exports.watchApp = async function(req, res) {
+    const appId = req.body.appId;
+    const executorGatewayId = req.body.executorGatewayId;
+    if(!appId || !executorGatewayId) {
+        res.status(400).send({
+            message: 'no app id or executor gateway id provided!'
+        });
+    } else {
+        const appPath = req["files"]["app"][0]["path"];
+        const metadataPath = req["files"]["metadata"][0]["path"];
+
+        // Forward the application path and metadata.
+        // The data format is described in the platform-manager.js
+        messagingService.forwardMessage(serviceName, "app-manager", "watch-app", {
+            "appId": appId,
+            "executorGatewayId": executorGatewayId,
+            "appPath": appPath,
+            "metadataPath": metadataPath,
+        });
+        res.send();
+    }
 };
 
 exports.terminateApp = async function(req, res) {

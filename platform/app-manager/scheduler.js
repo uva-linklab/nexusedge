@@ -1,9 +1,11 @@
 const fs = require('fs-extra');
 const utils = require('../utils/utils');
 const path = require('path');
+const crypto = require('crypto');
 
 class Gateway {
-    constructor(ip, memoryFreeMB, cpuFreePercent, numDevicesSupported) {
+    constructor(id, ip, memoryFreeMB, cpuFreePercent, numDevicesSupported) {
+        this.id = id;
         this.ip = ip;
         this.memoryFreeMB = memoryFreeMB;
         this.cpuFreePercent = cpuFreePercent;
@@ -73,9 +75,23 @@ async function getHostGateways(devicesIds, linkGraph) {
     return gatewayToSensorMapping;
 }
 
+/**
+ * This function generates the id of the new application.
+ * The id is also used for application's topic
+ * @param {string} appName
+ * @returns {string}
+ */
+function generateAppId(appName) {
+    // The fastest algorithm is sha1-base64
+    // Reference: https://medium.com/@chris_72272/what-is-the-fastest-node-js-hashing-algorithm-c15c1a0e164e
+    const hash = crypto.createHash('sha1');
+    // Use the timestamp and application's name to create id
+    hash.update(Date.now().toString() + appName);
+    return hash.digest('hex');
+}
 
 /**
- * This function picks the best gateway to run the app and uses the API on that gateway to execute the app.
+ * Picks an executor gateway to run the app and a watcher gateway to watch for failure of the executor gateway to restart the app
  * @param appPath Path to the app
  * @param metadataPath path to metadata
  */
@@ -91,16 +107,18 @@ async function schedule(appPath, metadataPath) {
     // identify best gateway to execute the app based on device requirements and load on gateways
     const linkGraph = await utils.getLinkGraph();
     // for each gateway in the link graph, obtain the resource usage
+    const gatewayIds = Object.keys(linkGraph.data);
     const gatewayIpAddresses = Object.values(linkGraph.data).map(value => value.ip);
 
-    const promises = gatewayIpAddresses.map(ip => utils.getResourceUsage(ip));
+    const promises = gatewayIpAddresses.map(ip => utils.getGatewayResourceUsage(ip));
     const resourceUsages = await Promise.all(promises);
 
     const gatewayToDeviceMapping = await getHostGateways(requiredDevices, linkGraph);
 
     const availableGateways = [];
     gatewayIpAddresses.forEach((gatewayIp, index) => {
-        const gateway = new Gateway(gatewayIp,
+        const gateway = new Gateway(gatewayIds[index],
+            gatewayIp,
             resourceUsages[index]['memoryFreeMB'],
             resourceUsages[index]['cpuFreePercent'],
             gatewayToDeviceMapping.hasOwnProperty(gatewayIp) ?
@@ -117,18 +135,34 @@ async function schedule(appPath, metadataPath) {
         throw new Error('Gateway devices are low on resources. Could not deploy application.');
     } else {
         // find the best gateway by comparing amongst each other
-        const idealGateway = candidateGateways.reduce(compareGateways);
+        const executorGateway = candidateGateways.reduce(compareGateways);
 
-        //deploy the code using the Gateway API on the target gateway
+        //deploy the code using the Gateway API on the executor gateway
+        const appName = path.basename(appPath);
+        const appId = generateAppId(appName); // generate an appId for this app
+
         const appFiles = {
             app: appPath,
             metadata: metadataPath
         };
 
-        console.log(`executing the app on ${idealGateway.ip}`);
-        utils.executeAppOnGateway(idealGateway.ip, appFiles)
+        console.log(`executing the app on ${executorGateway.ip}`);
+        utils.executeAppOnGateway(executorGateway.ip, appFiles, appId)
+            .then(() => {
+                // pick a watcher gateway (randomly picked from the candidate gateways, not the executor gateway)
+                candidateGateways.splice(candidateGateways.indexOf(executorGateway),1); // remove the executor gateway first
+
+                if(candidateGateways.length !== 0) {
+                    const watcherGateway = candidateGateways[Math.floor(Math.random()*candidateGateways.length)];
+                    console.log(`watcher for the app: ${watcherGateway.ip}`);
+                    utils.watchAppOnGateway(watcherGateway.ip, appFiles, appId, executorGateway.id);
+                } else {
+                    // no gateways available to watch this app
+                    console.error(`no gateways available to watch app ${appId}.`);
+                }
+            })
             .catch(error => {
-                throw new Error(`Error trying to execute app on ${idealGateway.ip}. Error = ${error.toString()}`);
+                throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${error.toString()}`);
             });
     }
 }

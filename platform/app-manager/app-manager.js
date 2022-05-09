@@ -1,8 +1,8 @@
 const deploymentUtils = require("./deployment-utils");
 const scheduler = require("./scheduler");
+const watcher = require("./watcher");
 const fs = require("fs-extra");
 const path = require("path");
-const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
@@ -50,23 +50,6 @@ function restartAllApps() {
     });
 }
 
-
-
-/**
- * This function generates the id of the new application.
- * The id is also used for application's topic
- * @param {string} appName
- * @returns {string}
- */
-function generateAppId(appName) {
-    // The fastest algorithm is sha1-base64
-    // Reference: https://medium.com/@chris_72272/what-is-the-fastest-node-js-hashing-algorithm-c15c1a0e164e
-    const hash = crypto.createHash('sha1');
-    // Use the timestamp and application's name to create id
-    hash.update(Date.now().toString() + appName);
-    return hash.digest('hex');
-}
-
 /**
  * Returns the MQTT topic on which the specified app's logs are streaming to
  * @param appId The id of the app
@@ -105,29 +88,37 @@ function getLogPath(appName) {
  4. start the process for the app
  5. store the app's info in the memory obj and in db
  6. request SSM to setup streams for this app based on its requirements
+ * @param appId
  * @param tempAppPath
  * @param tempMetadataPath
- * @param runtime
  */
-function executeApplication(tempAppPath, tempMetadataPath) {
+async function executeApplication(appId, tempAppPath, tempMetadataPath) {
+    let metadata;
+    try {
+        metadata = await fs.readJson(tempMetadataPath);
+    } catch (err) {
+        throw new Error(`error reading json file at metadataPath ${tempMetadataPath}. Error = ${err.toString()}`);
+    }
+
+    console.log(`in execute application - metadata = `);
+    console.log(metadata);
+
     const appName = path.basename(tempAppPath);
-    // generate an id for this app
-    const appId = generateAppId(appName);
 
     // shift this app from the current temporary directory to a permanent directory
     const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
 
     // copy the oracle library to use for the app.
     // TODO: ideally this should be reused by all apps!
-    deploymentUtils.copyOracleLibrary(appDirectoryPath, runtime);
+    deploymentUtils.copyOracleLibrary(appDirectoryPath, metadata.runtime);
 
     const appExecutablePath = path.join(appDirectoryPath, appName);
     const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
     const logPath = getLogPath(appName);
-    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, runtime);
+    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, metadata.runtime);
 
     // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
+    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, metadata.runtime);
 
     // record app info in memory and/or db
     storeAppInfo(app, appProcess, logPath);
@@ -143,7 +134,7 @@ function executeApplication(tempAppPath, tempMetadataPath) {
 // listen to events to deploy applications
 messagingService.listenForEvent('execute-app', message => {
     const appData = message.data;
-    executeApplication(appData.appPath, appData.metadataPath);
+    executeApplication(appData.appId, appData.appPath, appData.metadataPath);
 });
 
 messagingService.listenForQuery("get-apps", message => {
@@ -328,9 +319,9 @@ messagingService.listenForEvent('send-to-device', message => {
 // schedule an application
 messagingService.listenForQuery('schedule-app', message => {
     const query = message.data.query;
-    const appData = message.data;
+    const params = message.data.query.params;
 
-    scheduler.schedule(appData.appPath, appData.metadataPath)
+    scheduler.schedule(params.appPath, params.metadataPath)
         .then(() => {
             messagingService.respondToQuery(query, {
                 'status': true
@@ -343,9 +334,32 @@ messagingService.listenForQuery('schedule-app', message => {
             });
         })
         .finally(() => {
-            deleteFile(appData.appPath);
-            deleteFile(appData.metadataPath);
+            deleteFile(params.appPath);
+            deleteFile(params.metadataPath);
         });
+});
+
+// watch an application: periodically check if an application
+messagingService.listenForQuery('watch-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
+
+    watcher.watch(params.appId, params.executorGatewayId, params.appPath, params.metadataPath)
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
+        })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
+        })
+        .finally(() => {
+            deleteFile(params.appPath);
+            deleteFile(params.metadataPath);
+        })
 });
 
 function deleteFile(filePath) {
