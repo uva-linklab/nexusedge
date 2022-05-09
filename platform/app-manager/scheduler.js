@@ -147,7 +147,7 @@ async function schedule(appPath, metadataPath) {
         };
 
         console.log(`executing the app on ${executorGateway.ip}`);
-        utils.executeAppOnGateway(executorGateway.ip, appFiles, appId)
+        return utils.executeAppOnGateway(executorGateway.ip, appFiles, appId)
             .then(() => {
                 // pick a watcher gateway (randomly picked from the candidate gateways, not the executor gateway)
                 candidateGateways.splice(candidateGateways.indexOf(executorGateway),1); // remove the executor gateway first

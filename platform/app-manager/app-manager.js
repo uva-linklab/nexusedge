@@ -339,27 +339,21 @@ messagingService.listenForQuery('schedule-app', message => {
         });
 });
 
-// watch an application: periodically check if an application
-messagingService.listenForQuery('watch-app', message => {
-    const query = message.data.query;
-    const params = message.data.query.params;
+// "watch" an application: periodically check if the gateway that executes an application fails. if so, restart app
+messagingService.listenForEvent('watch-app', message => {
+    const params = message.data;
 
     watcher.watch(params.appId, params.executorGatewayId, params.appPath, params.metadataPath)
-        .then(() => {
-            messagingService.respondToQuery(query, {
-                'status': true
-            });
-        })
-        .catch(error => {
-            messagingService.respondToQuery(query, {
-                'status': false,
-                'error': error
-            });
-        })
         .finally(() => {
             deleteFile(params.appPath);
             deleteFile(params.metadataPath);
         })
+});
+
+
+messagingService.listenForEvent('execute-app', message => {
+    const appData = message.data;
+    executeApplication(appData.appId, appData.appPath, appData.metadataPath);
 });
 
 function deleteFile(filePath) {
