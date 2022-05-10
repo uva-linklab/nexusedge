@@ -142,7 +142,10 @@
                 const deviceName = `${deviceData.type}\n(${deviceData.id})`;
                 let deviceType = "";
 
-                if (deviceData.type === "estimote") {
+                // TODO: disabling iBeacons in the link graph to avert crash
+                if (deviceData.type === "iBeacon") {
+                    return;
+                } else if (deviceData.type === "estimote") {
                     deviceType = "estimote";
                 } else if (deviceData.controllerId === "enocean-controller") {
                     deviceType = "enocean";

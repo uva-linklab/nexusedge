@@ -1,0 +1,14 @@
+{
+  "name": "microbit-handler",
+  "version": "1.0.0",
+  "description": "Handler for obtaining microbit data for cps1 class.",
+  "main": "microbit-handler.js",
+  "dependencies": {
+    "ble-controller": "^1.3.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC"
+}
