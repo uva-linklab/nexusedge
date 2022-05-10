@@ -15,10 +15,7 @@ exports.getLinkGraphData = async function(req, res) {
 	const neighborsDict = {};
 
 	// pick up self's id and ip address and enqueue it first
-	const selfDetails = {
-        id: utils.getGatewayId(),
-        ip: utils.getGatewayIp()
-    };
+	const selfDetails = {id: utils.getGatewayId(), ip: utils.getGatewayIp()};
 	queue.enqueue(selfDetails);
 
 	const reachabilityCache = {};
@@ -53,9 +50,7 @@ exports.getLinkGraphData = async function(req, res) {
 			}
 		}
 
-		nodeDict[node.id] = {
-            "ip": node.ip,
-        };
+		nodeDict[node.id] = {"ip": node.ip};
 		neighborsDict[node.id] = neighborsOfNode;
 	}
 

@@ -103,6 +103,11 @@ exports.updatePrivacyPolicy = async function(req, res) {
     res.send();
 };
 
+/** Launch an application on a suitable gateway.
+ *
+ * @param req Request information.
+ * @param res Response object.
+ */
 exports.deployApplication = async function(req, res) {
     const deployMetadataPath = req['files']['deployMetadata'][0]['path'];
     const packagePath = req['files']['appPackage'][0]['path'];
@@ -125,12 +130,14 @@ exports.deployApplication = async function(req, res) {
     const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
     const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
 
-    // Obtain gateway resource information.
+    // Obtain gateway resource information to make a scheduling decision.
     const graph = await utils.getLinkGraph();
     const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
         const gatewayInfo = graph.data[gatewayId];
         const ip = gatewayInfo.ip;
 
+        // Get a count of devices by type for each gateway.
+        // This is used for deployment metadata that specifies a particular kind of device.
         var deviceTypes = new Map();
         gatewayInfo.devices.forEach((device) => {
             if (deviceTypes.has(device.type)) {
@@ -160,6 +167,7 @@ exports.deployApplication = async function(req, res) {
             });
     }));
 
+    // Run the scheduling algorithm to determine where to put the application.
     const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
     if (gateway !== null) {
         console.log(`Executing application on ${gateway.ip}.`);
@@ -171,6 +179,14 @@ exports.deployApplication = async function(req, res) {
     }
 };
 
+/** Decide which gateway should run an application.
+ *
+ * Makes a decision to schedule an application on a gateway provided in `gateways`.
+ * If no gateway is suitable for the application, this function returns null.
+ *
+ * @param deployMetadata Deploy-time application information.
+ * @param runMetadata Build-time application information.
+ */
 function schedule(deployMetadata, runMetadata, gateways) {
     // (1) Remove gateways based on specs, requirements, and connected devices.
     // Remove overloaded gateways.
@@ -191,8 +207,6 @@ function schedule(deployMetadata, runMetadata, gateways) {
 
         return true;
     });
-
-    // TODO: include only gateways that have the devices required.
 
     // Make sure we still have gateways to work with after this filtering.
     if (candidates.length == 0) {
