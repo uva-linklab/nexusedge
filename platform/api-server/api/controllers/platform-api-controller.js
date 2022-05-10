@@ -1,5 +1,6 @@
 const request = require('request-promise');
 const fs = require('fs');
+const fsExtra = require('fs-extra');
 const path = require('path');
 const utils = require('../../../utils/utils');
 const child_process = require('child_process');
@@ -170,8 +171,22 @@ exports.deployApplication = async function(req, res) {
     // Run the scheduling algorithm to determine where to put the application.
     const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
     if (gateway !== null) {
-        console.log(`Executing application on ${gateway.ip}.`);
-        res.sendStatus(204);
+        console.log(`Sending application to run on ${gateway.ip}.`);
+
+        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app-v2`;
+        const formData = {
+            'appPackage': fsExtra.createReadStream(packagePath),
+            'deployMetadata': fsExtra.createReadStream(deployMetadataPath)
+        };
+        const opts = {
+            method: 'POST',
+            uri: gatewayUri,
+            formData: formData
+        };
+
+        request(opts)
+            .then(() => { res.sendStatus(204); },
+                  () => { res.sendStatus(500); });
     } else {
         // No gateways available for the application.
         // Send back 503 Service Unavailable.

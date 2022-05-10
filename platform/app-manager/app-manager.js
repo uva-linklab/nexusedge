@@ -1,5 +1,6 @@
 const deploymentUtils = require("./deployment-utils");
 const fs = require("fs-extra");
+const fsPromises = require("fs").promises;
 const path = require("path");
 const child_process = require('child_process');
 const crypto = require('crypto');
@@ -111,19 +112,9 @@ function getLogPath(appName) {
  * @param packagePath Path to the uploaded application package.
  */
 function deployApplication(packagePath) {
-    const appName = path.basename(packagePath);
+    const appName = path.basename(tempAppPath);
     // generate an id for this app
     const appId = generateAppId(appName);
-
-    // Unpackage the application in its own directory in the deployment directory.
-    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
-    fs.ensureDirSync(runPath);
-
-    console.log(`Extracting ${appName} to '${runPath}'...`);
-    child_process.execFile(
-        '/usr/bin/tar',
-        ['-x', '-f', packagePath],
-        { cwd: runPath });
 
     // shift this app from the current temporary directory to a permanent directory
     const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
@@ -139,6 +130,45 @@ function deployApplication(packagePath) {
 
     // execute the app!
     const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
+
+    // record app info in memory and/or db
+    storeAppInfo(app, appProcess, logPath);
+    appsDao.addApp(app).then(() => console.log("added app info to db"));
+
+    // request sensor-stream-manager to provide streams for this app
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+        "topic": appId,
+        "metadataPath": metadataPath
+    });
+}
+
+function deployApplicationV2(appPackagePath, deployMetadataPath) {
+    const appName = path.basename(appPackagePath);
+    // Generate an ID for this app.
+    const appId = generateAppId(appName);
+
+    // Unpackage the application in its own directory in the deployment directory.
+    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
+    fs.ensureDirSync(runPath);
+
+    console.log(`Extracting ${appName} to '${runPath}'...`);
+    child_process.execFile(
+        '/usr/bin/tar',
+        ['-x', '-f', appPackagePath],
+        { cwd: runPath });
+    // Move deployment metadata to run path as well.
+    const residentDeployMetadataPath = `${APP_DEPLOY_PATH/${appId}/_deploy.json`;
+    fsPromises.rename(deployMetadataPath, residentDeployMetadataPath);
+
+    // copy the oracle library to use for the app.
+    // TODO: ideally this should be reused by all apps!
+    deploymentUtils.copyOracleLibrary(runPath, runtime);
+
+    const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
+    const app = new appsDao.App(appId, appName, runPath, residentDeployMetadataPath, runtime);
+
+    // execute the app!
+    const appProcess = deploymentUtils.executeApplication(appId, residentDeployMetadataPath, logPath, runtime);
 
     // record app info in memory and/or db
     storeAppInfo(app, appProcess, logPath);

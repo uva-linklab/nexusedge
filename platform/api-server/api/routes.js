@@ -26,7 +26,10 @@ module.exports = function(app) {
     app.get('/gateway/apps', gatewayAPIController.getApps);
     app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
     app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
-        gatewayAPIController.executeApp);
+             gatewayAPIController.executeApp);
+    app.post('/gateway/execute-app-v2',
+             uploader.fields([{name: 'appPackage'}, {name: 'deployMetadata'}]),
+             gatewayAPIController.executeAppV2);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
