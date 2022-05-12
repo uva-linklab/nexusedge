@@ -172,6 +172,17 @@ function sendPostRequest(url, data) {
 
 /**
  * * Calls the execute-app API to run an app on a specified gateway
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @return {*}
+ */
+function scheduleApp(appFiles) {
+	const httpFileTransferUri = `http://localhost:5000/platform/schedule-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+	});
+}
+
+/**
+ * * Calls the execute-app API to run an app on a specified gateway
  * @param gatewayIP The ip of the gateway where the app needs to run
  * @param appFiles Object with key-value pairs app and metadata paths
  * @param appId
@@ -220,5 +231,6 @@ module.exports = {
 	getResourceUsage: getResourceUsage,
 	getGatewayResourceUsage: getGatewayResourceUsage,
 	executeAppOnGateway: executeAppOnGateway,
-	watchAppOnGateway: watchAppOnGateway
+	watchAppOnGateway: watchAppOnGateway,
+	scheduleApp: scheduleApp
 };
