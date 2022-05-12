@@ -8,6 +8,7 @@ const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const appsDao = require('../dao/dao-helper').appsDao;
+const utils = require("../utils/utils");
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -28,25 +29,40 @@ setTimeout(() => {
  * Resumes all apps that were executing on this gateway
  */
 function restartAllApps() {
-    appsDao.fetchAll().then(apps => {
-        apps.forEach(app => {
-            const logPath = getLogPath(app.name);
+    // restart applications if you're the only gateway present. otherwise trust that resiliency is handled by the watcher gateway.
+    utils.getLinkGraph().then(linkGraph => {
+        // if you're the only gateway available
+        if(Object.keys(linkGraph["data"]).length === 1) {
+            console.log("you're the last gateway standing. restart all apps.");
+            appsDao.fetchAll().then(apps => {
+                apps.forEach(app => {
+                    const logPath = getLogPath(app.name);
 
-            // restart the app
-            const appProcess = deploymentUtils.executeApplication(app.id,
-                app.executablePath,
-                logPath,
-                app.runtime);
+                    // restart the app
+                    const appProcess = deploymentUtils.executeApplication(app.id,
+                        app.executablePath,
+                        logPath,
+                        app.runtime);
 
-            // record app info in memory
-            storeAppInfo(app, appProcess, logPath);
+                    // record app info in memory
+                    storeAppInfo(app, appProcess, logPath);
 
-            // request sensor-stream-manager to provide streams for this app
-            messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-                "topic": app.id,
-                "metadataPath": app.metadataPath
+                    // request sensor-stream-manager to provide streams for this app
+                    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+                        "topic": app.id,
+                        "metadataPath": app.metadataPath
+                    });
+                })
             });
-        })
+        } else {
+            console.log("you're not the last gateway standing. trust the process. remove all apps.");
+            // clear the apps dao
+            appsDao.fetchAll().then(apps => {
+                apps.forEach(app => {
+                    appsDao.removeApp(app);
+                });
+            });
+        }
     });
 }
 
