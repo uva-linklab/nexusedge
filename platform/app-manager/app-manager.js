@@ -142,6 +142,11 @@ function deployApplication(packagePath) {
     });
 }
 
+/** Deploy an application package.
+ *
+ * @param appPackagePath Path to the application package tar.
+ * @param deployMetadataPath Path to the deployment-time metadata.
+ */
 function deployApplicationV2(appPackagePath, deployMetadataPath) {
     const appName = path.basename(appPackagePath);
     // Generate an ID for this app.
@@ -171,9 +176,12 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
     // Prepare the application code for execution depending on its type.
     var executablePath = null;
     if (runtime === 'nodejs') {
-        // TODO
+        executablePath = path.join(runPath, 'app.js');
+
+        // copy the oracle library to use for the app.
+        deploymentUtils.copyOracleLibrary(runPath, runtime);
     } else if (runtime === 'python') {
-        // Unzip the wheel and find the main file.
+        // Unzip the wheel.
         var dir = fs.opendirSync(runPath);
         var entry = dir.readSync();
         while (entry != null) {
@@ -199,13 +207,12 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
         if (executablePath == null) {
             throw new Error('Could not find __main__.py file.');
         }
+
+        // copy the oracle library to use for the app.
+        deploymentUtils.copyOracleLibrary(executablePath, runtime);
     } else {
         throw new Error(`Unsupported runtime: ${runtime}.`);
     }
-
-    // copy the oracle library to use for the app.
-    // TODO: ideally this should be reused by all apps!
-    deploymentUtils.copyOracleLibrary(executablePath, runtime);
 
     const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
     const app = new appsDao.App(appId, appName, executablePath, residentDeployMetadataPath, runtime);
@@ -224,6 +231,10 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
     });
 }
 
+/** Locate the __main__.py file.
+ *
+ * @returns the path to the __main__.py file or null if it does not exist.
+ */
 function findPythonMain(appRoot) {
     var dir = fs.opendirSync(appRoot);
     var entry = dir.readSync();
