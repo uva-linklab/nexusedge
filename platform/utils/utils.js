@@ -76,7 +76,6 @@ function getGatewayId() {
 	try {
 		return fs.readFileSync('/etc/gateway-id', 'utf-8').trim();
 	} catch (e) {
-		console.log("/etc/gateway-id not found or unreadable");
 		const interfaceInConfig = getConfig('network')['interface'];
 		const systemInterfaces = os.networkInterfaces();
 		if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
