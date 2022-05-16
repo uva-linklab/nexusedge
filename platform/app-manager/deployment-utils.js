@@ -86,7 +86,10 @@ function executeApplication(id, executablePath, logPath, runtime) {
 				fs.openSync(logPath, 'a')
 			]
 		});
-	}
+	} else {
+        throw new Error(`Unsupported runtime: '${runtime}'.`);
+    }
+
 	console.log(`[INFO] Launched app successfully!`);
 	console.log(`   time: ${new Date().toISOString()}`);
 	console.log(`   path: ${executablePath}`);
