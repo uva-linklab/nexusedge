@@ -152,23 +152,66 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
     fs.ensureDirSync(runPath);
 
     console.log(`Extracting ${appName} to '${runPath}'...`);
-    child_process.execFile(
+    child_process.execFileSync(
         '/usr/bin/tar',
         ['-x', '-f', appPackagePath],
         { cwd: runPath });
     // Move deployment metadata to run path as well.
-    const residentDeployMetadataPath = `${APP_DEPLOY_PATH/${appId}/_deploy.json`;
-    fsPromises.rename(deployMetadataPath, residentDeployMetadataPath);
+    const residentDeployMetadataPath = `${APP_DEPLOY_PATH}/${appId}/_deploy.json`;
+    fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
+
+    // Fetch the runtime type from the application metadata.
+    const appMetadataPath = path.join(runPath, '_metadata.json');
+    const appMetadata = JSON.parse(fs.readFileSync(appMetadataPath));
+    const runtime = appMetadata['app-type'];
+    if (runtime === undefined) {
+        throw new Error('Application metadata does not specify a runtime.');
+    }
+
+    // Prepare the application code for execution depending on its type.
+    var executablePath = null;
+    if (runtime === 'nodejs') {
+        // TODO
+    } else if (runtime === 'python') {
+        // Unzip the wheel and find the main file.
+        var dir = fs.opendirSync(runPath);
+        var entry = dir.readSync();
+        while (entry != null) {
+            if (path.extname(entry.name) === '.whl') {
+                child_process.execFileSync(
+                    '/usr/bin/unzip',
+                    [path.join(entry.name)],
+                    { cwd: runPath });
+                break;
+            }
+
+            entry = dir.readSync();
+        }
+        dir.closeSync();
+
+        // Didn't find the wheel file.
+        if (entry == null) {
+            throw new Error ('Could not locate .whl file for Python application.');
+        }
+
+        executablePath = findPythonMain(runPath);
+
+        if (executablePath == null) {
+            throw new Error('Could not find __main__.py file.');
+        }
+    } else {
+        throw new Error(`Unsupported runtime: ${runtime}.`);
+    }
 
     // copy the oracle library to use for the app.
     // TODO: ideally this should be reused by all apps!
-    deploymentUtils.copyOracleLibrary(runPath, runtime);
+    deploymentUtils.copyOracleLibrary(executablePath, runtime);
 
     const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
-    const app = new appsDao.App(appId, appName, runPath, residentDeployMetadataPath, runtime);
+    const app = new appsDao.App(appId, appName, executablePath, residentDeployMetadataPath, runtime);
 
     // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, residentDeployMetadataPath, logPath, runtime);
+    const appProcess = deploymentUtils.executeApplication(appId, executablePath, logPath, runtime);
 
     // record app info in memory and/or db
     storeAppInfo(app, appProcess, logPath);
@@ -177,14 +220,49 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
     // request sensor-stream-manager to provide streams for this app
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
         "topic": appId,
-        "metadataPath": metadataPath
+        "metadataPath": residentDeployMetadataPath
     });
+}
+
+function findPythonMain(appRoot) {
+    var dir = fs.opendirSync(appRoot);
+    var entry = dir.readSync();
+
+    while (entry != null) {
+        if (entry.isDirectory()) {
+            const maybeAppDir = fs.opendirSync(path.join(appRoot, entry.name));
+            var maybeAppDirEntry = maybeAppDir.readSync();
+            while (maybeAppDirEntry != null) {
+                if (maybeAppDirEntry.name == '__main__.py') {
+                    dir.closeSync();
+                    maybeAppDir.closeSync();
+                    console.log(`main is in ${maybeAppDir.path}`);
+                    return maybeAppDir.path;
+                } else {
+                    maybeAppDirEntry = maybeAppDir.readSync();
+                }
+            }
+
+        }
+
+        entry = dir.readSync();
+    }
+
+    dir.closeSync();
+    maybeAppDir.closeSync();
+
+    return null;
 }
 
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
     deployApplication(appData.packagePath);
+});
+
+messagingService.listenForEvent('execute-app-v2', message => {
+    const appData = message.data;
+    deployApplicationV2(appData.packagePath, appData.deployMetadataPath);
 });
 
 messagingService.listenForQuery("get-apps", message => {
