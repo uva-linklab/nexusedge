@@ -59,7 +59,9 @@ function restartAllApps() {
             // clear the apps dao
             appsDao.fetchAll().then(apps => {
                 apps.forEach(app => {
-                    appsDao.removeApp(app.id);
+                    appsDao.removeApp(app.id)
+                        .then(() => console.log(`app ${app.name} (${app.id}) removed from db`))
+                        .catch(() => console.log(`error removing app ${app.id} from db`));
                 });
             });
         }
