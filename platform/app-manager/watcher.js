@@ -38,8 +38,7 @@ async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
             console.log(`watcher periodic checking.`);
             utils.getLinkGraph().then(linkGraph => {
                 // check for each app we're watching
-                watchingApps.forEach((watchingApp, index) => {
-                    let shouldStopWatchingApp = false;
+                watchingApps.forEach( watchingApp => {
                     // if gateway fails, then reschedule the app
                     if(! (watchingApp.executorGatewayId in linkGraph["data"])) {
                         const appFiles = {
@@ -48,41 +47,45 @@ async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
                         };
 
                         console.log(`executor gateway ${executorGatewayId} failed. requested to reschedule app ${watchingApp.id}`);
-                        utils.scheduleApp(appFiles);
-
-                        // app has been rescheduled. don't need to watch this app anymore.
-                        shouldStopWatchingApp = true;
-
+                        utils.scheduleApp(appFiles).then(() => {
+                            // app has been rescheduled. don't need to watch this app anymore. stop watching after reschedule
+                            _stopWatchingApp(watchingApp.id);
+                        });
                     } else if(linkGraph["data"][watchingApp.executorGatewayId]["apps"].findIndex(app => app.id === watchingApp.id ) === -1) {
                         // apps => [{id:xx, name:yyy}, {},..]
                         // if the app we're watching is no longer present on the executor, then stop watching
                         console.log(`app: ${watchingApp.id} has finished/failed.`);
 
                         // app has finished/failed. stop watching this app.
-                        shouldStopWatchingApp = true;
-                    }
-
-                    if(shouldStopWatchingApp) {
-                        // delete the app's script and metadata
-                        deploymentUtils.deleteApp(path.dirname(watchingApp.appPath)).then(() => {
-                            console.log(`deleted files for ${watchingApp.id}`);
-
-                            watchingApps.splice(index,1);
-                            console.log(`stopped watching the app ${appId}`);
-                            console.log("watchingApps:");
-                            console.log(watchingApps);
-
-                            // if there are no more apps to watch, then clear the timer
-                            if(watchingApps.length === 0) {
-                                clearInterval(watchTimer);
-                                watchTimer = null;
-                                console.log(`no more apps to watch. clear the watch timer.`);
-                            }
-                        });
+                        _stopWatchingApp(watchingApp.id);
                     }
                 });
             })
         }, 60 * 1000);
+    }
+}
+
+function _stopWatchingApp(appId) {
+    const appIndex = watchingApps.findIndex(watchingApp => watchingApp.id === appId);
+    const app = watchingApps[appIndex];
+
+    if(app) {
+        // delete the app's script and metadata
+        deploymentUtils.deleteApp(path.dirname(app.appPath)).then(() => {
+            console.log(`deleted files for ${app.id}`);
+
+            watchingApps.splice(appIndex,1);
+            console.log(`stopped watching the app ${app.id}`);
+            console.log("watchingApps:");
+            console.log(watchingApps);
+
+            // if there are no more apps to watch, then clear the timer
+            if(watchingApps.length === 0) {
+                clearInterval(watchTimer);
+                watchTimer = null;
+                console.log(`no more apps to watch. clear the watch timer.`);
+            }
+        });
     }
 }
 
