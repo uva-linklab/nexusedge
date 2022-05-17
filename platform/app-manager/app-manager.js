@@ -152,6 +152,9 @@ async function executeApplication(appId, tempAppPath, tempMetadataPath) {
 // listen to events to deploy applications
 messagingService.listenForEvent('execute-app', message => {
     const appData = message.data;
+
+    console.log(`received request to execute app. appPath = ${appData.appPath}`);
+
     executeApplication(appData.appId, appData.appPath, appData.metadataPath);
 });
 
@@ -339,6 +342,8 @@ messagingService.listenForQuery('schedule-app', message => {
     const query = message.data.query;
     const params = message.data.query.params;
 
+    console.log(`received request to schedule app. appPath = ${params.appPath}`);
+
     scheduler.schedule(params.appPath, params.metadataPath)
         .then(() => {
             messagingService.respondToQuery(query, {
@@ -360,6 +365,8 @@ messagingService.listenForQuery('schedule-app', message => {
 // "watch" an application: periodically check if the gateway that executes an application fails. if so, restart app
 messagingService.listenForEvent('watch-app', message => {
     const params = message.data;
+
+    console.log(`received request to watch app. appPath = ${params.appPath}`);
 
     watcher.watch(params.appId, params.executorGatewayId, params.appPath, params.metadataPath)
         .finally(() => {

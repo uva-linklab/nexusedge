@@ -24,10 +24,11 @@ async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
     const storageDirPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
     const appPath = path.join(storageDirPath, path.basename(tempAppPath));
     const metadataPath = path.join(storageDirPath, path.basename(tempMetadataPath));
-    console.log(`stored the app ${appId} at ${storageDirPath}`);
 
     // create a new App object and store append it to the list of apps we're watching
     const app = new App(appId, executorGatewayId, appPath, metadataPath);
+    console.log(`stored the app of ${appId} at ${app.appPath}`);
+    console.log(`stored the metadata of ${appId} at ${app.metadataPath}`);
     watchingApps.push(app);
     console.log(`watching over app: ${appId} running on executor gateway ${executorGatewayId}`);
 
@@ -47,7 +48,11 @@ async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
                         };
 
                         console.log(`executor gateway ${executorGatewayId} failed. requested to reschedule app ${watchingApp.id}`);
+                        console.log(`app file for ${watchingApp.id}: ${watchingApp.appPath}`);
+                        console.log(`metadata file for ${watchingApp.id}: ${watchingApp.metadataPath}`);
                         utils.scheduleApp(appFiles).then(() => {
+                            console.log(`app reschedule done`);
+
                             // app has been rescheduled. don't need to watch this app anymore. stop watching after reschedule
                             _stopWatchingApp(watchingApp.id);
                         });
@@ -86,6 +91,8 @@ function _stopWatchingApp(appId) {
                 console.log(`no more apps to watch. clear the watch timer.`);
             }
         });
+    } else {
+        console.log(`couldn't find details for app ${appId} to stop watching`);
     }
 }
 
