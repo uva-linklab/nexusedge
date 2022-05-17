@@ -46,7 +46,7 @@ async function watch(appId, executorGatewayId, appPath, metadataPath) {
                         // app has been rescheduled. don't need to watch this app anymore.
                         shouldStopWatchingApp = true;
 
-                    } else if(appsOnExecutor.findIndex(app => app.id === watchingApp.id ) !== -1) {
+                    } else if(appsOnExecutor.findIndex(app => app.id === watchingApp.id ) === -1) {
                         // if the app we're watching is no longer present on the executor, then stop watching
                         console.log(`app: ${appId} has finished/failed.`);
 
