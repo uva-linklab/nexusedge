@@ -59,7 +59,7 @@ function restartAllApps() {
             // clear the apps dao
             appsDao.fetchAll().then(apps => {
                 apps.forEach(app => {
-                    appsDao.removeApp(app);
+                    appsDao.removeApp(app.id);
                 });
             });
         }
