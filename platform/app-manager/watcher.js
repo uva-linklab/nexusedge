@@ -1,4 +1,6 @@
 const utils = require("../utils/utils");
+const deploymentUtils = require("./deployment-utils");
+const path = require("path");
 /**
  * "Watches" over the app. If the gateway on which the app is executing fails, reschedule the app.
  * @param appId id of the app to watch
@@ -17,7 +19,13 @@ class App {
 let watchTimer = null;
 let watchingApps = [];
 
-async function watch(appId, executorGatewayId, appPath, metadataPath) {
+async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
+    // store the app in a more permanent location
+    const storageDirPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
+    const appPath = path.join(storageDirPath, path.basename(tempAppPath));
+    const metadataPath = path.join(storageDirPath, path.basename(tempMetadataPath));
+    console.log(`stored the app ${appId} at ${storageDirPath}`);
+
     // create a new App object and store append it to the list of apps we're watching
     const app = new App(appId, executorGatewayId, appPath, metadataPath);
     watchingApps.push(app);
@@ -39,7 +47,7 @@ async function watch(appId, executorGatewayId, appPath, metadataPath) {
                             metadata: watchingApp.metadataPath
                         };
 
-                        console.log(`executor gateway ${executorGatewayId} failed. requested to reschedule app ${appId}`);
+                        console.log(`executor gateway ${executorGatewayId} failed. requested to reschedule app ${watchingApp.id}`);
                         utils.scheduleApp(appFiles);
 
                         // app has been rescheduled. don't need to watch this app anymore.
@@ -48,23 +56,29 @@ async function watch(appId, executorGatewayId, appPath, metadataPath) {
                     } else if(linkGraph["data"][watchingApp.executorGatewayId]["apps"].findIndex(app => app.id === watchingApp.id ) === -1) {
                         // apps => [{id:xx, name:yyy}, {},..]
                         // if the app we're watching is no longer present on the executor, then stop watching
-                        console.log(`app: ${appId} has finished/failed.`);
+                        console.log(`app: ${watchingApp.id} has finished/failed.`);
 
                         // app has finished/failed. stop watching this app.
                         shouldStopWatchingApp = true;
                     }
 
                     if(shouldStopWatchingApp) {
-                        watchingApps.splice(index,1);
-                        console.log(`stopped watching the app ${appId}`);
-                        console.log("watchingApps:");
-                        console.log(watchingApps);
+                        // delete the app's script and metadata
+                        deploymentUtils.deleteApp(path.dirname(watchingApp.appPath)).then(() => {
+                            console.log(`deleted files for ${watchingApp.id}`);
 
-                        // if there are no more apps to watch, then clear the timer
-                        if(watchingApps.length === 0) {
-                            clearInterval(watchTimer);
-                            watchTimer = null;
-                        }
+                            watchingApps.splice(index,1);
+                            console.log(`stopped watching the app ${appId}`);
+                            console.log("watchingApps:");
+                            console.log(watchingApps);
+
+                            // if there are no more apps to watch, then clear the timer
+                            if(watchingApps.length === 0) {
+                                clearInterval(watchTimer);
+                                watchTimer = null;
+                                console.log(`no more apps to watch. clear the watch timer.`);
+                            }
+                        });
                     }
                 });
             })

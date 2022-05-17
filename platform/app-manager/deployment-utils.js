@@ -32,6 +32,25 @@ function storeApp(tempAppPath, tempMetadataPath) {
 	return targetDirectoryPath;
 }
 
+/**
+ * This function takes the directory path of an application and deletes the entire directory
+ * @param appDirectoryPath the path of the directory where the app and metadata was stored
+ */
+async function deleteApp(appDirectoryPath) {
+	const exists = await fs.pathExists(appDirectoryPath);
+	if(exists) {
+		try {
+			await fs.remove(appDirectoryPath);
+			console.log(`removed ${appDirectoryPath} successfully.`);
+		} catch (err) {
+			console.log(`error while removing ${appDirectoryPath}.`);
+			console.error(err);
+		}
+	} else {
+		console.log(`couldn't remove ${appDirectoryPath}. directory doesn't exist.`);
+	}
+}
+
 function copyOracleLibrary(targetPath, runtime) {
 	if(!fs.existsSync(targetPath)) {
 		return false;
@@ -102,6 +121,7 @@ function cleanupExecutablesDir() {
 
 module.exports = {
 	storeApp: storeApp,
+	deleteApp: deleteApp,
 	copyOracleLibrary: copyOracleLibrary,
 	executeApplication: executeApplication,
 	cleanupExecutablesDir: cleanupExecutablesDir
