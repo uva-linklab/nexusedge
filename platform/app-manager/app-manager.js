@@ -109,9 +109,11 @@ function getLogPath(appName) {
  4. start the process for the app
  5. store the app's info in the memory obj and in db
  6. request SSM to setup streams for this app based on its requirements
- * @param packagePath Path to the uploaded application package.
+ * @param tempAppPath
+ * @param tempMetadataPath
+ * @param runtime
  */
-function deployApplication(packagePath) {
+function deployApplication(packagePath, tempMetadataPath, runtime) {
     const appName = path.basename(tempAppPath);
     // generate an id for this app
     const appId = generateAppId(appName);
@@ -268,7 +270,7 @@ function findPythonMain(appRoot) {
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
-    deployApplication(appData.packagePath);
+    deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
 });
 
 messagingService.listenForEvent('execute-app-v2', message => {
