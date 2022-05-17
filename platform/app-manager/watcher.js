@@ -33,7 +33,7 @@ async function watch(appId, executorGatewayId, appPath, metadataPath) {
                 watchingApps.forEach((app, index) => {
                     let shouldStopWatchingApp = false;
                     // if gateway fails, then reschedule the app
-                    if(! app.executorGatewayId in linkGraph["data"]) {
+                    if(! (app.executorGatewayId in linkGraph["data"])) {
                         const appFiles = {
                             app: app.appPath,
                             metadata: app.metadataPath
@@ -45,7 +45,7 @@ async function watch(appId, executorGatewayId, appPath, metadataPath) {
                         // app has been rescheduled. don't need to watch this app anymore.
                         shouldStopWatchingApp = true;
 
-                    } else if(! app.id in linkGraph["data"][app.executorGatewayId]["apps"]) {
+                    } else if(! (app.id in linkGraph["data"][app.executorGatewayId]["apps"])) {
                         console.log(`app: ${appId} has finished/failed.`);
 
                         // app has finished/failed. stop watching this app.
