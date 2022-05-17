@@ -1,5 +1,6 @@
 const multer  = require('multer');
 const fs = require('fs');
+const path = require('path');
 /*
 This file specifies the controller methods that handle API endpoints
 Controllers are to be placed in api/controllers/
@@ -58,7 +59,7 @@ module.exports = function(app) {
  */
 function getMultipartFormDataUploader() {
     //store the uploaded files to deployed-apps directory. Create this directory if not already present.
-    const deployedAppsPath = `${__dirname}/../deployed-apps/`;
+    const deployedAppsPath = path.join(__dirname, '..', 'deployed-apps');
     if (!fs.existsSync(deployedAppsPath)){
         fs.mkdirSync(deployedAppsPath);
     }
@@ -66,7 +67,11 @@ function getMultipartFormDataUploader() {
     const multerStorage = multer.diskStorage({
         //set the storage destination
         destination: function (req, file, cb) {
-            cb(null, deployedAppsPath);
+            const tempDirPath = path.join(__dirname, '..', 'deployed-apps', Date.now().toString());
+            if (!fs.existsSync(tempDirPath)){
+                fs.mkdirSync(tempDirPath);
+            }
+            cb(null, tempDirPath);
         },
         //use the original filename as the multer filename
         filename: function (req, file, cb) {
