@@ -3,6 +3,7 @@ const utils = require('../../../utils/utils');
 const MqttController = require('../../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const mqttTopic = 'platform-data';
+const path = require('path');
 const MessagingService = require('../../../messaging-service');
 
 const serviceName = process.env.SERVICE_NAME;
@@ -110,5 +111,8 @@ exports.scheduleApp = async function(req, res) {
             "appPath": appPath,
             "metadataPath": metadataPath
         });
+
+    // remove the temporary directory we created for the app
+    utils.deleteFile(path.dirname(appPath));
     return res.json(response);
 };

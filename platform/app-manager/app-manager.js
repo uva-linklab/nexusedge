@@ -115,7 +115,7 @@ async function executeApplication(appId, tempAppPath, tempMetadataPath) {
     try {
         metadata = await fs.readJson(tempMetadataPath);
     } catch (err) {
-        throw new Error(`error reading json file at metadataPath ${tempMetadataPath}. Error = ${err.toString()}`);
+        throw new Error(`while executing app ${appId}, error reading json file at metadataPath ${tempMetadataPath}. Error = ${err.toString()}`);
     }
 
     console.log(`in execute application - metadata = `);
@@ -148,15 +148,6 @@ async function executeApplication(appId, tempAppPath, tempMetadataPath) {
         "metadataPath": metadataPath
     });
 }
-
-// listen to events to deploy applications
-messagingService.listenForEvent('execute-app', message => {
-    const appData = message.data;
-
-    console.log(`received request to execute app. appPath = ${appData.appPath}`);
-
-    executeApplication(appData.appId, appData.appPath, appData.metadataPath);
-});
 
 messagingService.listenForQuery("get-apps", message => {
     const query = message.data.query;
@@ -337,7 +328,7 @@ messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
 
-// schedule an application
+// listen to schedule an application
 messagingService.listenForQuery('schedule-app', message => {
     const query = message.data.query;
     const params = message.data.query.params;
@@ -355,31 +346,45 @@ messagingService.listenForQuery('schedule-app', message => {
                 'status': false,
                 'error': error
             });
+        });
+});
+
+// listen to queries to execute applications on gateway
+messagingService.listenForQuery('execute-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
+
+    console.log(`received request to execute app. appPath = ${params.appPath}`);
+    executeApplication(params.appId, params.appPath, params.metadataPath)
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
         })
-        .finally(() => {
-            deleteFile(params.appPath);
-            deleteFile(params.metadataPath);
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
         });
 });
 
 // "watch" an application: periodically check if the gateway that executes an application fails. if so, restart app
-messagingService.listenForEvent('watch-app', message => {
-    const params = message.data;
+messagingService.listenForQuery('watch-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
 
     console.log(`received request to watch app. appPath = ${params.appPath}`);
-
     watcher.watch(params.appId, params.executorGatewayId, params.appPath, params.metadataPath)
-        .finally(() => {
-            deleteFile(params.appPath);
-            deleteFile(params.metadataPath);
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
         })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
+        });
 });
-
-
-function deleteFile(filePath) {
-    try {
-        fs.unlinkSync(filePath);
-    } catch (err) {
-        console.error(err);
-    }
-}

@@ -121,12 +121,15 @@ exports.executeApp = async function(req, res) {
 
         // Forward the application path and metadata.
         // The data format is described in the platform-manager.js
-        messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
+        const response = await messagingService.query(serviceName, "app-manager", "execute-app", {
             "appId": appId,
             "appPath": appPath,
             "metadataPath": metadataPath
         });
-        res.send();
+
+        // remove the temporary directory we created for the app
+        utils.deleteFile(path.dirname(appPath));
+        res.send(response);
     }
 };
 
@@ -149,13 +152,16 @@ exports.watchApp = async function(req, res) {
 
         // Forward the application path and metadata.
         // The data format is described in the platform-manager.js
-        messagingService.forwardMessage(serviceName, "app-manager", "watch-app", {
+        const response = await messagingService.query(serviceName, "app-manager", "watch-app", {
             "appId": appId,
             "executorGatewayId": executorGatewayId,
             "appPath": appPath,
             "metadataPath": metadataPath,
         });
-        res.send();
+
+        // remove the temporary directory we created for the app
+        utils.deleteFile(path.dirname(appPath));
+        res.send(response);
     }
 };
 

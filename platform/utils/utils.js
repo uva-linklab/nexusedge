@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
-const fs = require('fs');
+const fs = require('fs-extra');
 const httpFileTransfer = require("./http-file-transfer");
 
 // store the time when the gateway platform starts up
@@ -216,6 +216,14 @@ async function getGatewayResourceUsage(gatewayIp) {
 	return fetch(execUrl, {method: 'GET'}).then(body => body.json());
 }
 
+/**
+ * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
+ * @param filePath
+ */
+function deleteFile(filePath) {
+	return fs.remove(filePath);
+}
+
 module.exports = {
 	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
@@ -231,5 +239,6 @@ module.exports = {
 	getGatewayResourceUsage: getGatewayResourceUsage,
 	executeAppOnGateway: executeAppOnGateway,
 	watchAppOnGateway: watchAppOnGateway,
-	scheduleApp: scheduleApp
+	scheduleApp: scheduleApp,
+	deleteFile: deleteFile
 };
