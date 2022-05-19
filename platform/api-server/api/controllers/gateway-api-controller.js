@@ -1,5 +1,6 @@
 const MessagingService = require('../../../messaging-service');
 const utils = require('../../../utils/utils');
+const path = require('path');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
