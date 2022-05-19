@@ -67,6 +67,8 @@ function getMultipartFormDataUploader() {
     const multerStorage = multer.diskStorage({
         //set the storage destination
         destination: function (req, file, cb) {
+            // to ensure we don't overwrite files with the same name, create a timestamp based directory for each file
+            // ps: this actually creates 1 directory per file, not 1 directory per http request
             const tempDirPath = path.join(__dirname, '..', 'deployed-apps', Date.now().toString());
             if (!fs.existsSync(tempDirPath)){
                 fs.mkdirSync(tempDirPath);
