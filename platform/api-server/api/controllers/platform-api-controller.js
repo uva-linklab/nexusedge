@@ -113,6 +113,6 @@ exports.scheduleApp = async function(req, res) {
         });
 
     // remove the temporary directory we created for the app
-    utils.deleteFile(path.dirname(appPath));
+    utils.deleteFile(path.dirname(appPath)).then(() => console.log(`deleted directory ${path.dirname(appPath)}`));
     return res.json(response);
 };
