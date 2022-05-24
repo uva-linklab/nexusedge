@@ -148,7 +148,7 @@ exports.deployApplication = async function(req, res) {
             if (deviceTypes.has(device.type)) {
                 deviceTypes[device.type] += 1;
             } else {
-                deviceTypes.set(device.type) = 1;
+                deviceTypes.set(device.type, 1);
             }
         });
 
@@ -257,11 +257,10 @@ function schedule(deployMetadata, runMetadata, gateways) {
 
         return gw;
     });
-    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled)
-        .map((gw) => { return { ip: gw.ip, resources: gw.resources }; });
+    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled);
 
     // (3) Aim to balance loads and for a tight requirements fit.
-    const requestedDeviceIds = new Set(runMetadata.deviceIds);
+    const requestedDeviceIds = new Set(runMetadata.devices.ids);
     const optimizationSortFns = [
         (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
         (gwa, gwb) => {
@@ -282,12 +281,12 @@ function schedule(deployMetadata, runMetadata, gateways) {
         (gwa, gwb) => {
             // Accumulate the counts of all the device types that the application will make use of.
             const sumDeviceTypes = function (gw) {
-                return Object.keys(gwa.deviceTypes)
+                return Object.keys(gw.deviceTypes)
                     .filter((deviceType) => {
-                        return deviceType in deployMetadata.deviceTypes
-                            || deviceType in runMetadata.deviceTypes;
+                        return deviceType in deployMetadata.devices.types
+                            || deviceType in runMetadata.devices;
                     })
-                    .reduce((count, deviceType) => count + gwa.deviceTypes[deviceType]);
+                    .reduce((count, deviceType) => count + gw.deviceTypes[deviceType], 0);
             };
 
             const gwaSum = sumDeviceTypes(gwa);
