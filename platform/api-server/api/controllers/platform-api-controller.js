@@ -20,10 +20,6 @@ exports.queryAll = async function (req, res) {
     return platformAPICallHelper(req, res, sendQueryAllRequest);
 };
 
-// Find the tar utility.
-// Assuming it exists, it is either in /bin/tar or /usr/bin/tar.
-const tarPath = fs.existsSync('/bin/tar') ? '/bin/tar' : '/usr/bin/tar';
-
 /**
  * This method performs the disseminate-all or query-all platform API functions depending on the platformAPIFunction
  * parameter. This is a helper function to reduce code rewrite for the similar looking disseminate-all and query-all
@@ -123,7 +119,7 @@ exports.deployApplication = async function(req, res) {
     const extractDir = '/tmp';
     try {
         child_process.execFileSync(
-            tarPath,
+            utils.tarPath,
             ['-x', '-f', packagePath, '_metadata.json'],
             { cwd: extractDir, timeout: 1000 });
     } catch (e) {

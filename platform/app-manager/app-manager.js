@@ -9,6 +9,7 @@ const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const appsDao = require('../dao/dao-helper').appsDao;
+const utils = require('../utils/utils');
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -160,7 +161,7 @@ function deployApplicationV2(appPackagePath, deployMetadataPath) {
 
     console.log(`Extracting ${appName} to '${runPath}'...`);
     child_process.execFileSync(
-        '/usr/bin/tar',
+        utils.tarPath,
         ['-x', '-f', appPackagePath],
         { cwd: runPath });
     // Move deployment metadata to run path as well.

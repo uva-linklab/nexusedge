@@ -13,6 +13,10 @@ const startTime = Date.now();
 
 const StoragePath = '/var/tmp';
 
+// Find the tar utility.
+// Assuming it exists, it is either in /bin/tar or /usr/bin/tar.
+const tarPath = fs.existsSync('/bin/tar') ? '/bin/tar' : '/usr/bin/tar';
+
 function getStorageFilesystem() {
     // Find which filesystem has the configured StoragePath under it.
     return sysinfo.fsSize().then((filesystems) => {
@@ -230,6 +234,8 @@ function sendPostRequest(url, data) {
 }
 
 module.exports = {
+    tarPath: tarPath,
+
 	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
 	getGatewayId: getGatewayId,
