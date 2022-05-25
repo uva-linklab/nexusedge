@@ -106,7 +106,7 @@ function executeApplication(id, executablePath, logPath, runtime) {
 			]
 		});
 	}
-	console.log(`[INFO] Launched app successfully!`);
+	console.log(`${Date.now()} [INFO] Launched app successfully!`);
 	console.log(`   time: ${new Date().toISOString()}`);
 	console.log(`   path: ${executablePath}`);
 	console.log(`    id: ${id}`);

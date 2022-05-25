@@ -43,12 +43,12 @@ async function watch(appId, executorGatewayId, tempAppPath, tempMetadataPath) {
                     watchingApps.forEach( watchingApp => {
                         // if gateway fails, then reschedule the app
                         if(! (watchingApp.executorGatewayId in linkGraph["data"])) {
+                            console.log(`${Date.now()} executor gateway ${executorGatewayId} failed. requested to reschedule app ${watchingApp.id}`);
                             const appFiles = {
                                 app: watchingApp.appPath,
                                 metadata: watchingApp.metadataPath
                             };
 
-                            console.log(`executor gateway ${executorGatewayId} failed. requested to reschedule app ${watchingApp.id}`);
                             console.log(`app file for ${watchingApp.id}: ${watchingApp.appPath}`);
                             console.log(`metadata file for ${watchingApp.id}: ${watchingApp.metadataPath}`);
                             utils.scheduleApp(appFiles).then(() => {

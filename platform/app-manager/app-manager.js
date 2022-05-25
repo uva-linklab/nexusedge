@@ -118,9 +118,6 @@ async function executeApplication(appId, tempAppPath, tempMetadataPath) {
         throw new Error(`while executing app ${appId}, error reading json file at metadataPath ${tempMetadataPath}. Error = ${err.toString()}`);
     }
 
-    console.log(`in execute application - metadata = `);
-    console.log(metadata);
-
     const appName = path.basename(tempAppPath);
 
     // shift this app from the current temporary directory to a permanent directory
