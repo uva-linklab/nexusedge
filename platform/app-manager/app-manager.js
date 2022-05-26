@@ -333,9 +333,10 @@ messagingService.listenForQuery('schedule-app', message => {
     console.log(`received request to schedule app. appPath = ${params.appPath}`);
 
     scheduler.schedule(params.appPath, params.metadataPath)
-        .then(() => {
+        .then( scheduleInfo => {
             messagingService.respondToQuery(query, {
-                'status': true
+                'status': true,
+                'scheduleInfo': scheduleInfo
             });
         })
         .catch(error => {

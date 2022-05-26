@@ -136,6 +136,7 @@ async function schedule(appPath, metadataPath) {
     } else {
         // find the best gateway by comparing amongst each other
         const executorGateway = candidateGateways.reduce(compareGateways);
+        let watcherGateway;
 
         //deploy the code using the Gateway API on the executor gateway
         const appName = path.basename(appPath);
@@ -146,24 +147,33 @@ async function schedule(appPath, metadataPath) {
             metadata: metadataPath
         };
 
-        console.log(`executing the app on ${executorGateway.ip}`);
-        return utils.executeAppOnGateway(executorGateway.ip, appFiles, appId)
-            .then(() => {
-                // pick a watcher gateway (randomly picked from the candidate gateways, not the executor gateway)
-                candidateGateways.splice(candidateGateways.indexOf(executorGateway),1); // remove the executor gateway first
+        try {
+            console.log(`executing the app on ${executorGateway.ip}`);
+            await utils.executeAppOnGateway(executorGateway.ip, appFiles, appId);
+        } catch(err) {
+            throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${error.toString()}`);
+        }
 
-                if(candidateGateways.length !== 0) {
-                    const watcherGateway = candidateGateways[Math.floor(Math.random()*candidateGateways.length)];
-                    console.log(`watcher for the app: ${watcherGateway.ip}`);
-                    utils.watchAppOnGateway(watcherGateway.ip, appFiles, appId, executorGateway.id);
-                } else {
-                    // no gateways available to watch this app
-                    console.error(`no gateways available to watch app ${appId}.`);
-                }
-            })
-            .catch(error => {
-                throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${error.toString()}`);
-            });
+        // pick a watcher gateway (randomly picked from the candidate gateways, not the executor gateway)
+        candidateGateways.splice(candidateGateways.indexOf(executorGateway),1); // remove the executor gateway first
+
+        if(candidateGateways.length !== 0) {
+            watcherGateway = candidateGateways[Math.floor(Math.random()*candidateGateways.length)];
+            console.log(`watcher for the app: ${watcherGateway.ip}`);
+            try {
+                await utils.watchAppOnGateway(watcherGateway.ip, appFiles, appId, executorGateway.id);
+            } catch(err) {
+                throw new Error(`Error trying to watch app ${appId} on ${watcherGateway.ip}. Error = ${error.toString()}`);
+            }
+        } else {
+            // no gateways available to watch this app
+            console.error(`no gateways available to watch app ${appId}.`);
+        }
+        // return the executor and watcher gateway ip addresses
+        return {
+            "executor": executorGateway.ip,
+            "watcher": watcherGateway ? watcherGateway.ip : ""
+        };
     }
 }
 
