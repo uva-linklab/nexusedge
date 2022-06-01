@@ -1,0 +1,24 @@
+# database
+platform/dao/data/**/*
+
+# log files
+platform/logs/**
+
+# ipc sockets
+platform/socket/**
+
+# deployments
+platform/api-server/deployed-apps/**
+platform/app-manager/executables/**
+platform/device-manager/handlers/lab11-ble-handler/cached_parsers.json
+platform/device-manager/handlers/lab11-ble-handler/cached_urls.json
+
+# TODO update this later
+# configuration files
+#platform/utils/config.json
+#platform/data-publish-manager/publishers/sif-cloud/sif-cloud.json
+
+# npm package related
+**/package-lock.json
+**/node_modules
+

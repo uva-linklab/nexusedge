@@ -40,3 +40,8 @@ For e.g.:
   }
 }
 ```
+
+## Running the Middleware as a Docker Container
+```
+docker run --net=host -d nabeeln7/on-the-edge:latest
+```
