@@ -121,12 +121,18 @@ exports.executeApp = async function(req, res) {
     const deployMetadataPath = req["files"]["deployMetadata"][0]["path"];
 
     console.log(`Got app to run at '${packagePath}' (metadata at '${deployMetadataPath}'.`);
-    messagingService.forwardMessage(serviceName, "app-manager", "execute-app-v2", {
+    const executeResult = await messagingService.query(serviceName, "app-manager", "execute-app", {
         "packagePath": packagePath,
         "deployMetadataPath": deployMetadataPath,
     });
 
-    res.sendStatus(204);
+    if (executeResult.status === true) {
+        res.sendStatus(204);
+    } else if (executeResult.message.length !== 0) {
+        res.status(400).send(executeResult.message);
+    } else {
+        res.sendStatus(500);
+    }
 }
 
 exports.terminateApp = async function(req, res) {

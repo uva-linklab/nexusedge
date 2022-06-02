@@ -108,174 +108,23 @@ exports.updatePrivacyPolicy = async function(req, res) {
  * @param req Request information.
  * @param res Response object.
  */
-exports.deployApplication = async function(req, res) {
+exports.scheduleApplication = async function(req, res) {
     const deployMetadataPath = req['files']['deployMetadata'][0]['path'];
     const packagePath = req['files']['appPackage'][0]['path'];
     console.log(`Received deploy metadata at ${deployMetadataPath}`);
     console.log(`Received app package at ${packagePath}`);
 
     const executeResult = await messagingService.query(
-        serviceName, 'app-manager', 'execute-app', {
-            'packagePath': packagePath,
-            'deployMetadataPath': deployMetadataPath
+        serviceName, 'app-manager', 'schedule-app', {
+            packagePath: packagePath,
+            deployMetadataPath: deployMetadataPath
         });
 
     if (executeResult.status === true) {
-        res.status(204);
+        res.sendStatus(204);
     } else if (executeResult.message.length !== 0) {
         res.status(400).send(executeResult.message);
     } else {
-        res.status(500);
+        res.sendStatus(500);
     }
 };
-
-/** Decide which gateway should run an application.
- *
- * Makes a decision to schedule an application on a gateway provided in `gateways`.
- * If no gateway is suitable for the application, this function returns null.
- *
- * @param deployMetadata Deploy-time application information.
- * @param runMetadata Build-time application information.
- */
-function schedule(deployMetadata, runMetadata, gateways) {
-    // (1) Remove gateways based on specs, requirements, and connected devices.
-    // Remove overloaded gateways.
-    // Inspect CPU and memory load and removes gateways that are above the threshold.
-    var candidates = gateways.filter((gw) => {
-        return gw.resources.cpuFreePercent < 80
-            && gw.resources.memoryFreeMB > 200;
-    });
-
-    // Include only gateways that fulfill all essential capabilities.
-    candidates = candidates.filter((gw) => {
-        for (var i = 0; i < runMetadata.requires.length; i++) {
-            const r = runMetadata.requires[i];
-            if (evaluate_capability(gw, r) != true) {
-                return false;
-            }
-        }
-
-        return true;
-    });
-
-    // Make sure we still have gateways to work with after this filtering.
-    if (candidates.length == 0) {
-        return null;
-    }
-
-    // (2) Prioritize gateways with preferred capabilities.
-    // Tier gateways by the number of optional requirements they fulfill
-    // and take the gateways fulfilling the most preferences.
-    // This does mean that each preferential capability is weighted evenly.
-    //
-    // Also the decision made here may run counter to the optimization step.
-    // Example: single gateway with 10 preferential capabilities filled but is loaded
-    // vs. five gateways with 9 preferential capabilities filled but less loaded.
-    var most_fulfilled = 0;
-    candidates = candidates.map((gw) => {
-        var no_fulfilled = 0;
-        runMetadata.prefers.forEach((p) => {
-            if (evaluate_capability(gw, p)) {
-                no_fulfilled += 1;
-            }
-        });
-
-        gw.preferences_fulfilled = no_fulfilled;
-        // Cache the most fulfilled for selecting the most preferential.
-        if (no_fulfilled > most_fulfilled) {
-            most_fulfilled = no_fulfilled;
-        }
-
-        return gw;
-    });
-    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled);
-
-    // (3) Aim to balance loads and for a tight requirements fit.
-    const requestedDeviceIds = new Set(runMetadata.devices.ids);
-    const optimizationSortFns = [
-        (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
-        (gwa, gwb) => {
-            const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
-            const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
-            const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
-            return b - a;
-        },
-        (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
-        (gwa, gwb) => {
-            const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
-            const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
-            const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
-            return b - a;
-        },
-        (gwa, gwb) => gwb.resources.cpuFreePercent - gwa.resources.cpuFreePercent,
-        // Prefer gateways with more of a type of connected devices requested of the application.
-        (gwa, gwb) => {
-            // Accumulate the counts of all the device types that the application will make use of.
-            const sumDeviceTypes = function (gw) {
-                return Object.keys(gw.deviceTypes)
-                    .filter((deviceType) => {
-                        return deviceType in deployMetadata.devices.types
-                            || deviceType in runMetadata.devices;
-                    })
-                    .reduce((count, deviceType) => count + gw.deviceTypes[deviceType], 0);
-            };
-
-            const gwaSum = sumDeviceTypes(gwa);
-            const gwbSum = sumDeviceTypes(gwb);
-
-            return gwbSum - gwaSum;
-        },
-        // Prefer gateways with the most specifically requested devices connected.
-        (gwa, gwb) => {
-            const sumRequestedDevices = function (gw) {
-                    return gw.deviceIds.reduce(
-                        (acc, id) => {
-                            if (requestedDeviceIds.has(id)) {
-                                return acc + 1;
-                            } else {
-                                return acc;
-                            }
-                        }, 0);
-            };
-
-            const gwaCount = sumRequestedDevices(gwa);
-            const gwbCount = sumRequestedDevices(gwb);
-
-            return gwbCount - gwaCount;
-        },
-        // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
-        (gwa, gwb) => capability_count(gwa.resources) < capability_count(gwb.resources)
-    ];
-    optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
-
-    if (candidates.length > 0) {
-        return candidates[0];
-    } else {
-        return null;
-    }
-}
-
-function evaluate_capability(gw, tag) {
-    if (r == 'gpu') {
-        // At least one GPU must have sufficient memory and idle compute.
-        return gw.gpus.reduce((acc, cur) => {
-            return acc || (cur.memoryFreeMB > 200 && cur.utilization < 80);
-        }, false);
-    } else if (r == 'secure-enclave') {
-        // Just a flag check.
-        return gw.secureEnclave;
-    } else {
-        // Unknown requirement.
-        console.log(`Unknown requirement specified: '${r}'`);
-        return null;
-    }
-}
-
-function capability_count(resources) {
-    var count = 0;
-
-    if (resources.gpus.length > 0) { count += 1; }
-    if (resources.secureEnclave) { count += 1; }
-    if (resources.storageFreeMB > 1024) { count += 1; }
-
-}

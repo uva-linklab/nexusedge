@@ -3,6 +3,7 @@ const fs = require("fs-extra");
 const fsPromises = require("fs").promises;
 const path = require("path");
 const child_process = require('child_process');
+const request = require('request-promise');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
@@ -55,8 +56,6 @@ function restartAllApps() {
     });
 }
 
-
-
 /**
  * This function generates the id of the new application.
  * The id is also used for application's topic
@@ -102,138 +101,6 @@ function getLogPath(appName) {
     return path.join(__dirname, 'logs', `${appName}.out`);
 }
 
-/**
- * This function deploys a given application.
- 1. generate a new app id from app name
- 2. copy the app and metadata to a new permanent directory
- 3. copy oracle library into this new directory (this should be a sin!)
- 4. start the process for the app
- 5. store the app's info in the memory obj and in db
- 6. request SSM to setup streams for this app based on its requirements
- * @param tempAppPath
- * @param tempMetadataPath
- * @param runtime
- */
-function deployApplication(packagePath, tempMetadataPath, runtime) {
-    const appName = path.basename(tempAppPath);
-    // generate an id for this app
-    const appId = generateAppId(appName);
-
-    // shift this app from the current temporary directory to a permanent directory
-    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
-
-    // copy the oracle library to use for the app.
-    // TODO: ideally this should be reused by all apps!
-    deploymentUtils.copyOracleLibrary(appDirectoryPath, runtime);
-
-    const appExecutablePath = path.join(appDirectoryPath, appName);
-    const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
-    const logPath = getLogPath(appName);
-    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, runtime);
-
-    // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
-
-    // record app info in memory and/or db
-    storeAppInfo(app, appProcess, logPath);
-    appsDao.addApp(app).then(() => console.log("added app info to db"));
-
-    // request sensor-stream-manager to provide streams for this app
-    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-        "topic": appId,
-        "metadataPath": metadataPath
-    });
-}
-
-/** Deploy an application package.
- *
- * @param appPackagePath Path to the application package tar.
- * @param deployMetadataPath Path to the deployment-time metadata.
- */
-function deployApplicationV2(appPackagePath, deployMetadataPath) {
-    const appName = path.basename(appPackagePath);
-    // Generate an ID for this app.
-    const appId = generateAppId(appName);
-
-    // Unpackage the application in its own directory in the deployment directory.
-    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
-    fs.ensureDirSync(runPath);
-
-    console.log(`Extracting ${appName} to '${runPath}'...`);
-    child_process.execFileSync(
-        utils.tarPath,
-        ['-x', '-f', appPackagePath],
-        { cwd: runPath });
-    // Move deployment metadata to run path as well.
-    const residentDeployMetadataPath = `${APP_DEPLOY_PATH}/${appId}/_deploy.json`;
-    fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
-
-    // Fetch the runtime type from the application metadata.
-    const appMetadataPath = path.join(runPath, '_metadata.json');
-    const appMetadata = JSON.parse(fs.readFileSync(appMetadataPath));
-    const runtime = appMetadata['app-type'];
-    if (runtime === undefined) {
-        throw new Error('Application metadata does not specify a runtime.');
-    }
-
-    // Prepare the application code for execution depending on its type.
-    var executablePath = null;
-    if (runtime === 'nodejs') {
-        executablePath = path.join(runPath, 'app.js');
-
-        // copy the oracle library to use for the app.
-        deploymentUtils.copyOracleLibrary(runPath, runtime);
-    } else if (runtime === 'python') {
-        // Unzip the wheel.
-        var dir = fs.opendirSync(runPath);
-        var entry = dir.readSync();
-        while (entry != null) {
-            if (path.extname(entry.name) === '.whl') {
-                child_process.execFileSync(
-                    '/usr/bin/unzip',
-                    [path.join(entry.name)],
-                    { cwd: runPath });
-                break;
-            }
-
-            entry = dir.readSync();
-        }
-        dir.closeSync();
-
-        // Didn't find the wheel file.
-        if (entry == null) {
-            throw new Error ('Could not locate .whl file for Python application.');
-        }
-
-        executablePath = findPythonMain(runPath);
-
-        if (executablePath == null) {
-            throw new Error('Could not find __main__.py file.');
-        }
-
-        // copy the oracle library to use for the app.
-        deploymentUtils.copyOracleLibrary(executablePath, runtime);
-    } else {
-        throw new Error(`Unsupported runtime: ${runtime}.`);
-    }
-
-    const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
-    const app = new appsDao.App(appId, appName, executablePath, residentDeployMetadataPath, runtime);
-
-    // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, executablePath, logPath, runtime);
-
-    // record app info in memory and/or db
-    storeAppInfo(app, appProcess, logPath);
-    appsDao.addApp(app).then(() => console.log("added app info to db"));
-
-    // request sensor-stream-manager to provide streams for this app
-    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-        "topic": appId,
-        "metadataPath": residentDeployMetadataPath
-    });
-}
-
 /** Locate the __main__.py file.
  *
  * @returns the path to the __main__.py file or null if it does not exist.
@@ -274,12 +141,119 @@ messagingService.listenForEvent('deploy-app', message => {
     deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
 });
 
-messagingService.listenForEvent('execute-app-v2', message => {
-    const appData = message.data;
-    deployApplicationV2(appData.packagePath, appData.deployMetadataPath);
+
+// Start running an application from an application package.
+messagingService.listenForQuery('execute-app', message => {
+    const query = message.data.query;
+    const appPackagePath = query.params.packagePath;
+    const deployMetadataPath = query.params.deployMetadataPath;
+
+    const appName = path.basename(appPackagePath);
+    // Generate an ID for this app.
+    const appId = generateAppId(appName);
+
+    // Unpackage the application in its own directory in the deployment directory.
+    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
+    fs.ensureDirSync(runPath);
+
+    console.log(`Extracting ${appName} to '${runPath}'...`);
+    child_process.execFileSync(
+        utils.tarPath,
+        ['-x', '-f', appPackagePath],
+        { cwd: runPath });
+    // Move deployment metadata to run path as well.
+    const residentDeployMetadataPath = `${APP_DEPLOY_PATH}/${appId}/_deploy.json`;
+    fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
+
+    // Fetch the runtime type from the application metadata.
+    const appMetadataPath = path.join(runPath, '_metadata.json');
+    const appMetadata = JSON.parse(fs.readFileSync(appMetadataPath));
+    const runtime = appMetadata['app-type'];
+    if (runtime === undefined) {
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: 'Application metadata does not specify a runtime.'
+        });
+        return;
+    }
+
+    // Prepare the application code for execution depending on its type.
+    var executablePath = null;
+    if (runtime === 'nodejs') {
+        executablePath = path.join(runPath, 'app.js');
+
+        // copy the oracle library to use for the app.
+        deploymentUtils.copyOracleLibrary(runPath, runtime);
+    } else if (runtime === 'python') {
+        // Unzip the wheel.
+        var dir = fs.opendirSync(runPath);
+        var entry = dir.readSync();
+        while (entry != null) {
+            if (path.extname(entry.name) === '.whl') {
+                child_process.execFileSync(
+                    '/usr/bin/unzip',
+                    [path.join(entry.name)],
+                    { cwd: runPath });
+                break;
+            }
+
+            entry = dir.readSync();
+        }
+        dir.closeSync();
+
+        // Didn't find the wheel file.
+        if (entry == null) {
+            messagingService.respondToQuery(query, {
+                status: false,
+                message: 'Could not locate .whl file for Python application.'
+            });
+            return;
+        }
+
+        executablePath = findPythonMain(runPath);
+
+        if (executablePath == null) {
+            messagingService.respondToQuery(query, {
+                status: false,
+                message: 'Could not find __main__.py file.'
+            });
+            return;
+        }
+
+        // copy the oracle library to use for the app.
+        deploymentUtils.copyOracleLibrary(executablePath, runtime);
+    } else {
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: 'Application metadata does not specify a runtime.'
+        });
+        return;
+    }
+
+    const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
+    const app = new appsDao.App(appId, appName, executablePath, residentDeployMetadataPath, runtime);
+
+    // execute the app!
+    const appProcess = deploymentUtils.executeApplication(appId, executablePath, logPath, runtime);
+
+    // record app info in memory and/or db
+    storeAppInfo(app, appProcess, logPath);
+    appsDao.addApp(app).then(() => console.log("added app info to db"));
+
+    // request sensor-stream-manager to provide streams for this app
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+        "topic": appId,
+        "metadataPath": residentDeployMetadataPath
+    });
+
+    messagingService.respondToQuery(query, {
+        status: true,
+        message: ''
+    });
 });
 
-messagingService.listenForQuery('execute-app', query => {
+messagingService.listenForQuery('schedule-app', async (message) => {
+    const query = message.data.query;
     const packagePath = query.params.packagePath;
     const deployMetadataPath = query.params.deployMetadataPath;
 
@@ -345,10 +319,10 @@ messagingService.listenForQuery('execute-app', query => {
     if (gateway !== null) {
         console.log(`Sending application to run on ${gateway.ip}.`);
 
-        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app-v2`;
+        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app`;
         const formData = {
-            'appPackage': fsExtra.createReadStream(packagePath),
-            'deployMetadata': fsExtra.createReadStream(deployMetadataPath)
+            'appPackage': fs.createReadStream(packagePath),
+            'deployMetadata': fs.createReadStream(deployMetadataPath)
         };
         const opts = {
             method: 'POST',
@@ -360,13 +334,15 @@ messagingService.listenForQuery('execute-app', query => {
             .then(
                 () => {
                     messagingService.respondToQuery(query, {
-                        status: true
+                        status: true,
+                        message: ''
                     });
                 },
 
-                () => {
+                (e) => {
                     messagingService.respondToQuery(query, {
-                        status: false
+                        status: false,
+                        message: `Execution failed: ${e}`
                     });
                 });
     } else {
@@ -556,3 +532,154 @@ messagingService.listenForQuery('stop-log-streaming', message => {
 messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
+
+/** Decide which gateway should run an application.
+ *
+ * Makes a decision to schedule an application on a gateway provided in `gateways`.
+ * If no gateway is suitable for the application, this function returns null.
+ *
+ * @param deployMetadata Deploy-time application information.
+ * @param runMetadata Build-time application information.
+ */
+function schedule(deployMetadata, runMetadata, gateways) {
+    // (1) Remove gateways based on specs, requirements, and connected devices.
+    // Remove overloaded gateways.
+    // Inspect CPU and memory load and removes gateways that are above the threshold.
+    var candidates = gateways.filter((gw) => {
+        return gw.resources.cpuFreePercent < 80
+            && gw.resources.memoryFreeMB > 200;
+    });
+
+    // Include only gateways that fulfill all essential capabilities.
+    candidates = candidates.filter((gw) => {
+        for (var i = 0; i < runMetadata.requires.length; i++) {
+            const r = runMetadata.requires[i];
+            if (evaluateCapability(gw, r) != true) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    // Make sure we still have gateways to work with after this filtering.
+    if (candidates.length == 0) {
+        return null;
+    }
+
+    // (2) Prioritize gateways with preferred capabilities.
+    // Tier gateways by the number of optional requirements they fulfill
+    // and take the gateways fulfilling the most preferences.
+    // This does mean that each preferential capability is weighted evenly.
+    //
+    // Also the decision made here may run counter to the optimization step.
+    // Example: single gateway with 10 preferential capabilities filled but is loaded
+    // vs. five gateways with 9 preferential capabilities filled but less loaded.
+    var most_fulfilled = 0;
+    candidates = candidates.map((gw) => {
+        var no_fulfilled = 0;
+        runMetadata.prefers.forEach((p) => {
+            if (evaluateCapability(gw, p)) {
+                no_fulfilled += 1;
+            }
+        });
+
+        gw.preferences_fulfilled = no_fulfilled;
+        // Cache the most fulfilled for selecting the most preferential.
+        if (no_fulfilled > most_fulfilled) {
+            most_fulfilled = no_fulfilled;
+        }
+
+        return gw;
+    });
+    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled);
+
+    // (3) Aim to balance loads and for a tight requirements fit.
+    const requestedDeviceIds = new Set(runMetadata.devices.ids);
+    const optimizationSortFns = [
+        (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
+            const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
+            const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
+            return b - a;
+        },
+        (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
+            const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            return b - a;
+        },
+        (gwa, gwb) => gwb.resources.cpuFreePercent - gwa.resources.cpuFreePercent,
+        // Prefer gateways with more of a type of connected devices requested of the application.
+        (gwa, gwb) => {
+            // Accumulate the counts of all the device types that the application will make use of.
+            const sumDeviceTypes = function (gw) {
+                return Object.keys(gw.deviceTypes)
+                    .filter((deviceType) => {
+                        return deviceType in deployMetadata.devices.types
+                            || deviceType in runMetadata.devices;
+                    })
+                    .reduce((count, deviceType) => count + gw.deviceTypes[deviceType], 0);
+            };
+
+            const gwaSum = sumDeviceTypes(gwa);
+            const gwbSum = sumDeviceTypes(gwb);
+
+            return gwbSum - gwaSum;
+        },
+        // Prefer gateways with the most specifically requested devices connected.
+        (gwa, gwb) => {
+            const sumRequestedDevices = function (gw) {
+                    return gw.deviceIds.reduce(
+                        (acc, id) => {
+                            if (requestedDeviceIds.has(id)) {
+                                return acc + 1;
+                            } else {
+                                return acc;
+                            }
+                        }, 0);
+            };
+
+            const gwaCount = sumRequestedDevices(gwa);
+            const gwbCount = sumRequestedDevices(gwb);
+
+            return gwbCount - gwaCount;
+        },
+        // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
+        (gwa, gwb) => capabilityCount(gwa.resources) < capabilityCount(gwb.resources)
+    ];
+    optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
+
+    if (candidates.length > 0) {
+        return candidates[0];
+    } else {
+        return null;
+    }
+}
+
+function evaluateCapability(gw, tag) {
+    if (r == 'gpu') {
+        // At least one GPU must have sufficient memory and idle compute.
+        return gw.gpus.reduce((acc, cur) => {
+            return acc || (cur.memoryFreeMB > 200 && cur.utilization < 80);
+        }, false);
+    } else if (r == 'secure-enclave') {
+        // Just a flag check.
+        return gw.secureEnclave;
+    } else {
+        // Unknown requirement.
+        console.log(`Unknown requirement specified: '${r}'`);
+        return null;
+    }
+}
+
+function capabilityCount(resources) {
+    var count = 0;
+
+    if (resources.gpus.length > 0) { count += 1; }
+    if (resources.secureEnclave) { count += 1; }
+    if (resources.storageFreeMB > 1024) { count += 1; }
+
+}
