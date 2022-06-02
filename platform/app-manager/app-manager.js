@@ -279,6 +279,105 @@ messagingService.listenForEvent('execute-app-v2', message => {
     deployApplicationV2(appData.packagePath, appData.deployMetadataPath);
 });
 
+messagingService.listenForQuery('execute-app', query => {
+    const packagePath = query.params.packagePath;
+    const deployMetadataPath = query.params.deployMetadataPath;
+
+    // Unpackage the app metadata.
+    const extractDir = '/tmp';
+    try {
+        child_process.execFileSync(
+            utils.tarPath,
+            ['-x', '-f', packagePath, '_metadata.json'],
+            { cwd: extractDir, timeout: 1000 });
+    } catch (e) {
+        console.log(`Failed to unpackage app metadata: ${e}.`);
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: ''
+        });
+
+        return;
+    }
+
+    const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
+    const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
+
+    // Obtain gateway resource information to make a scheduling decision.
+    const graph = await utils.getLinkGraph();
+    const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
+        const gatewayInfo = graph.data[gatewayId];
+        const ip = gatewayInfo.ip;
+
+        // Get a count of devices by type for each gateway.
+        // This is used for deployment metadata that specifies a particular kind of device.
+        var deviceTypes = new Map();
+        gatewayInfo.devices.forEach((device) => {
+            if (deviceTypes.has(device.type)) {
+                deviceTypes[device.type] += 1;
+            } else {
+                deviceTypes.set(device.type, 1);
+            }
+        });
+
+        const opts = {
+            method: 'GET',
+            uri: `http://${ip}:5000/gateway/resources`,
+            json: true
+        };
+
+        return request(opts)
+            .then((resources) => {
+                const deviceInfo = {
+                    id: gatewayId,
+                    ip: ip,
+                    resources: resources,
+                    deviceIds: gatewayInfo.devices.map(device => device.id),
+                    deviceTypes: deviceTypes
+                };
+
+                return deviceInfo;
+            });
+    }));
+
+    // Run the scheduling algorithm to determine where to put the application.
+    const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
+    if (gateway !== null) {
+        console.log(`Sending application to run on ${gateway.ip}.`);
+
+        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app-v2`;
+        const formData = {
+            'appPackage': fsExtra.createReadStream(packagePath),
+            'deployMetadata': fsExtra.createReadStream(deployMetadataPath)
+        };
+        const opts = {
+            method: 'POST',
+            uri: gatewayUri,
+            formData: formData
+        };
+
+        request(opts)
+            .then(
+                () => {
+                    messagingService.respondToQuery(query, {
+                        status: true
+                    });
+                },
+
+                () => {
+                    messagingService.respondToQuery(query, {
+                        status: false
+                    });
+                });
+    } else {
+        // No gateways available for the application.
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: 'No gateways available to run application.'
+        });
+    }
+});
+
 messagingService.listenForQuery("get-apps", message => {
     const query = message.data.query;
     // respond back with a list of apps with just the app id and name

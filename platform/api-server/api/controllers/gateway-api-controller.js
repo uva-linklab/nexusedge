@@ -111,28 +111,12 @@ exports.getResources = async function(req, res) {
         });
 }
 
-/**
- * This endpoint takes the uploaded code and metadata and requests app-manager to execute it.
- * @param req
- * @param res
- * @returns {Promise<void>}
+/** Launch an application on Nexus Edge.
+ *
+ * @param req Request information.
+ * @param res Response to the request.
  */
 exports.executeApp = async function(req, res) {
-    const appPath = req["files"]["app"][0]["path"];
-    const metadataPath = req["files"]["metadata"][0]["path"];
-
-    // Forward the application path and metadata.
-    // The data format is described in the platform-manager.js
-    messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
-        "appPath": appPath,
-        "metadataPath": metadataPath,
-    });
-    res.send();
-};
-
-/**
- */
-exports.executeAppV2 = async function(req, res) {
     const packagePath = req["files"]["appPackage"][0]["path"];
     const deployMetadataPath = req["files"]["deployMetadata"][0]["path"];
 
