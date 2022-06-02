@@ -25,11 +25,9 @@ module.exports = function(app) {
     app.get('/gateway/start-time', gatewayAPIController.getStartTime);
     app.get('/gateway/apps', gatewayAPIController.getApps);
     app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
-    app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
-             gatewayAPIController.executeApp);
-    app.post('/gateway/execute-app-v2',
+    app.post('/gateway/execute-app',
              uploader.fields([{name: 'appPackage'}, {name: 'deployMetadata'}]),
-             gatewayAPIController.executeAppV2);
+             gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
@@ -45,7 +43,7 @@ module.exports = function(app) {
         gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
-    app.post('/platform/execute-app',
+    app.post('/platform/schedule-app',
              uploader.fields([{ name: 'deployMetadata' }, { name: 'appPackage' }]),
              platformAPIController.deployApplication);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
