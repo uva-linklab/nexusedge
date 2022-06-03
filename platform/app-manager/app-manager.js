@@ -543,6 +543,7 @@ const SchedulableMemoryThreshold = 200;
  *
  * @param deployMetadata Deploy-time application information.
  * @param runMetadata Build-time application information.
+ * @param gateways Nexus Edge gateways to select a gateway from.
  */
 function schedule(deployMetadata, runMetadata, gateways) {
     // (1) Remove gateways based on specs, requirements, and connected devices.
