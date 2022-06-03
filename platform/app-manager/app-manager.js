@@ -21,10 +21,6 @@ const apps = {}; // list of running apps indexed by id
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
 
-// Create a persistent temporary directory for executing applications in.
-const AppDeployPath = '/var/tmp/nexus-edge/apps';
-fs.ensureDirSync(AppDeployPath);
-
 setTimeout(() => {
     restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
     // service to initialize.
@@ -101,40 +97,6 @@ function getLogPath(appName) {
     return path.join(__dirname, 'logs', `${appName}.out`);
 }
 
-/** Locate the __main__.py file.
- *
- * @returns the path to the __main__.py file or null if it does not exist.
- */
-function findPythonMain(appRoot) {
-    var dir = fs.opendirSync(appRoot);
-    var entry = dir.readSync();
-
-    while (entry != null) {
-        if (entry.isDirectory()) {
-            const maybeAppDir = fs.opendirSync(path.join(appRoot, entry.name));
-            var maybeAppDirEntry = maybeAppDir.readSync();
-            while (maybeAppDirEntry != null) {
-                if (maybeAppDirEntry.name == '__main__.py') {
-                    dir.closeSync();
-                    maybeAppDir.closeSync();
-                    console.log(`main is in ${maybeAppDir.path}`);
-                    return maybeAppDir.path;
-                } else {
-                    maybeAppDirEntry = maybeAppDir.readSync();
-                }
-            }
-
-        }
-
-        entry = dir.readSync();
-    }
-
-    dir.closeSync();
-    maybeAppDir.closeSync();
-
-    return null;
-}
-
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
@@ -149,106 +111,43 @@ messagingService.listenForQuery('execute-app', message => {
     const deployMetadataPath = query.params.deployMetadataPath;
 
     const appName = path.basename(appPackagePath);
-    // Generate an ID for this app.
     const appId = generateAppId(appName);
 
-    // Unpackage the application in its own directory in the deployment directory.
-    const runPath = `${AppDeployPath}/${appId}`;
-    fs.ensureDirSync(runPath);
+    const result = deploymentUtils.deployApplication(
+        appPackagePath, deployMetadataPath, appName, appId);
 
-    console.log(`Extracting ${appName} to '${runPath}'...`);
-    child_process.execFileSync(
-        utils.tarPath,
-        ['-x', '-f', appPackagePath],
-        { cwd: runPath });
-    // Move deployment metadata to run path as well.
-    const residentDeployMetadataPath = `${AppDeployPath}/${appId}/_deploy.json`;
-    fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
+    if (result.status === true) {
+        const logPath = path.join(__dirname, 'logs', `${result.appName}-${result.appId}.log`);
+        const app = new appsDao.App(
+            appId,
+            appName,
+            result.executablePath,
+            result.deployMetadataPath,
+            result.runtime);
 
-    // Fetch the runtime type from the application metadata.
-    const appMetadataPath = path.join(runPath, '_metadata.json');
-    const appMetadata = JSON.parse(fs.readFileSync(appMetadataPath));
-    const runtime = appMetadata['app-type'];
-    if (runtime === undefined) {
-        messagingService.respondToQuery(query, {
-            status: false,
-            message: 'Application metadata does not specify a runtime.'
+        // execute the app!
+        const appProcess = deploymentUtils.executeApplication(
+            appId, result.executablePath, logPath, result.runtime);
+
+        // record app info in memory and/or db
+        storeAppInfo(app, appProcess, logPath);
+        appsDao.addApp(app).then(() => console.log("added app info to db"));
+
+        // request sensor-stream-manager to provide streams for this app
+        messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+            "topic": appId,
+            "metadataPath": result.deployMetadataPath
         });
-        return;
-    }
 
-    // Prepare the application code for execution depending on its type.
-    var executablePath = null;
-    if (runtime === 'nodejs') {
-        executablePath = path.join(runPath, 'app.js');
-
-        // copy the oracle library to use for the app.
-        deploymentUtils.copyOracleLibrary(runPath, runtime);
-    } else if (runtime === 'python') {
-        // Unzip the wheel.
-        var dir = fs.opendirSync(runPath);
-        var entry = dir.readSync();
-        while (entry != null) {
-            if (path.extname(entry.name) === '.whl') {
-                child_process.execFileSync(
-                    '/usr/bin/unzip',
-                    [path.join(entry.name)],
-                    { cwd: runPath });
-                break;
-            }
-
-            entry = dir.readSync();
-        }
-        dir.closeSync();
-
-        // Didn't find the wheel file.
-        if (entry == null) {
-            messagingService.respondToQuery(query, {
-                status: false,
-                message: 'Could not locate .whl file for Python application.'
-            });
-            return;
-        }
-
-        executablePath = findPythonMain(runPath);
-
-        if (executablePath == null) {
-            messagingService.respondToQuery(query, {
-                status: false,
-                message: 'Could not find __main__.py file.'
-            });
-            return;
-        }
-
-        // copy the oracle library to use for the app.
-        deploymentUtils.copyOracleLibrary(executablePath, runtime);
-    } else {
         messagingService.respondToQuery(query, {
-            status: false,
-            message: 'Application metadata does not specify a runtime.'
+            status: true,
+            message: ''
         });
-        return;
     }
-
-    const logPath = path.join(__dirname, 'logs', `${appName}-${appId}.log`);
-    const app = new appsDao.App(appId, appName, executablePath, residentDeployMetadataPath, runtime);
-
-    // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, executablePath, logPath, runtime);
-
-    // record app info in memory and/or db
-    storeAppInfo(app, appProcess, logPath);
-    appsDao.addApp(app).then(() => console.log("added app info to db"));
-
-    // request sensor-stream-manager to provide streams for this app
-    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-        "topic": appId,
-        "metadataPath": residentDeployMetadataPath
-    });
 
     messagingService.respondToQuery(query, {
-        status: true,
-        message: ''
+        status: result.status,
+        message: result.message
     });
 });
 
@@ -549,8 +448,9 @@ function schedule(deployMetadata, runMetadata, gateways) {
     // (1) Remove gateways based on specs, requirements, and connected devices.
     // Remove overloaded gateways.
     // Inspect CPU and memory load and removes gateways that are above the threshold.
-    var candidates = gateways.filter(gw => gw.resources.cpuFreePercent < SchedulableCPUThreshold
-                                     && gw.resources.memoryFreeMB > SchedulableMemoryThreshold);
+    var candidates = gateways.filter((gw) => {
+        return gw.resources.cpuFreePercent < SchedulableCPUThreshold
+            && gw.resources.memoryFreeMB > SchedulableMemoryThreshold
     });
 
     // Include only gateways that fulfill all essential capabilities.

@@ -1,8 +1,15 @@
+const child_process = require('child_process');
 const fs = require('fs-extra');
 const path = require("path");
 const {fork, spawn} = require('child_process');
 
+const utils = require('../utils/utils')
+
 const executableDirPath = path.join(__dirname, 'executables');
+
+// Create a persistent temporary directory for executing applications in.
+const AppDeployPath = '/var/tmp/nexus-edge/apps';
+fs.ensureDirSync(AppDeployPath);
 
 /**
  * This function takes an app and its metadata file and stores it in a permanent directory.
@@ -57,6 +64,137 @@ function copyOracleLibrary(targetPath, runtime) {
 	return true;
 }
 
+/** Unpackage an application to prepare to run it.
+ *
+ * @param appPackagePath path to the archive containing the application
+ * @param deployMetadataPath path to the deployment metadata JSON file
+ *
+ * @returns Application deployment result and information.
+ */
+function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
+    var result = {
+        status: true,
+        message: '',
+        executablePath: '',
+        deployMetadataPath: '',
+        runtime: ''
+    };
+
+    // Unpackage the application in its own directory in the deployment directory.
+    const runPath = `${AppDeployPath}/${appId}`;
+    fs.ensureDirSync(runPath);
+
+    console.log(`Extracting ${appName} to '${runPath}'...`);
+    child_process.execFileSync(
+        utils.tarPath,
+        ['-x', '-f', appPackagePath],
+        { cwd: runPath });
+    // Move deployment metadata to run path as well.
+    const residentDeployMetadataPath = `${AppDeployPath}/${appId}/_deploy.json`;
+    fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
+    result.deployMetadataPath = residentDeployMetadataPath;
+
+    // Fetch the runtime type from the application metadata.
+    const appMetadataPath = path.join(runPath, '_metadata.json');
+    const appMetadata = JSON.parse(fs.readFileSync(appMetadataPath));
+    const runtime = appMetadata['app-type'];
+    if (runtime === undefined) {
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: 'Application metadata does not specify a runtime.'
+        });
+        return;
+    }
+
+    // Prepare the application code for execution depending on its type.
+    var executablePath = null;
+    if (runtime === 'nodejs') {
+        executablePath = path.join(runPath, 'app.js');
+
+        // copy the oracle library to use for the app.
+        copyOracleLibrary(runPath, runtime);
+    } else if (runtime === 'python') {
+        // Unzip the wheel.
+        var dir = fs.opendirSync(runPath);
+        var entry = dir.readSync();
+        while (entry != null) {
+            if (path.extname(entry.name) === '.whl') {
+                child_process.execFileSync(
+                    '/usr/bin/unzip',
+                    [path.join(entry.name)],
+                    { cwd: runPath });
+                break;
+            }
+
+            entry = dir.readSync();
+        }
+        dir.closeSync();
+
+        // Didn't find the wheel file.
+        if (entry == null) {
+            result.status = false;
+            result.message = 'Could not locate .whl file for Python application.';
+            return result;
+        }
+
+        executablePath = findPythonMain(runPath);
+
+        if (executablePath == null) {
+            result.status = false;
+            result.message = 'Could not find __main__.py file.';
+
+            return result;
+        }
+
+        // copy the oracle library to use for the app.
+        copyOracleLibrary(executablePath, runtime);
+    } else {
+        result.status = false;
+        result.message = 'Application metadata does not specify a runtime.';
+
+        return result;
+    }
+
+    result.executablePath = executablePath;
+    result.runtime = runtime;
+
+    return result;
+}
+
+/** Locate the __main__.py file.
+ *
+ * @returns the path to the __main__.py file or null if it does not exist.
+ */
+function findPythonMain(appRoot) {
+    var dir = fs.opendirSync(appRoot);
+    var entry = dir.readSync();
+
+    while (entry != null) {
+        if (entry.isDirectory()) {
+            const maybeAppDir = fs.opendirSync(path.join(appRoot, entry.name));
+            var maybeAppDirEntry = maybeAppDir.readSync();
+            while (maybeAppDirEntry != null) {
+                if (maybeAppDirEntry.name == '__main__.py') {
+                    dir.closeSync();
+                    maybeAppDir.closeSync();
+                    console.log(`main is in ${maybeAppDir.path}`);
+                    return maybeAppDir.path;
+                } else {
+                    maybeAppDirEntry = maybeAppDir.readSync();
+                }
+            }
+
+        }
+
+        entry = dir.readSync();
+    }
+
+    dir.closeSync();
+    maybeAppDir.closeSync();
+
+    return null;
+}
+
 /**
  * Executes a given application
  * @param id the app's id
@@ -106,6 +244,7 @@ function cleanupExecutablesDir() {
 module.exports = {
 	storeApp: storeApp,
 	copyOracleLibrary: copyOracleLibrary,
-	executeApplication: executeApplication,
+	deployApplication: deployApplication,
+    executeApplication: executeApplication,
 	cleanupExecutablesDir: cleanupExecutablesDir
 };
