@@ -22,8 +22,8 @@ const apps = {}; // list of running apps indexed by id
 fs.ensureDirSync(`${__dirname}/logs`);
 
 // Create a persistent temporary directory for executing applications in.
-const APP_DEPLOY_PATH = '/var/tmp/nexus-edge/apps';
-fs.ensureDirSync(APP_DEPLOY_PATH);
+const AppDeployPath = '/var/tmp/nexus-edge/apps';
+fs.ensureDirSync(AppDeployPath);
 
 setTimeout(() => {
     restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
@@ -153,7 +153,7 @@ messagingService.listenForQuery('execute-app', message => {
     const appId = generateAppId(appName);
 
     // Unpackage the application in its own directory in the deployment directory.
-    const runPath = `${APP_DEPLOY_PATH}/${appId}`;
+    const runPath = `${AppDeployPath}/${appId}`;
     fs.ensureDirSync(runPath);
 
     console.log(`Extracting ${appName} to '${runPath}'...`);
@@ -162,7 +162,7 @@ messagingService.listenForQuery('execute-app', message => {
         ['-x', '-f', appPackagePath],
         { cwd: runPath });
     // Move deployment metadata to run path as well.
-    const residentDeployMetadataPath = `${APP_DEPLOY_PATH}/${appId}/_deploy.json`;
+    const residentDeployMetadataPath = `${AppDeployPath}/${appId}/_deploy.json`;
     fs.renameSync(deployMetadataPath, residentDeployMetadataPath);
 
     // Fetch the runtime type from the application metadata.
@@ -577,24 +577,24 @@ function schedule(deployMetadata, runMetadata, gateways) {
     // Also the decision made here may run counter to the optimization step.
     // Example: single gateway with 10 preferential capabilities filled but is loaded
     // vs. five gateways with 9 preferential capabilities filled but less loaded.
-    var most_fulfilled = 0;
+    var mostFulfilled = 0;
     candidates = candidates.map((gw) => {
-        var no_fulfilled = 0;
+        var noFulfilled = 0;
         runMetadata.prefers.forEach((p) => {
             if (evaluateCapability(gw, p)) {
-                no_fulfilled += 1;
+                noFulfilled += 1;
             }
         });
 
-        gw.preferences_fulfilled = no_fulfilled;
+        gw.preferencesFulfilled = noFulfilled;
         // Cache the most fulfilled for selecting the most preferential.
-        if (no_fulfilled > most_fulfilled) {
-            most_fulfilled = no_fulfilled;
+        if (noFulfilled > mostFulfilled) {
+            mostFulfilled = noFulfilled;
         }
 
         return gw;
     });
-    candidates = candidates.filter((gw) => gw.preferences_fulfilled == most_fulfilled);
+    candidates = candidates.filter((gw) => gw.preferencesFulfilled == mostFulfilled);
 
     // (3) Aim to balance loads and for a tight requirements fit.
     const requestedDeviceIds = new Set(runMetadata.devices.ids);
