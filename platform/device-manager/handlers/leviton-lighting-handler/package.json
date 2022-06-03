@@ -10,6 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "ble-controller": "^1.3.0",
-    "debug": "^4.3.2"
+    "debug": "^4.3.3"
   }
 }

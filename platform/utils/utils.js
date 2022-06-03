@@ -5,9 +5,40 @@ const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
 const fs = require('fs');
+const path = require('path');
+const sysinfo = require('systeminformation');
 
 // store the time when the gateway platform starts up
 const startTime = Date.now();
+
+const StoragePath = '/var/tmp';
+
+// Find the tar utility.
+// Assuming it exists, it is either in /bin/tar or /usr/bin/tar.
+const tarPath = fs.existsSync('/bin/tar') ? '/bin/tar' : '/usr/bin/tar';
+
+function getStorageFilesystem() {
+    // Find which filesystem has the configured StoragePath under it.
+    return sysinfo.fsSize().then((filesystems) => {
+        // Shortest relative path back to the mount wins.
+        var mountFs = null;
+        var levels = -1;
+        for (var i = 0; i < filesystems.length; i++) {
+            const relativePath = path.relative(StoragePath, filesystems[i].mount);
+            const isParent = relativePath.split(path.sep)
+                  .reduce((acc, cur) => { return (acc && cur == '..'); }, true);
+            const levelsUp = relativePath.split('..').length;
+
+            if (isParent && (relativePath.split(path.sep).length - 1 < levels || mountFs === null)) {
+                mountFs = filesystems[i];
+                levels = levelsUp;
+            }
+        }
+
+        return mountFs;
+    })
+        .catch((e) => { console.log(`Getting FSs failed: ${e}`); });
+}
 
 function getStartTime() {
 	return startTime;
@@ -36,6 +67,39 @@ function getResourceUsage() {
 			memoryFreeMB: getFreeMemoryMB()
 		};
 	})
+}
+
+/**
+ * Returns a snapshot of the gateways resource usage and capabilities.
+ */
+function getResources() {
+    return Promise.all([sysinfo.currentLoad(),
+                        sysinfo.mem(),
+                        getStorageFilesystem(),
+                        sysinfo.cpu(),
+                        sysinfo.graphics()])
+        .then(([load, mem, storageFs, cpuInfo, gpuInfo]) => {
+            // Look for secure enclave support in CPU flags.
+            const cpuFlags = cpuInfo.flags.split(' ');
+            const secureEnclaveAvailable = ['sgx', 'sev']
+                  .reduce((acc, cur) => { return (acc || (cur in cpuFlags)); }, false);
+
+            // Build graphics card information.
+            const gpus = gpuInfo.controllers.map((gpu) => {
+                return {
+                    memoryFreeMB: Math.trunc(gpu.memoryFree / (1024 * 1024)),
+                    utilization: gpu.utilizationGpu
+                };
+            });
+
+            return {
+                cpuFreePercent: load.currentLoad,
+                memoryFreeMB: Math.trunc(mem.available / (1024 * 1024)),
+                storageFreeMB: Math.trunc(storageFs.available / (1024 * 1024)),
+                secureEnclave: secureEnclaveAvailable,
+                gpus: gpus
+            };
+        });
 }
 
 function getConfig(key) {
@@ -170,6 +234,8 @@ function sendPostRequest(url, data) {
 }
 
 module.exports = {
+    tarPath: tarPath,
+
 	getStartTime: getStartTime,
 	getGatewayIp: getGatewayIp,
 	getGatewayId: getGatewayId,
@@ -180,5 +246,6 @@ module.exports = {
 	sendPostRequest: sendPostRequest,
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
-	getResourceUsage: getResourceUsage
+	getResourceUsage: getResourceUsage,
+    getResources: getResources
 };

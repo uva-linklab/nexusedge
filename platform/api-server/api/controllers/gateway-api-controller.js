@@ -102,25 +102,38 @@ exports.getResourceUsage = async function(req, res) {
     return res.json(resourceUsage);
 };
 
+exports.getResources = async function(req, res) {
+    return utils.getResources()
+        .then(r => res.json(r))
+        .catch(e => {
+            console.log(`Could not get resource information: ${e}`);
+            return res.status(500);
+        });
+}
 
-/**
- * This endpoint takes the uploaded code and metadata and requests app-manager to execute it.
- * @param req
- * @param res
- * @returns {Promise<void>}
+/** Launch an application on Nexus Edge.
+ *
+ * @param req Request information.
+ * @param res Response to the request.
  */
 exports.executeApp = async function(req, res) {
-    const appPath = req["files"]["app"][0]["path"];
-    const metadataPath = req["files"]["metadata"][0]["path"];
+    const packagePath = req["files"]["appPackage"][0]["path"];
+    const deployMetadataPath = req["files"]["deployMetadata"][0]["path"];
 
-    // Forward the application path and metadata.
-    // The data format is described in the platform-manager.js
-    messagingService.forwardMessage(serviceName, "app-manager", "execute-app", {
-        "appPath": appPath,
-        "metadataPath": metadataPath,
+    console.log(`Got app to run at '${packagePath}' (metadata at '${deployMetadataPath}'.`);
+    const executeResult = await messagingService.query(serviceName, "app-manager", "execute-app", {
+        "packagePath": packagePath,
+        "deployMetadataPath": deployMetadataPath,
     });
-    res.send();
-};
+
+    if (executeResult.status === true) {
+        res.sendStatus(204);
+    } else if (executeResult.message.length !== 0) {
+        res.status(400).send(executeResult.message);
+    } else {
+        res.sendStatus(500);
+    }
+}
 
 exports.terminateApp = async function(req, res) {
     const appId = req.params['id'];

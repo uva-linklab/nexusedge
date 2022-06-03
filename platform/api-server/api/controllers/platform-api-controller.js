@@ -1,4 +1,7 @@
 const request = require('request-promise');
+const fs = require('fs');
+const fsExtra = require('fs-extra');
+const path = require('path');
 const utils = require('../../../utils/utils');
 const MqttController = require('../../../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
@@ -98,4 +101,30 @@ exports.updatePrivacyPolicy = async function(req, res) {
         "policy": req.body
     });
     res.send();
+};
+
+/** Launch an application on a suitable gateway.
+ *
+ * @param req Request information.
+ * @param res Response object.
+ */
+exports.scheduleApplication = async function(req, res) {
+    const deployMetadataPath = req['files']['deployMetadata'][0]['path'];
+    const packagePath = req['files']['appPackage'][0]['path'];
+    console.log(`Received deploy metadata at ${deployMetadataPath}`);
+    console.log(`Received app package at ${packagePath}`);
+
+    const executeResult = await messagingService.query(
+        serviceName, 'app-manager', 'schedule-app', {
+            packagePath: packagePath,
+            deployMetadataPath: deployMetadataPath
+        });
+
+    if (executeResult.status === true) {
+        res.sendStatus(204);
+    } else if (executeResult.message.length !== 0) {
+        res.status(400).send(executeResult.message);
+    } else {
+        res.sendStatus(500);
+    }
 };

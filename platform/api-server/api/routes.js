@@ -25,14 +25,16 @@ module.exports = function(app) {
     app.get('/gateway/start-time', gatewayAPIController.getStartTime);
     app.get('/gateway/apps', gatewayAPIController.getApps);
     app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
-    app.post('/gateway/execute-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
-        gatewayAPIController.executeApp);
+    app.post('/gateway/execute-app',
+             uploader.fields([{name: 'appPackage'}, {name: 'deployMetadata'}]),
+             gatewayAPIController.executeApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
     app.get('/gateway/apps/:id/stop-log-streaming', gatewayAPIController.stopLogStreaming);
     app.get('/gateway/details', gatewayAPIController.getGatewayDetails);
     app.get('/gateway/resource-usage', gatewayAPIController.getResourceUsage);
+    app.get('/gateway/resources', gatewayAPIController.getResources);
     app.post('/gateway/talk-to-manager', gatewayAPIController.talkToManager);
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',
@@ -41,6 +43,9 @@ module.exports = function(app) {
         gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
     app.get('/platform/link-graph-visual', linkGraphController.renderLinkGraph);
+    app.post('/platform/schedule-app',
+             uploader.fields([{ name: 'deployMetadata' }, { name: 'appPackage' }]),
+             platformAPIController.scheduleApplication);
     app.post('/platform/disseminate-all', platformAPIController.disseminateAll);
     app.post('/platform/query-all', platformAPIController.queryAll);
     app.post('/platform/update-privacy-policy',

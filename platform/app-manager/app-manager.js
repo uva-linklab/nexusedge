@@ -1,12 +1,16 @@
 const deploymentUtils = require("./deployment-utils");
 const fs = require("fs-extra");
+const fsPromises = require("fs").promises;
 const path = require("path");
+const child_process = require('child_process');
+const request = require('request-promise');
 const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
 const mqttController = MqttController.getInstance();
 const appsDao = require('../dao/dao-helper').appsDao;
+const utils = require('../utils/utils');
 
 console.log("[INFO] Initialize app-manager...");
 const serviceName = process.env.SERVICE_NAME;
@@ -16,7 +20,6 @@ const apps = {}; // list of running apps indexed by id
 
 // Create logs directory for apps if not present
 fs.ensureDirSync(`${__dirname}/logs`);
-fs.emptyDirSync(`${__dirname}/logs`); // clear directory
 
 setTimeout(() => {
     restartAllApps(); // restarting involves requesting ssm to setup streams. so we wait a little bit for the messaging
@@ -48,8 +51,6 @@ function restartAllApps() {
         })
     });
 }
-
-
 
 /**
  * This function generates the id of the new application.
@@ -96,53 +97,160 @@ function getLogPath(appName) {
     return path.join(__dirname, 'logs', `${appName}.out`);
 }
 
-/**
- * This function deploys a given application.
- 1. generate a new app id from app name
- 2. copy the app and metadata to a new permanent directory
- 3. copy oracle library into this new directory (this should be a sin!)
- 4. start the process for the app
- 5. store the app's info in the memory obj and in db
- 6. request SSM to setup streams for this app based on its requirements
- * @param tempAppPath
- * @param tempMetadataPath
- * @param runtime
- */
-function deployApplication(tempAppPath, tempMetadataPath, runtime) {
-    const appName = path.basename(tempAppPath);
-    // generate an id for this app
-    const appId = generateAppId(appName);
-
-    // shift this app from the current temporary directory to a permanent directory
-    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
-
-    // copy the oracle library to use for the app.
-    // TODO: ideally this should be reused by all apps!
-    deploymentUtils.copyOracleLibrary(appDirectoryPath, runtime);
-
-    const appExecutablePath = path.join(appDirectoryPath, appName);
-    const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
-    const logPath = getLogPath(appName);
-    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, runtime);
-
-    // execute the app!
-    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, runtime);
-
-    // record app info in memory and/or db
-    storeAppInfo(app, appProcess, logPath);
-    appsDao.addApp(app).then(() => console.log("added app info to db"));
-
-    // request sensor-stream-manager to provide streams for this app
-    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-        "topic": appId,
-        "metadataPath": metadataPath
-    });
-}
-
 // listen to events to deploy applications
 messagingService.listenForEvent('deploy-app', message => {
     const appData = message.data;
     deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
+});
+
+
+// Start running an application from an application package.
+messagingService.listenForQuery('execute-app', message => {
+    const query = message.data.query;
+    const appPackagePath = query.params.packagePath;
+    const deployMetadataPath = query.params.deployMetadataPath;
+
+    const appName = path.basename(appPackagePath);
+    const appId = generateAppId(appName);
+
+    const result = deploymentUtils.deployApplication(
+        appPackagePath, deployMetadataPath, appName, appId);
+
+    if (result.status === true) {
+        const logPath = path.join(__dirname, 'logs', `${result.appName}-${result.appId}.log`);
+        const app = new appsDao.App(
+            appId,
+            appName,
+            result.executablePath,
+            result.deployMetadataPath,
+            result.runtime);
+
+        // execute the app!
+        const appProcess = deploymentUtils.executeApplication(
+            appId, result.executablePath, logPath, result.runtime);
+
+        // record app info in memory and/or db
+        storeAppInfo(app, appProcess, logPath);
+        appsDao.addApp(app).then(() => console.log("added app info to db"));
+
+        // request sensor-stream-manager to provide streams for this app
+        messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+            "topic": appId,
+            "metadataPath": result.deployMetadataPath
+        });
+
+        messagingService.respondToQuery(query, {
+            status: true,
+            message: ''
+        });
+    }
+
+    messagingService.respondToQuery(query, {
+        status: result.status,
+        message: result.message
+    });
+});
+
+messagingService.listenForQuery('schedule-app', async (message) => {
+    const query = message.data.query;
+    const packagePath = query.params.packagePath;
+    const deployMetadataPath = query.params.deployMetadataPath;
+
+    // Unpackage the app metadata.
+    const extractDir = '/tmp';
+    try {
+        child_process.execFileSync(
+            utils.tarPath,
+            ['-x', '-f', packagePath, '_metadata.json'],
+            { cwd: extractDir, timeout: 1000 });
+    } catch (e) {
+        console.log(`Failed to unpackage app metadata: ${e}.`);
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: ''
+        });
+
+        return;
+    }
+
+    const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
+    const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
+
+    // Obtain gateway resource information to make a scheduling decision.
+    const graph = await utils.getLinkGraph();
+    const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
+        const gatewayInfo = graph.data[gatewayId];
+        const ip = gatewayInfo.ip;
+
+        // Get a count of devices by type for each gateway.
+        // This is used for deployment metadata that specifies a particular kind of device.
+        var deviceTypes = new Map();
+        gatewayInfo.devices.forEach((device) => {
+            if (deviceTypes.has(device.type)) {
+                deviceTypes[device.type] += 1;
+            } else {
+                deviceTypes.set(device.type, 1);
+            }
+        });
+
+        const opts = {
+            method: 'GET',
+            uri: `http://${ip}:5000/gateway/resources`,
+            json: true
+        };
+
+        return request(opts)
+            .then((resources) => {
+                const deviceInfo = {
+                    id: gatewayId,
+                    ip: ip,
+                    resources: resources,
+                    deviceIds: gatewayInfo.devices.map(device => device.id),
+                    deviceTypes: deviceTypes
+                };
+
+                return deviceInfo;
+            });
+    }));
+
+    // Run the scheduling algorithm to determine where to put the application.
+    const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
+    if (gateway !== null) {
+        console.log(`Sending application to run on ${gateway.ip}.`);
+
+        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app`;
+        const formData = {
+            'appPackage': fs.createReadStream(packagePath),
+            'deployMetadata': fs.createReadStream(deployMetadataPath)
+        };
+        const opts = {
+            method: 'POST',
+            uri: gatewayUri,
+            formData: formData
+        };
+
+        request(opts)
+            .then(
+                () => {
+                    messagingService.respondToQuery(query, {
+                        status: true,
+                        message: ''
+                    });
+                },
+
+                (e) => {
+                    messagingService.respondToQuery(query, {
+                        status: false,
+                        message: `Execution failed: ${e}`
+                    });
+                });
+    } else {
+        // No gateways available for the application.
+        messagingService.respondToQuery(query, {
+            status: false,
+            message: 'No gateways available to run application.'
+        });
+    }
 });
 
 messagingService.listenForQuery("get-apps", message => {
@@ -323,3 +431,160 @@ messagingService.listenForQuery('stop-log-streaming', message => {
 messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
+
+const SchedulableCPUThreshold = 80;
+const SchedulableMemoryThreshold = 200;
+
+/** Decide which gateway should run an application.
+ *
+ * Makes a decision to schedule an application on a gateway provided in `gateways`.
+ * If no gateway is suitable for the application, this function returns null.
+ *
+ * @param deployMetadata Deploy-time application information.
+ * @param runMetadata Build-time application information.
+ * @param gateways Nexus Edge gateways to select a gateway from.
+ */
+function schedule(deployMetadata, runMetadata, gateways) {
+    // (1) Remove gateways based on specs, requirements, and connected devices.
+    // Remove overloaded gateways.
+    // Inspect CPU and memory load and removes gateways that are above the threshold.
+    var candidates = gateways.filter((gw) => {
+        return gw.resources.cpuFreePercent < SchedulableCPUThreshold
+            && gw.resources.memoryFreeMB > SchedulableMemoryThreshold
+    });
+
+    // Include only gateways that fulfill all essential capabilities.
+    candidates = candidates.filter((gw) => {
+        for (var i = 0; i < runMetadata.requires.length; i++) {
+            const r = runMetadata.requires[i];
+            if (evaluateCapability(gw, r) != true) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    // Make sure we still have gateways to work with after this filtering.
+    if (candidates.length == 0) {
+        return null;
+    }
+
+    // (2) Prioritize gateways with preferred capabilities.
+    // Tier gateways by the number of optional requirements they fulfill
+    // and take the gateways fulfilling the most preferences.
+    // This does mean that each preferential capability is weighted evenly.
+    //
+    // Also the decision made here may run counter to the optimization step.
+    // Example: single gateway with 10 preferential capabilities filled but is loaded
+    // vs. five gateways with 9 preferential capabilities filled but less loaded.
+    var mostFulfilled = 0;
+    candidates = candidates.map((gw) => {
+        var noFulfilled = 0;
+        runMetadata.prefers.forEach((p) => {
+            if (evaluateCapability(gw, p)) {
+                noFulfilled += 1;
+            }
+        });
+
+        gw.preferencesFulfilled = noFulfilled;
+        // Cache the most fulfilled for selecting the most preferential.
+        if (noFulfilled > mostFulfilled) {
+            mostFulfilled = noFulfilled;
+        }
+
+        return gw;
+    });
+    candidates = candidates.filter((gw) => gw.preferencesFulfilled == mostFulfilled);
+
+    // (3) Aim to balance loads and for a tight requirements fit.
+    const requestedDeviceIds = new Set(runMetadata.devices.ids);
+    const optimizationSortFns = [
+        (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
+            const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
+            const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
+            return b - a;
+        },
+        (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
+        (gwa, gwb) => {
+            const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
+            const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
+            return b - a;
+        },
+        (gwa, gwb) => gwb.resources.cpuFreePercent - gwa.resources.cpuFreePercent,
+        // Prefer gateways with more of a type of connected devices requested of the application.
+        (gwa, gwb) => {
+            // Accumulate the counts of all the device types that the application will make use of.
+            const sumDeviceTypes = function (gw) {
+                return Object.keys(gw.deviceTypes)
+                    .filter((deviceType) => {
+                        return deviceType in deployMetadata.devices.types
+                            || deviceType in runMetadata.devices;
+                    })
+                    .reduce((count, deviceType) => count + gw.deviceTypes[deviceType], 0);
+            };
+
+            const gwaSum = sumDeviceTypes(gwa);
+            const gwbSum = sumDeviceTypes(gwb);
+
+            return gwbSum - gwaSum;
+        },
+        // Prefer gateways with the most specifically requested devices connected.
+        (gwa, gwb) => {
+            const sumRequestedDevices = function (gw) {
+                    return gw.deviceIds.reduce(
+                        (acc, id) => {
+                            if (requestedDeviceIds.has(id)) {
+                                return acc + 1;
+                            } else {
+                                return acc;
+                            }
+                        }, 0);
+            };
+
+            const gwaCount = sumRequestedDevices(gwa);
+            const gwbCount = sumRequestedDevices(gwb);
+
+            return gwbCount - gwaCount;
+        },
+        // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
+        (gwa, gwb) => capabilityCount(gwa.resources) < capabilityCount(gwb.resources)
+    ];
+    optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
+
+    if (candidates.length > 0) {
+        return candidates[0];
+    } else {
+        return null;
+    }
+}
+
+const SchedulableGPUThreshold = 80;
+const SchedulableVRAMThreshold = 200;
+
+function evaluateCapability(gw, tag) {
+    if (r == 'gpu') {
+        // At least one GPU must have sufficient memory and idle compute.
+        return gw.gpus.some(gpu => gpu.memoryFreeMB > SchedulableGPUThreshold
+                            && gpu.utilization < SchedulableVRAMThreshold);
+    } else if (r == 'secure-enclave') {
+        // Just a flag check.
+        return gw.secureEnclave;
+    } else {
+        // Unknown requirement.
+        console.log(`Unknown requirement specified: '${r}'`);
+        return null;
+    }
+}
+
+function capabilityCount(resources) {
+    var count = 0;
+
+    if (resources.gpus.length > 0) { count += 1; }
+    if (resources.secureEnclave) { count += 1; }
+    if (resources.storageFreeMB > 1024) { count += 1; }
+
+}
