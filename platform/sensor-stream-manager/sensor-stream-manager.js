@@ -211,6 +211,40 @@ messagingService.listenForEvent("connect-to-socket", (message) => {
     const wsAddress = payload["ws-address"];
 });
 
+/**
+ * Given a list of devices and the current link graph of the network, finds out which gateways host those devices.
+ * Returns a dictionary of gateway->[sensor-ids]
+ * @param devicesIds List of sensor ids
+ * @param linkGraph Current link graph of the network
+ * @returns {Promise<{}>} Promise object of the gateway->[sensor-id] mapping
+ */
+async function getHostGateways(devicesIds, linkGraph) {
+    const gatewayToSensorMapping = {};
+    const data = linkGraph["data"];
+
+    for (const [gatewayId, gatewayData] of Object.entries(data)) {
+        const gatewayDeviceList = gatewayData["devices"];
+        const gatewayIp = gatewayData["ip"];
+
+        //for each device given to us, find out if that is present in the device list of the current gw
+        for (let i = 0; i < devicesIds.length; i++) {
+            const targetDeviceId = devicesIds[i];
+            const matchFound = gatewayDeviceList.find(function (device) {
+                return device["id"] === targetDeviceId;
+            });
+            //there's a match
+            if (matchFound) {
+                if (gatewayIp in gatewayToSensorMapping) {
+                    gatewayToSensorMapping[gatewayIp].push(targetDeviceId);
+                } else {
+                    gatewayToSensorMapping[gatewayIp] = [targetDeviceId];
+                }
+            }
+        }
+    }
+    return gatewayToSensorMapping;
+}
+
 // sensor-stream-manager receives an application's topic and sensor requirements and provides it
 messagingService.listenForEvent("request-streams", (message) => {
     // appData = {
@@ -224,19 +258,34 @@ messagingService.listenForEvent("request-streams", (message) => {
     ) {
         // load application's metadata
         let metadata = fs.readJsonSync(appData["metadataPath"]);
-        metadata = metadata["deviceMapping"];
-        const topic = appData["topic"];
-        // store application's sensor stream requirement in sensorStreamRouteTable
-        for (const ip in metadata) {
-            const sensorIds = metadata[ip];
-            // store the sensor connected to local gateway
-            if (ip === gatewayIp) {
-                registerToLocalGateway(ip, sensorIds, topic);
-            } else {
-                registerToRemoteGateway(ip, sensorIds, topic);
+        if(metadata.hasOwnProperty("devices")) {
+            const devices = metadata["devices"];
+            if(devices.hasOwnProperty("ids")) {
+                const deviceIds = devices["ids"];
+
+                // identify the gateways that can provide the device streams
+                utils.getLinkGraph().then(linkGraph => {
+                    getHostGateways(deviceIds, linkGraph).then(gatewayToSensorMapping => {
+                        console.log("gateway to sensor mapping = ");
+                        console.log(gatewayToSensorMapping);
+                        const topic = appData["topic"];
+                        // store application's sensor stream requirement in sensorStreamRouteTable
+                        for (const ip in gatewayToSensorMapping) {
+                            const sensorIds = gatewayToSensorMapping[ip];
+                            // store the sensor connected to local gateway
+                            if (ip === gatewayIp) {
+                                registerToLocalGateway(ip, sensorIds, topic);
+                            } else {
+                                registerToRemoteGateway(ip, sensorIds, topic);
+                            }
+                        }
+                        console.log(`[INFO] Streams set up for application ${topic} successfully!`);
+                    });
+                });
             }
+        } else {
+            console.error("invalid metadata file received. no device information present.");
         }
-        console.log(`[INFO] Registered application "${topic}" successfully!`);
     }
 });
 
