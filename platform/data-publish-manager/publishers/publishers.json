@@ -1,2 +1,8 @@
 {
+    "linklab-influx": {
+        "main": "linklab-influx-publisher.js"
+    },
+    "sif-cloud": {
+        "main": "sif-cloud-publisher.js"
+    }
 }
