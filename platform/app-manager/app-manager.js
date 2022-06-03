@@ -533,6 +533,9 @@ messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
 
+const SchedulableCPUThreshold = 80;
+const SchedulableMemoryThreshold = 200;
+
 /** Decide which gateway should run an application.
  *
  * Makes a decision to schedule an application on a gateway provided in `gateways`.
@@ -545,9 +548,8 @@ function schedule(deployMetadata, runMetadata, gateways) {
     // (1) Remove gateways based on specs, requirements, and connected devices.
     // Remove overloaded gateways.
     // Inspect CPU and memory load and removes gateways that are above the threshold.
-    var candidates = gateways.filter((gw) => {
-        return gw.resources.cpuFreePercent < 80
-            && gw.resources.memoryFreeMB > 200;
+    var candidates = gateways.filter(gw => gw.resources.cpuFreePercent < SchedulableCPUThreshold
+                                     && gw.resources.memoryFreeMB > SchedulableMemoryThreshold);
     });
 
     // Include only gateways that fulfill all essential capabilities.
@@ -659,12 +661,14 @@ function schedule(deployMetadata, runMetadata, gateways) {
     }
 }
 
+const SchedulableGPUThreshold = 80;
+const SchedulableVRAMThreshold = 200;
+
 function evaluateCapability(gw, tag) {
     if (r == 'gpu') {
         // At least one GPU must have sufficient memory and idle compute.
-        return gw.gpus.reduce((acc, cur) => {
-            return acc || (cur.memoryFreeMB > 200 && cur.utilization < 80);
-        }, false);
+        return gw.gpus.some(gpu => gpu.memoryFreeMB > SchedulableGPUThreshold
+                            && gpu.utilization < SchedulableVRAMThreshold);
     } else if (r == 'secure-enclave') {
         // Just a flag check.
         return gw.secureEnclave;
