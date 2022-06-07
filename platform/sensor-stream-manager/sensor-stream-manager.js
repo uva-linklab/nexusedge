@@ -29,6 +29,20 @@ function registerToLocalGateway(ip, sensorIds, topic) {
     }
 }
 
+let heartbeatMqttClient;
+function getHeartbeatMqttClient() {
+    return new Promise(resolve => {
+        if(heartbeatMqttClient) {
+            resolve(heartbeatMqttClient);
+        } else {
+            heartbeatMqttClient = connectToMQTTBroker(localGatewayIp);
+            heartbeatMqttClient.on("connect", () => {
+                resolve(heartbeatMqttClient);
+            });
+        }
+    })
+}
+
 /**
  * This function sends sensor requirement to the remote gateway.
  * @param {string} ip -remote gateway's ip
@@ -65,12 +79,8 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
                 console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${ip}]`);
 
                 // setup a diagnostic timer to check if the remote gateway is active
-                const client = connectToMQTTBroker(localGatewayIp);
-                client.on("connect", () => {
-                    console.log(
-                        `[INFO] Connected to MQTT broker at ${localGatewayIp} successfully!`
-                    );
-                    client.subscribe(heartbeatTopic, (err) => {
+                getHeartbeatMqttClient().then(heartbeatMqttClient => {
+                    heartbeatMqttClient.subscribe(heartbeatTopic, (err) => {
                         if (err) {
                             console.error(`[ERROR] Failed to subscribe "${topic}".`);
                             console.error(err);
@@ -80,19 +90,18 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
                             );
                         }
                     });
-                });
 
-                client.on("message", (heartbeatTopic, message) => {
-                    const payload = JSON.parse(message.toString());
-                    const remoteGatewayIp = payload["gateway_ip"];
+                    heartbeatMqttClient.on("message", (heartbeatTopic, message) => {
+                        const payload = JSON.parse(message.toString());
+                        const remoteGatewayIp = payload["gateway_ip"];
 
-                    console.log(`received heartbeat for [${topic}, ${remoteGatewayIp}]`);
-                    clearTimeout(diagnosticTimer);
-                    console.log(`cleared timer for timer for [${topic}, ${remoteGatewayIp}]`);
-                    diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, remoteGatewayIp), heartbeatTimeMs + (5 * 1000));
-                    console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${remoteGatewayIp}]`);
-                });
-
+                        console.log(`received heartbeat for [${topic}, ${remoteGatewayIp}]`);
+                        clearTimeout(diagnosticTimer);
+                        console.log(`cleared timer for timer for [${topic}, ${remoteGatewayIp}]`);
+                        diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, remoteGatewayIp), heartbeatTimeMs + (5 * 1000));
+                        console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${remoteGatewayIp}]`);
+                    });
+                })
             } else {
                 console.error(
                     `[ERROR] Failed to send "${topic}" to ${ip} with status ${res.status}.`
