@@ -295,7 +295,7 @@ async function getHostGateways(devicesIds, linkGraph) {
  * @return {Object}
  */
 function getOptimalGatewayDeviceMapping(gatewayDeviceMapping) {
-    const localDevices = gatewayDeviceMapping[localGatewayIp];
+    const localDevices = gatewayDeviceMapping.hasOwnProperty(localGatewayIp) ? gatewayDeviceMapping[localGatewayIp] : [];
     const optimalGatewayDeviceMapping = {
         [localGatewayIp]: localDevices
     };
