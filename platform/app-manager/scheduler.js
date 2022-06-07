@@ -102,7 +102,10 @@ async function schedule(appPath, metadataPath) {
     } catch (err) {
         throw new Error(`error reading json file at metadataPath ${metadataPath}. Error = ${err.toString()}`);
     }
-    const requiredDevices = metadata.devices; // metadata object contains required devices and the runtime
+    if(!metadata.hasOwnProperty("devices")) {
+        throw new Error("Metadata doesn't have devices specified.");
+    }
+    const requiredDevices = metadata["devices"]["ids"]; // metadata object contains required devices and the runtime
 
     // identify best gateway to execute the app based on device requirements and load on gateways
     const linkGraph = await utils.getLinkGraph();
