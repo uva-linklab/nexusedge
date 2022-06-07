@@ -333,12 +333,7 @@ messagingService.listenForEvent("request-streams", (message) => {
                 // identify the gateways that can provide the device streams
                 utils.getLinkGraph().then(linkGraph => {
                     getHostGateways(deviceIds, linkGraph).then(gatewayDeviceMapping => {
-                        console.log("gateway to device mapping = ");
-                        console.log(gatewayDeviceMapping);
-
                         const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
-                        console.log("optimal gateway to device mapping = ");
-                        console.log(optimalGatewayDeviceMapping);
 
                         const topic = appData["topic"];
                         // store application's sensor stream requirement in sensorStreamRouteTable
