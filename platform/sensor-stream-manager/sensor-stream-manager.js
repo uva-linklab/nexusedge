@@ -415,23 +415,20 @@ messagingService.listenForEvent("register-topic", (message) => {
     //     heartbeatTopic: heartbeatTopic,
     //     heartbeatTimeMs: heartbeatTimeMs
     // }
-    const appData = message.data;
-    console.log(appData);
+    const params = message.data;
 
-    if (appData["app"]) {
-        const sensorIds = appData["app"]["sensors"];
-        const topic = appData["app"]["topic"];
-        const ip = appData["app"]["ip"];
-        const heartbeatTopic = appData["app"]["heartbeatTopic"];
-        const heartbeatTimeMs = appData["app"]["heartbeatTimeMs"];
-        const mqttClient = registerMQTTClient(ip);
-        registerToLocalGateway(ip, sensorIds, topic);
+    const sensorIds = params["sensors"];
+    const topic = params["topic"];
+    const ip = params["ip"];
+    const heartbeatTopic = params["heartbeatTopic"];
+    const heartbeatTimeMs = params["heartbeatTimeMs"];
+    const mqttClient = registerMQTTClient(ip);
+    registerToLocalGateway(ip, sensorIds, topic);
 
-        console.log("set the timer for sending heartbeat");
+    console.log("set the timer for sending heartbeat");
 
-        // send a heartbeat to the heartbeat topic every heartbeatTimeMs
-        setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
-    }
+    // send a heartbeat to the heartbeat topic every heartbeatTimeMs
+    setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
 });
 
 messagingService.listenForEvent("update-policy", (message) => {
