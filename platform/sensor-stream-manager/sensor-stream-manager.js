@@ -40,7 +40,7 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
     const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-requirement`;
     // Request body
     const body = {
-        ip: gatewayIp,
+        ip: localGatewayIp,
         sensors: sensorIds,
         topic: topic,
     };
@@ -75,7 +75,7 @@ function registerMQTTClient(ip) {
     if (!mqttClients[ip]) {
         const client = connectToMQTTBroker(ip);
         client.on("connect", () => {
-            if (ip === gatewayIp) {
+            if (ip === localGatewayIp) {
                 subscribeToGatewayData(client);
                 routeSensorStreamsToApps(client);
             }
@@ -173,14 +173,14 @@ console.log("[INFO] Initialize sensor-stream-manager...");
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
 
-const gatewayIp = utils.getGatewayIp();
-if (!gatewayIp) {
+const localGatewayIp = utils.getGatewayIp();
+if (!localGatewayIp) {
     console.error(
         "[ERROR] No IP address found. Please ensure the config files are set properly."
     );
     process.exit(1);
 }
-console.log(`[INFO] Gateway's ip address is ${gatewayIp}`);
+console.log(`[INFO] Gateway's ip address is ${localGatewayIp}`);
 
 // sensorStreamRouteTable stores the sensor id and application topic mapping
 // the key is sensor id and the value is an object
@@ -204,7 +204,7 @@ const sensorStreamRouteTable = {};
 // }
 const mqttClients = {};
 
-registerMQTTClient(gatewayIp);
+registerMQTTClient(localGatewayIp);
 
 messagingService.listenForEvent("connect-to-socket", (message) => {
     const payload = message.data;
@@ -219,7 +219,7 @@ messagingService.listenForEvent("connect-to-socket", (message) => {
  * @returns {Promise<{}>} Promise object of the gateway->[sensor-id] mapping
  */
 async function getHostGateways(devicesIds, linkGraph) {
-    const gatewayToSensorMapping = {};
+    const gatewayDeviceMapping = {};
     const data = linkGraph["data"];
 
     for (const [gatewayId, gatewayData] of Object.entries(data)) {
@@ -234,15 +234,82 @@ async function getHostGateways(devicesIds, linkGraph) {
             });
             //there's a match
             if (matchFound) {
-                if (gatewayIp in gatewayToSensorMapping) {
-                    gatewayToSensorMapping[gatewayIp].push(targetDeviceId);
+                if (gatewayIp in gatewayDeviceMapping) {
+                    gatewayDeviceMapping[gatewayIp].push(targetDeviceId);
                 } else {
-                    gatewayToSensorMapping[gatewayIp] = [targetDeviceId];
+                    gatewayDeviceMapping[gatewayIp] = [targetDeviceId];
                 }
             }
         }
     }
-    return gatewayToSensorMapping;
+    return gatewayDeviceMapping;
+}
+
+/**
+ * For a given gateway - device mapping, filters out duplicate devices to return a optimal set of devices
+ * Tries to maximize number of devices on each gateway. Tries to reduce number of gateways.
+ * @param gatewayDeviceMapping
+ * @return {Object}
+ */
+function getOptimalGatewayDeviceMapping(gatewayDeviceMapping) {
+    const localDevices = gatewayDeviceMapping[localGatewayIp];
+    const optimalGatewayDeviceMapping = {
+        [localGatewayIp]: localDevices
+    };
+
+    const remoteGatewayDeviceMapping = {};
+    // exclude devices from remote gateways that are obtainable from local gateway
+    for (const [gatewayIp, devices] of Object.entries(gatewayDeviceMapping)) {
+        if(gatewayIp !== localGatewayIp) {
+            // get the exclusive devices that this remote gateway offers
+            const exclusiveDevices = [...difference(new Set(devices), new Set(localDevices))]; // [...set] gives an array
+            if(exclusiveDevices.length !== 0) {
+                // add that to a new js object
+                remoteGatewayDeviceMapping[gatewayIp] = exclusiveDevices;
+            }
+        }
+    }
+
+    const remoteGateways = Object.keys(remoteGatewayDeviceMapping); // list of remote gateways
+    // do a pairwise set difference of the device list. we always take the difference from smaller list - larger list
+    // eg: before => {g1: [s1,s2,s3], g2: [s3,s7], g3: [s4], g4: [s4,s5], g5: [s4,s5,s6]}
+    //     after =>  {g1: [s1,s2,s3], g2: [s7], g3: [], g4: [], g5: [s4,s5,s6]}
+    for(let i=0; i<remoteGateways.length; i++) {
+        for(let j=i+1; j<remoteGateways.length; j++) {
+            let devicesI = remoteGatewayDeviceMapping[remoteGateways[i]];
+            let devicesJ = remoteGatewayDeviceMapping[remoteGateways[j]];
+            if(devicesI.length <= devicesJ.length) {
+                remoteGatewayDeviceMapping[remoteGateways[i]] = [...difference(new Set(devicesI), new Set(devicesJ))];
+            } else {
+                remoteGatewayDeviceMapping[remoteGateways[j]] = [...difference(new Set(devicesJ), new Set(devicesI))];
+            }
+        }
+    }
+
+    // remove gateways without any devices
+    for (const [gatewayIp, devices] of Object.entries(remoteGatewayDeviceMapping)) {
+        if(devices.length === 0) {
+            delete remoteGatewayDeviceMapping[gatewayIp];
+        }
+    }
+
+    // combine the local and remote gateway-device mappings
+    Object.assign(optimalGatewayDeviceMapping, remoteGatewayDeviceMapping);
+    return optimalGatewayDeviceMapping;
+}
+
+/**
+ * Provides the set difference between two sets
+ * @param setA
+ * @param setB
+ * @return {Set<any>}
+ */
+function difference(setA, setB) {
+    let _difference = new Set(setA);
+    for (let elem of setB) {
+        _difference.delete(elem);
+    }
+    return _difference;
 }
 
 // sensor-stream-manager receives an application's topic and sensor requirements and provides it
@@ -265,15 +332,20 @@ messagingService.listenForEvent("request-streams", (message) => {
 
                 // identify the gateways that can provide the device streams
                 utils.getLinkGraph().then(linkGraph => {
-                    getHostGateways(deviceIds, linkGraph).then(gatewayToSensorMapping => {
-                        console.log("gateway to sensor mapping = ");
-                        console.log(gatewayToSensorMapping);
+                    getHostGateways(deviceIds, linkGraph).then(gatewayDeviceMapping => {
+                        console.log("gateway to device mapping = ");
+                        console.log(gatewayDeviceMapping);
+
+                        const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
+                        console.log("optimal gateway to device mapping = ");
+                        console.log(optimalGatewayDeviceMapping);
+
                         const topic = appData["topic"];
                         // store application's sensor stream requirement in sensorStreamRouteTable
-                        for (const ip in gatewayToSensorMapping) {
-                            const sensorIds = gatewayToSensorMapping[ip];
+                        for (const ip in optimalGatewayDeviceMapping) {
+                            const sensorIds = gatewayDeviceMapping[ip];
                             // store the sensor connected to local gateway
-                            if (ip === gatewayIp) {
+                            if (ip === localGatewayIp) {
                                 registerToLocalGateway(ip, sensorIds, topic);
                             } else {
                                 registerToRemoteGateway(ip, sensorIds, topic);
