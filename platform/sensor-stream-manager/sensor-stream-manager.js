@@ -52,7 +52,7 @@ function getHeartbeatMqttClient() {
 function registerToRemoteGateway(ip, sensorIds, topic) {
     // Remote gateway's register-topic url
     const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-requirement`;
-    const heartbeatTopic = `${topic}-heartbeat`;
+    const heartbeatTopic = `${topic}-${ip}`;
     const heartbeatTimeMs = 60 * 1000;
     let diagnosticTimer;
     // Request body
