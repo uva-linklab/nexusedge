@@ -70,7 +70,7 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
                     console.log(
                         `[INFO] Connected to MQTT broker at ${ip} successfully!`
                     );
-                    client.subscribe(topic, (err) => {
+                    client.subscribe(heartbeatTopic, (err) => {
                         if (err) {
                             console.error(`[ERROR] Failed to subscribe "${topic}".`);
                             console.error(err);
@@ -82,7 +82,7 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
                     });
                 });
 
-                client.on("message", (topic, message) => {
+                client.on("message", (heartbeatTopic, message) => {
                     const payload = JSON.parse(message.toString());
                     // const remoteGatewayIp = payload["gateway_ip"];
 
