@@ -68,7 +68,7 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
                 const client = connectToMQTTBroker(localGatewayIp);
                 client.on("connect", () => {
                     console.log(
-                        `[INFO] Connected to MQTT broker at ${ip} successfully!`
+                        `[INFO] Connected to MQTT broker at ${localGatewayIp} successfully!`
                     );
                     client.subscribe(heartbeatTopic, (err) => {
                         if (err) {
@@ -84,13 +84,13 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
 
                 client.on("message", (heartbeatTopic, message) => {
                     const payload = JSON.parse(message.toString());
-                    // const remoteGatewayIp = payload["gateway_ip"];
+                    const remoteGatewayIp = payload["gateway_ip"];
 
-                    console.log(`received heartbeat for [${topic}, ${ip}]`);
+                    console.log(`received heartbeat for [${topic}, ${remoteGatewayIp}]`);
                     clearTimeout(diagnosticTimer);
-                    console.log(`cleared timer for timer for [${topic}, ${ip}]`);
-                    diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, ip), heartbeatTimeMs + (5 * 1000));
-                    console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${ip}]`);
+                    console.log(`cleared timer for timer for [${topic}, ${remoteGatewayIp}]`);
+                    diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, remoteGatewayIp), heartbeatTimeMs + (5 * 1000));
+                    console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${remoteGatewayIp}]`);
                 });
 
             } else {
@@ -105,6 +105,7 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
         });
 }
 
+// TODO handle failure
 function handleRemoteGatewayFailure(topic, ip) {
     console.log(`remote gateway ${ip} failed for app ${topic}`);
 }
@@ -131,6 +132,7 @@ function registerMQTTClient(ip) {
         });
         mqttClients[ip] = client;
     }
+    return mqttClients[ip];
 }
 
 /**
@@ -400,21 +402,31 @@ messagingService.listenForEvent("request-streams", (message) => {
     }
 });
 
+function sendHeartbeat(mqttClient, ip, heartbeatTopic) {
+    mqttClient.publish(heartbeatTopic, JSON.stringify({gateway_ip: localGatewayIp}));
+    console.log(`sent heartbeat to ${heartbeatTopic} on gateway ${ip}`);
+}
+
 messagingService.listenForEvent("register-topic", (message) => {
     // appData = {
-    //     "app": {
-    //         "topic": topic,
-    //         "ip": ip,
-    //         "sensors": sensorIds
-    //     }
+    //     ip: localGatewayIp,
+    //     sensors: sensorIds,
+    //     topic: topic,
+    //     heartbeatTopic: heartbeatTopic,
+    //     heartbeatTimeMs: heartbeatTimeMs
     // }
     const appData = message.data;
     if (appData["app"]) {
         const sensorIds = appData["app"]["sensors"];
         const topic = appData["app"]["topic"];
         const ip = appData["app"]["ip"];
-        registerMQTTClient(ip);
+        const heartbeatTopic = appData["app"]["heartbeatTopic"];
+        const heartbeatTimeMs = appData["app"]["heartbeatTimeMs"];
+        const mqttClient = registerMQTTClient(ip);
         registerToLocalGateway(ip, sensorIds, topic);
+
+        // send a heartbeat to the heartbeat topic every heartbeatTimeMs
+        setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
     }
 });
 
