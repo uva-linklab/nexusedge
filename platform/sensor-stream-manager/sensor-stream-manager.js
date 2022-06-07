@@ -329,15 +329,16 @@ function getOptimalGatewayDeviceMapping(gatewayDeviceMapping) {
         }
     }
 
+    // combine the local and remote gateway-device mappings
+    Object.assign(optimalGatewayDeviceMapping, remoteGatewayDeviceMapping);
+
     // remove gateways without any devices
-    for (const [gatewayIp, devices] of Object.entries(remoteGatewayDeviceMapping)) {
+    for (const [gatewayIp, devices] of Object.entries(optimalGatewayDeviceMapping)) {
         if(devices.length === 0) {
-            delete remoteGatewayDeviceMapping[gatewayIp];
+            delete optimalGatewayDeviceMapping[gatewayIp];
         }
     }
 
-    // combine the local and remote gateway-device mappings
-    Object.assign(optimalGatewayDeviceMapping, remoteGatewayDeviceMapping);
     return optimalGatewayDeviceMapping;
 }
 
