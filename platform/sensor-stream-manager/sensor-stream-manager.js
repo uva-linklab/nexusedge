@@ -45,6 +45,7 @@ function deregisterFromLocalGateway(ip, sensorIds, topic) {
                 const index = sensorStreamRouteTable[id][ip].indexOf(topic);
                 if (index > -1) {
                     sensorStreamRouteTable[id][ip].splice(index, 1);
+                    console.log(`deleted entry from sensorStreamRouteTable - ${id}, ${ip}, ${topic}`);
                 }
             }
         }
@@ -107,7 +108,7 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
                 console.log(`[INFO] Requested ${ip} to forward streams to ${appTopic}!`);
 
                 // set the diagnostic timer to check if the remote gateway failed
-                heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
+                heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, heartbeatTopic),
                     heartbeatDiagnosticTimeMs);
                 console.log(`set a ${heartbeatDiagnosticTimeMs}ms timer for [${appTopic}, ${ip}]`);
 
@@ -197,10 +198,10 @@ function handleHeartbeatMessage(mqttTopic) {
         const timer = heartbeatDiagnosticTimers[mqttTopic];
 
         clearTimeout(timer);
-        debug(`cleared timer for ${mqttTopic}`);
+        console.log(`cleared timer for ${mqttTopic}`);
         heartbeatDiagnosticTimers[mqttTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, mqttTopic),
             heartbeatDiagnosticTimeMs);
-        debug(`set a ${heartbeatDiagnosticTimeMs}ms timer for ${mqttTopic}`);
+        console.log(`set a ${heartbeatDiagnosticTimeMs}ms timer for ${mqttTopic}`);
     } else {
         console.error(`no heartbeat timer found for mqtt topic ${mqttTopic}`);
     }
@@ -545,7 +546,7 @@ messagingService.listenForEvent("register-topic", (message) => {
 
     // send a heartbeat to the heartbeat topic every heartbeatTimeMs
     heartbeatPublishTimers[heartbeatTopic] = setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
-    debug(`set the heartbeat publish timer every ${heartbeatTimeMs}ms`);
+    console.log(`set the heartbeat publish timer every ${heartbeatTimeMs}ms`);
 });
 
 messagingService.listenForEvent("deregister-topic", (message) => {
@@ -570,7 +571,7 @@ messagingService.listenForEvent("deregister-topic", (message) => {
     if(heartbeatPublishTimers.hasOwnProperty(heartbeatTopic)) {
         clearInterval(heartbeatPublishTimers[heartbeatTopic]);
         delete heartbeatPublishTimers[heartbeatTopic];
-        debug(`cleared and deleted heartbeat publish timer for heartbeat topic ${heartbeatTopic}`);
+        console.log(`cleared and deleted heartbeat publish timer for heartbeat topic ${heartbeatTopic}`);
     } else {
         console.error(`no heartbeat publish timer found for heartbeat topic ${heartbeatTopic}`);
     }
