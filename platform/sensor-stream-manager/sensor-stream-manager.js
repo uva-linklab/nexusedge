@@ -87,7 +87,6 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
     // Remote gateway's register-topic url
     const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-requirement`;
     const heartbeatTopic = `${appTopic}-${ip}`;
-    let diagnosticTimer;
     // Request body
     const body = {
         ip: localGatewayIp,
@@ -123,6 +122,63 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
                         }
                     });
                 })
+            } else {
+                console.error(
+                    `[ERROR] Failed to send "${appTopic}" to ${ip} with status ${res.status}.`
+                );
+            }
+        })
+        .catch((err) => {
+            console.error(`[ERROR] Failed to send "${appTopic}" to ${ip}.`);
+            console.error(err);
+        });
+}
+
+/**
+ * This function sends sensor requirement to the remote gateway.
+ * @param {string} ip -remote gateway's ip
+ * @param {string[]} sensorIds - an array of sensor id
+ * @param {string} appTopic - application's topic
+ */
+function requestRemoteGatewayToDeregister(ip, sensorIds, appTopic) {
+    // Remote gateway's deregister-topic url
+    const gatewayUrl = `http://${ip}:5000/gateway/deregister-app-sensor-requirement`;
+    const heartbeatTopic = `${appTopic}-${ip}`;
+    // Request body
+    const body = {
+        ip: localGatewayIp,
+        sensors: sensorIds,
+        topic: appTopic,
+        heartbeatTopic: heartbeatTopic,
+        heartbeatTimeMs: heartbeatTimeMs
+    };
+    // Send application's sensor requirement to remote gateway
+    fetch(gatewayUrl, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000,
+    })
+        .then((res) => {
+            if (res.status === 200) {
+                console.log(`[INFO] Requested ${ip} to stop forwarding streams to ${appTopic}!`);
+
+                // TODO: remove the diagnostic timer to check if the remote gateway failed
+                // heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
+                //     heartbeatDiagnosticTimeMs);
+                // console.log(`set a ${heartbeatDiagnosticTimeMs}ms timer for [${appTopic}, ${ip}]`);
+                //
+                // // listen to heartbeats from the remote gateway. if we hear back, reset timer.
+                // getHeartbeatMqttClient().then(heartbeatMqttClient => {
+                //     heartbeatMqttClient.subscribe(heartbeatTopic, (err) => {
+                //         if (err) {
+                //             console.error(`[ERROR] Failed to subscribe "${appTopic}".`);
+                //             console.error(err);
+                //         } else {
+                //             console.log(`[INFO] Subscribed to "${heartbeatTopic}" topic successfully!`);
+                //         }
+                //     });
+                // })
             } else {
                 console.error(
                     `[ERROR] Failed to send "${appTopic}" to ${ip} with status ${res.status}.`
@@ -408,6 +464,7 @@ function difference(setA, setB) {
     return _difference;
 }
 
+let once = false;
 // sensor-stream-manager receives an application's topic and sensor requirements and provides it
 messagingService.listenForEvent("request-streams", (message) => {
     // appData = {
@@ -440,6 +497,14 @@ messagingService.listenForEvent("request-streams", (message) => {
                                 registerToLocalGateway(ip, sensorIds, topic);
                             } else {
                                 registerToRemoteGateway(ip, sensorIds, topic);
+
+                                if(!once) {
+                                    setTimeout(() => {
+                                        // deregister the streams
+                                        requestRemoteGatewayToDeregister(ip, sensorIds, topic);
+                                    }, 5000);
+                                    once = true;
+                                }
                             }
                         }
                         console.log(`[INFO] Streams set up for application ${topic} successfully!`);
