@@ -197,6 +197,9 @@ function handleRemoteGatewayFailure(mqttTopic) {
     const topic = mqttTopic.split("-")[0];
     const failedGatewayIp = mqttTopic.split("-")[1];
 
+    console.log(`topic = ${topic}`);
+    console.log(`failedGatewayIp = ${failedGatewayIp}`);
+
     console.log("starting alternative streams protocol!");
     if(sensorStreamRequests.hasOwnProperty(topic)) {
         const optimalGatewayDeviceMapping = sensorStreamRequests[topic].optimalGatewayDeviceMapping;
@@ -211,7 +214,7 @@ function handleRemoteGatewayFailure(mqttTopic) {
             const sensorIdsFromGateway = optimalGatewayDeviceMapping[gatewayIp];
 
             // ask all remote gateways (except the failed one) to stop sending streams to the topic
-            if (gatewayIp !== localGatewayIp || gatewayIp !== failedGatewayIp) {
+            if (gatewayIp !== localGatewayIp && gatewayIp !== failedGatewayIp) {
                 requestRemoteGatewayToDeregister(gatewayIp, sensorIdsFromGateway, topic);
 
                 // stop the timer for this gateway
