@@ -216,20 +216,19 @@ function handleRemoteGatewayFailure(mqttTopic) {
             // ask all remote gateways (except the failed one) to stop sending streams to the topic
             if (gatewayIp !== localGatewayIp && gatewayIp !== failedGatewayIp) {
                 requestRemoteGatewayToDeregister(gatewayIp, sensorIdsFromGateway, topic);
+            }
 
-                // stop the timer for this gateway
-                // get the timer associated with this message
-                const timerId = `${topic}-${gatewayIp}`;
-                if(heartbeatDiagnosticTimers.hasOwnProperty(timerId)) {
-                    const timer = heartbeatDiagnosticTimers[timerId];
+            // stop the timer for this gateway
+            const timerId = `${topic}-${gatewayIp}`; // get the timer associated with this message
+            if(heartbeatDiagnosticTimers.hasOwnProperty(timerId)) {
+                const timer = heartbeatDiagnosticTimers[timerId];
 
-                    clearTimeout(timer);
-                    console.log(`cleared timer for ${timerId}`);
-                    delete heartbeatDiagnosticTimers[timerId];
-                    console.log(`deleted timer for ${timerId}`);
-                } else {
-                    console.error(`no heartbeat timer found for ${timerId}`);
-                }
+                clearTimeout(timer);
+                console.log(`cleared timer for ${timerId}`);
+                delete heartbeatDiagnosticTimers[timerId];
+                console.log(`deleted timer for ${timerId}`);
+            } else {
+                console.error(`no heartbeat timer found for ${timerId}`);
             }
         }
 
