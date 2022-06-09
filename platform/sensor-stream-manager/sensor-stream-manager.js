@@ -37,6 +37,12 @@ function getHeartbeatMqttClient() {
         } else {
             heartbeatMqttClient = connectToMQTTBroker(localGatewayIp);
             heartbeatMqttClient.on("connect", () => {
+                // handle all messages on this client using a callback fn
+                heartbeatMqttClient.on("message", (topic, message) => {
+                    // const payload = JSON.parse(message.toString());
+                    handleHeartbeatMessage(topic);
+                });
+
                 resolve(heartbeatMqttClient);
             });
         }
@@ -90,11 +96,6 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
                             console.error(err);
                         } else {
                             console.log(`[INFO] Subscribed to "${heartbeatTopic}" topic successfully!`);
-
-                            heartbeatMqttClient.on("message", (topic, message) => {
-                                // const payload = JSON.parse(message.toString());
-                                handleHeartbeatMessage(topic);
-                            });
                         }
                     });
                 })
@@ -116,18 +117,18 @@ function handleHeartbeatMessage(mqttTopic) {
         const timer = heartbeatTimers[mqttTopic];
 
         clearTimeout(timer);
-        console.log(`cleared timer for timer for ${mqttTopic}`);
+        debug(`cleared timer for ${mqttTopic}`);
         heartbeatTimers[mqttTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, mqttTopic),
             heartbeatTimeMs + (5 * 1000));
-        console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for ${mqttTopic}`);
+        debug(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for ${mqttTopic}`);
     } else {
         console.error(`no heartbeat timer found for mqtt topic ${mqttTopic}`);
     }
 }
 
 // TODO handle failure
-function handleRemoteGatewayFailure(topic, ip) {
-    console.log(`remote gateway ${ip} failed for app ${topic}`);
+function handleRemoteGatewayFailure(mqttTopic) {
+    console.log(`failure for ${mqttTopic}`);
 
     // figure out the app related to this - topic
 
