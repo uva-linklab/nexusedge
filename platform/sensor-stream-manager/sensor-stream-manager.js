@@ -29,6 +29,28 @@ function registerToLocalGateway(ip, sensorIds, topic) {
     }
 }
 
+/**
+ * This function de-registers topic for local sensors.
+ * @param {string} ip - gateway's ip
+ * @param {string[]} sensorIds - an array of sensor id
+ * @param {string} topic - application's topic
+ */
+function deregisterFromLocalGateway(ip, sensorIds, topic) {
+    for (const id of sensorIds) {
+        if(sensorStreamRouteTable.hasOwnProperty(id)) {
+            const ipTable = sensorStreamRouteTable[id];
+            if(ipTable.hasOwnProperty(ip)) {
+                sensorStreamRouteTable[id][ip].push(topic);
+
+                const index = sensorStreamRouteTable[id][ip].indexOf(topic);
+                if (index > -1) {
+                    sensorStreamRouteTable[id][ip].splice(index, 1);
+                }
+            }
+        }
+    }
+}
+
 let heartbeatMqttClient;
 function getHeartbeatMqttClient() {
     return new Promise(resolve => {
@@ -50,8 +72,10 @@ function getHeartbeatMqttClient() {
 }
 
 // remote gateway heartbeat related
-const heartbeatTimeMs = 60 * 1000;
-let heartbeatTimers = {}; // "appId"-"remoteGateway" -> timer
+const heartbeatTimeMs = 60 * 1000; // request remote gateways to send heartbeats at this rate
+const heartbeatDiagnosticTimeMs = heartbeatTimeMs + (5 * 1000); // add buffer time to check if we missed a heartbeat
+// these are timers which are set to periodically check if we received heartbeats from remote gateways
+let heartbeatDiagnosticTimers = {}; // "appId-remoteGateway" -> timer
 
 /**
  * This function sends sensor requirement to the remote gateway.
@@ -84,9 +108,9 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
                 console.log(`[INFO] Requested ${ip} to forward streams to ${appTopic}!`);
 
                 // set the diagnostic timer to check if the remote gateway failed
-                heartbeatTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
-                    heartbeatTimeMs + (5 * 1000));
-                console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${appTopic}, ${ip}]`);
+                heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
+                    heartbeatDiagnosticTimeMs);
+                console.log(`set a ${heartbeatDiagnosticTimeMs}ms timer for [${appTopic}, ${ip}]`);
 
                 // listen to heartbeats from the remote gateway. if we hear back, reset timer.
                 getHeartbeatMqttClient().then(heartbeatMqttClient => {
@@ -113,14 +137,14 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
 
 function handleHeartbeatMessage(mqttTopic) {
     // get the timer associated with this message
-    if(heartbeatTimers.hasOwnProperty(mqttTopic)) {
-        const timer = heartbeatTimers[mqttTopic];
+    if(heartbeatDiagnosticTimers.hasOwnProperty(mqttTopic)) {
+        const timer = heartbeatDiagnosticTimers[mqttTopic];
 
         clearTimeout(timer);
         debug(`cleared timer for ${mqttTopic}`);
-        heartbeatTimers[mqttTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, mqttTopic),
-            heartbeatTimeMs + (5 * 1000));
-        debug(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for ${mqttTopic}`);
+        heartbeatDiagnosticTimers[mqttTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, mqttTopic),
+            heartbeatDiagnosticTimeMs);
+        debug(`set a ${heartbeatDiagnosticTimeMs}ms timer for ${mqttTopic}`);
     } else {
         console.error(`no heartbeat timer found for mqtt topic ${mqttTopic}`);
     }
@@ -130,9 +154,10 @@ function handleHeartbeatMessage(mqttTopic) {
 function handleRemoteGatewayFailure(mqttTopic) {
     console.log(`failure for ${mqttTopic}`);
 
-    // figure out the app related to this - topic
+    // ask all remote gateways to stop sending streams to the topic (reqmt: store the optimalGatewayDeviceMapping)
 
-    //
+    // redo the stream setup (reqmt: store the original sensorIds and topic)
+
 }
 
 /**
@@ -427,6 +452,9 @@ messagingService.listenForEvent("request-streams", (message) => {
     }
 });
 
+// heartbeatTopic -> timer
+// these are timers which are set to periodically send heartbeats to gateways where we're forwarding streams to
+let heartbeatPublishTimers = {};
 function sendHeartbeat(mqttClient, ip, heartbeatTopic) {
     mqttClient.publish(heartbeatTopic, JSON.stringify({gateway_ip: localGatewayIp}));
     console.log(`sent heartbeat to ${heartbeatTopic} on gateway ${ip}`);
@@ -450,10 +478,37 @@ messagingService.listenForEvent("register-topic", (message) => {
     const mqttClient = registerMQTTClient(ip);
     registerToLocalGateway(ip, sensorIds, topic);
 
-    console.log("set the timer for sending heartbeat");
-
     // send a heartbeat to the heartbeat topic every heartbeatTimeMs
-    setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
+    heartbeatPublishTimers[heartbeatTopic] = setInterval(sendHeartbeat.bind(null, mqttClient, ip, heartbeatTopic), heartbeatTimeMs);
+    debug(`set the heartbeat publish timer every ${heartbeatTimeMs}ms`);
+});
+
+messagingService.listenForEvent("deregister-topic", (message) => {
+    // appData = {
+    //     ip: localGatewayIp,
+    //     sensors: sensorIds,
+    //     topic: topic,
+    //     heartbeatTopic: heartbeatTopic,
+    //     heartbeatTimeMs: heartbeatTimeMs
+    // }
+    const params = message.data;
+
+    const sensorIds = params["sensors"];
+    const topic = params["topic"];
+    const ip = params["ip"];
+    const heartbeatTopic = params["heartbeatTopic"];
+    const heartbeatTimeMs = params["heartbeatTimeMs"];
+    const mqttClient = registerMQTTClient(ip);
+    deregisterFromLocalGateway(ip, sensorIds, topic);
+
+    // clear the timer!
+    if(heartbeatPublishTimers.hasOwnProperty(heartbeatTopic)) {
+        clearInterval(heartbeatPublishTimers[heartbeatTopic]);
+        delete heartbeatPublishTimers[heartbeatTopic];
+        debug(`cleared and deleted heartbeat publish timer for heartbeat topic ${heartbeatTopic}`);
+    } else {
+        console.error(`no heartbeat publish timer found for heartbeat topic ${heartbeatTopic}`);
+    }
 });
 
 messagingService.listenForEvent("update-policy", (message) => {

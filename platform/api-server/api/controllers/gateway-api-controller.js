@@ -232,7 +232,6 @@ exports.stopLogStreaming = async function(req, res) {
     }
 };
 
-// TODO: need to be changed to the general api.
 /**
  * This endpoint takes sensor requirement from the remote gateways and
  * passes the sensor requirement to sensor-stream-manager.
@@ -243,6 +242,12 @@ exports.stopLogStreaming = async function(req, res) {
 exports.registerAppSensorRequirement = async function(req, res) {
     // Forward the application's sensor requirement to sensor-stream-manager
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", req.body);
+    res.send();
+};
+
+exports.deregisterAppSensorRequirement = async function(req, res) {
+    // Forward the application's sensor requirement to sensor-stream-manager
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "deregister-topic", req.body);
     res.send();
 };
 
