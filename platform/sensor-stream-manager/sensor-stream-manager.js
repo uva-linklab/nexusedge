@@ -3,6 +3,7 @@ const mqtt = require("mqtt");
 const utils = require("../utils/utils");
 const fetch = require("node-fetch");
 const { PolicyEnforcer } = require("./policy");
+const { SensorStreamRequest } = require("./sensor-stream-request");
 const debug = require('debug')('ssm');
 
 const timeZone = "America/New_York";
@@ -62,7 +63,7 @@ function getHeartbeatMqttClient() {
             heartbeatMqttClient.on("connect", () => {
                 // handle all messages on this client using a callback fn
                 heartbeatMqttClient.on("message", (topic, message) => {
-                    // const payload = JSON.parse(message.toString());
+                    const payload = JSON.parse(message.toString());
                     handleHeartbeatMessage(topic);
                 });
 
@@ -163,23 +164,6 @@ function requestRemoteGatewayToDeregister(ip, sensorIds, appTopic) {
         .then((res) => {
             if (res.status === 200) {
                 console.log(`[INFO] Requested ${ip} to stop forwarding streams to ${appTopic}!`);
-
-                // TODO: remove the diagnostic timer to check if the remote gateway failed
-                // heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
-                //     heartbeatDiagnosticTimeMs);
-                // console.log(`set a ${heartbeatDiagnosticTimeMs}ms timer for [${appTopic}, ${ip}]`);
-                //
-                // // listen to heartbeats from the remote gateway. if we hear back, reset timer.
-                // getHeartbeatMqttClient().then(heartbeatMqttClient => {
-                //     heartbeatMqttClient.subscribe(heartbeatTopic, (err) => {
-                //         if (err) {
-                //             console.error(`[ERROR] Failed to subscribe "${appTopic}".`);
-                //             console.error(err);
-                //         } else {
-                //             console.log(`[INFO] Subscribed to "${heartbeatTopic}" topic successfully!`);
-                //         }
-                //     });
-                // })
             } else {
                 console.error(
                     `[ERROR] Failed to send "${appTopic}" to ${ip} with status ${res.status}.`
@@ -207,14 +191,71 @@ function handleHeartbeatMessage(mqttTopic) {
     }
 }
 
-// TODO handle failure
 function handleRemoteGatewayFailure(mqttTopic) {
     console.log(`failure for ${mqttTopic}`);
+    // mqttTopic is of the form "appId-remoteGatewayIp"
+    const topic = mqttTopic.split("-")[0];
+    const failedGatewayIp = mqttTopic.split("-")[1];
 
-    // ask all remote gateways to stop sending streams to the topic (reqmt: store the optimalGatewayDeviceMapping)
+    console.log("starting alternative streams protocol!");
+    if(sensorStreamRequests.hasOwnProperty(topic)) {
+        const optimalGatewayDeviceMapping = sensorStreamRequests[topic].optimalGatewayDeviceMapping;
+        const allRequiredSensors = sensorStreamRequests[topic].sensorIds;
 
-    // redo the stream setup (reqmt: store the original sensorIds and topic)
+        console.log("original sensor stream request:");
+        console.log(optimalGatewayDeviceMapping);
+        console.log(allRequiredSensors);
 
+        console.log("step 1: request all remote ips to stop sending data");
+        for (const gatewayIp in optimalGatewayDeviceMapping) {
+            const sensorIdsFromGateway = optimalGatewayDeviceMapping[gatewayIp];
+
+            // ask all remote gateways (except the failed one) to stop sending streams to the topic
+            if (gatewayIp !== localGatewayIp || gatewayIp !== failedGatewayIp) {
+                requestRemoteGatewayToDeregister(gatewayIp, sensorIdsFromGateway, topic);
+
+                // stop the timer for this gateway
+                // get the timer associated with this message
+                const timerId = `${topic}-${gatewayIp}`;
+                if(heartbeatDiagnosticTimers.hasOwnProperty(timerId)) {
+                    const timer = heartbeatDiagnosticTimers[timerId];
+
+                    clearTimeout(timer);
+                    console.log(`cleared timer for ${timerId}`);
+                    delete heartbeatDiagnosticTimers[timerId];
+                    console.log(`deleted timer for ${timerId}`);
+                } else {
+                    console.error(`no heartbeat timer found for ${timerId}`);
+                }
+            }
+        }
+
+        console.log("step 2: recompute the remote sensor streams");
+        // redo the stream setup for the remote gateways
+        utils.getLinkGraph().then(linkGraph => {
+            getHostGateways(allRequiredSensors, linkGraph).then(gatewayDeviceMapping => {
+                const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
+
+                // update the optimalGatewayDeviceMapping
+                sensorStreamRequests[topic].optimalGatewayDeviceMapping = optimalGatewayDeviceMapping;
+
+                console.log("updated optimalGatewayDeviceMapping:");
+                console.log(optimalGatewayDeviceMapping);
+
+                console.log("requesting new remote gateways to forward data streams");
+                for (const ip in optimalGatewayDeviceMapping) {
+                    const sensorIds = optimalGatewayDeviceMapping[ip];
+                    // store the sensor connected to local gateway
+                    if (ip !== localGatewayIp) {
+                        registerToRemoteGateway(ip, sensorIds, topic);
+                    }
+                }
+                console.log(`[INFO] Streams set up for application ${topic} successfully!`);
+            });
+        });
+    } else {
+        console.error(`couldn't find a sensor stream request for the appId ${topic}`);
+    }
 }
 
 /**
@@ -351,6 +392,15 @@ console.log(`[INFO] Gateway's ip address is ${localGatewayIp}`);
 // }
 const sensorStreamRouteTable = {};
 
+/*
+{
+    "mqttTopic1": <sensorIds, optimalGatewayDeviceMapping>,
+    "mqttTopic2": <sensorIds, optimalGatewayDeviceMapping>,
+    ..
+}
+ */
+const sensorStreamRequests = {};
+
 // mqttClients = {
 //     "gateway-ip": client
 // }
@@ -465,7 +515,6 @@ function difference(setA, setB) {
     return _difference;
 }
 
-let once = false;
 // sensor-stream-manager receives an application's topic and sensor requirements and provides it
 messagingService.listenForEvent("request-streams", (message) => {
     // appData = {
@@ -490,22 +539,18 @@ messagingService.listenForEvent("request-streams", (message) => {
                         const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
 
                         const topic = appData["topic"];
+
+                        // store this sensor stream request for later reference
+                        sensorStreamRequests[topic] = new SensorStreamRequest(deviceIds, optimalGatewayDeviceMapping);
+
                         // store application's sensor stream requirement in sensorStreamRouteTable
                         for (const ip in optimalGatewayDeviceMapping) {
-                            const sensorIds = gatewayDeviceMapping[ip];
+                            const sensorIds = optimalGatewayDeviceMapping[ip];
                             // store the sensor connected to local gateway
                             if (ip === localGatewayIp) {
                                 registerToLocalGateway(ip, sensorIds, topic);
                             } else {
                                 registerToRemoteGateway(ip, sensorIds, topic);
-
-                                if(!once) {
-                                    setTimeout(() => {
-                                        // deregister the streams
-                                        requestRemoteGatewayToDeregister(ip, sensorIds, topic);
-                                    }, 5000);
-                                    once = true;
-                                }
                             }
                         }
                         console.log(`[INFO] Streams set up for application ${topic} successfully!`);
