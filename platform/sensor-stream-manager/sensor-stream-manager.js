@@ -43,23 +43,26 @@ function getHeartbeatMqttClient() {
     })
 }
 
+// remote gateway heartbeat related
+const heartbeatTimeMs = 60 * 1000;
+let heartbeatTimers = {}; // "appId"-"remoteGateway" -> timer
+
 /**
  * This function sends sensor requirement to the remote gateway.
  * @param {string} ip -remote gateway's ip
  * @param {string[]} sensorIds - an array of sensor id
- * @param {string} topic - application's topic
+ * @param {string} appTopic - application's topic
  */
-function registerToRemoteGateway(ip, sensorIds, topic) {
+function registerToRemoteGateway(ip, sensorIds, appTopic) {
     // Remote gateway's register-topic url
     const gatewayUrl = `http://${ip}:5000/gateway/register-app-sensor-requirement`;
-    const heartbeatTopic = `${topic}-${ip}`;
-    const heartbeatTimeMs = 60 * 1000;
+    const heartbeatTopic = `${appTopic}-${ip}`;
     let diagnosticTimer;
     // Request body
     const body = {
         ip: localGatewayIp,
         sensors: sensorIds,
-        topic: topic,
+        topic: appTopic,
         heartbeatTopic: heartbeatTopic,
         heartbeatTimeMs: heartbeatTimeMs
     };
@@ -72,51 +75,63 @@ function registerToRemoteGateway(ip, sensorIds, topic) {
     })
         .then((res) => {
             if (res.status === 200) {
-                console.log(`[INFO] Sent "${topic}" to ${ip} successfully!`);
+                console.log(`[INFO] Requested ${ip} to forward streams to ${appTopic}!`);
 
                 // set the diagnostic timer to check if the remote gateway failed
-                diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, ip), heartbeatTimeMs + (5 * 1000));
-                console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${ip}]`);
+                heartbeatTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, appTopic, ip),
+                    heartbeatTimeMs + (5 * 1000));
+                console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${appTopic}, ${ip}]`);
 
-                // setup a diagnostic timer to check if the remote gateway is active
+                // listen to heartbeats from the remote gateway. if we hear back, reset timer.
                 getHeartbeatMqttClient().then(heartbeatMqttClient => {
                     heartbeatMqttClient.subscribe(heartbeatTopic, (err) => {
                         if (err) {
-                            console.error(`[ERROR] Failed to subscribe "${topic}".`);
+                            console.error(`[ERROR] Failed to subscribe "${appTopic}".`);
                             console.error(err);
                         } else {
-                            console.log(
-                                `[INFO] Subscribed to "${topic}" topic successfully!`
-                            );
+                            console.log(`[INFO] Subscribed to "${heartbeatTopic}" topic successfully!`);
+
+                            heartbeatMqttClient.on("message", (topic, message) => {
+                                // const payload = JSON.parse(message.toString());
+                                handleHeartbeatMessage(topic);
+                            });
                         }
-                    });
-
-                    heartbeatMqttClient.on("message", (heartbeatTopic, message) => {
-                        const payload = JSON.parse(message.toString());
-                        const remoteGatewayIp = payload["gateway_ip"];
-
-                        console.log(`received heartbeat for [${topic}, ${remoteGatewayIp}]`);
-                        clearTimeout(diagnosticTimer);
-                        console.log(`cleared timer for timer for [${topic}, ${remoteGatewayIp}]`);
-                        diagnosticTimer = setTimeout(handleRemoteGatewayFailure.bind(null, topic, remoteGatewayIp), heartbeatTimeMs + (5 * 1000));
-                        console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for [${topic}, ${remoteGatewayIp}]`);
                     });
                 })
             } else {
                 console.error(
-                    `[ERROR] Failed to send "${topic}" to ${ip} with status ${res.status}.`
+                    `[ERROR] Failed to send "${appTopic}" to ${ip} with status ${res.status}.`
                 );
             }
         })
         .catch((err) => {
-            console.error(`[ERROR] Failed to send "${topic}" to ${ip}.`);
+            console.error(`[ERROR] Failed to send "${appTopic}" to ${ip}.`);
             console.error(err);
         });
+}
+
+function handleHeartbeatMessage(mqttTopic) {
+    // get the timer associated with this message
+    if(heartbeatTimers.hasOwnProperty(mqttTopic)) {
+        const timer = heartbeatTimers[mqttTopic];
+
+        clearTimeout(timer);
+        console.log(`cleared timer for timer for ${mqttTopic}`);
+        heartbeatTimers[mqttTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, mqttTopic),
+            heartbeatTimeMs + (5 * 1000));
+        console.log(`set a ${heartbeatTimeMs + (5 * 1000)}ms timer for ${mqttTopic}`);
+    } else {
+        console.error(`no heartbeat timer found for mqtt topic ${mqttTopic}`);
+    }
 }
 
 // TODO handle failure
 function handleRemoteGatewayFailure(topic, ip) {
     console.log(`remote gateway ${ip} failed for app ${topic}`);
+
+    // figure out the app related to this - topic
+
+    //
 }
 
 /**
