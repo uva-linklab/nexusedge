@@ -106,7 +106,7 @@ function registerToRemoteGateway(ip, sensorIds, appTopic) {
     })
         .then((res) => {
             if (res.status === 200) {
-                console.log(`[INFO] Requested ${ip} to forward streams to ${appTopic}!`);
+                console.log(`${Date.now()} Requested ${ip} to forward streams to ${appTopic}!`);
 
                 // set the diagnostic timer to check if the remote gateway failed
                 heartbeatDiagnosticTimers[heartbeatTopic] = setTimeout(handleRemoteGatewayFailure.bind(null, heartbeatTopic),
