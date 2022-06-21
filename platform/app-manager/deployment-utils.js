@@ -111,6 +111,14 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
     if (runtime === 'nodejs') {
         executablePath = path.join(runPath, 'app.js');
 
+        // Install application dependencies if package-lock.json exists.
+        if (fs.existsSync(path.join(runPath, 'package-lock.json'))) {
+            child_process.execFileSync(
+                '/usr/bin/npm',
+                ['install'],
+                { cwd: runPath });
+        }
+
         // copy the oracle library to use for the app.
         copyOracleLibrary(runPath, runtime);
     } else if (runtime === 'python') {

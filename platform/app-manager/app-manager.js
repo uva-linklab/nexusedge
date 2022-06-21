@@ -158,12 +158,19 @@ messagingService.listenForQuery('schedule-app', async (message) => {
 
     // Unpackage the app metadata.
     const extractDir = '/tmp';
-    try {
-        child_process.execFileSync(
-            utils.tarPath,
-            ['-x', '-f', packagePath, '_metadata.json'],
-            { cwd: extractDir, timeout: 1000 });
-    } catch (e) {
+    const tarMetadataPaths = ['_metadata.json', './_metadata.json'];
+    for (var i = 0; i < tarMetadataPaths.length; i++) {
+        try {
+            child_process.execFileSync(
+                utils.tarPath,
+                ['-x', '-f', packagePath, tarMetadataPaths[i]],
+                { cwd: extractDir, timeout: 2000 });
+        } catch (_e) {
+            // Defer returning an error until trying all paths.
+        }
+    }
+    // Make sure we have a metadata file.
+    if (!fs.existsSync(path.join(extractDir, '_metadata.json'))) {
         console.log(`Failed to unpackage app metadata: ${e}.`);
         messagingService.respondToQuery(query, {
             status: false,
