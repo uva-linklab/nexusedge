@@ -137,8 +137,13 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
 
                 // Install application to the run path.
                 console.log(`Installing package to ${runPath}`)
+                // Look for pip at pip3, otherwise, pip is for Python 3.
+                var pipPath = '/usr/bin/pip3';
+                if (!fs.existsSync('/usr/bin/pip3')) {
+                    pipPath = '/usr/bin/pip';
+                }
                 child_process.execFileSync(
-                    '/usr/bin/pip',
+                    pipPath,
                     ['install', '--target', runPath, path.join(runPath, entry.name)]);
                 break;
             }
