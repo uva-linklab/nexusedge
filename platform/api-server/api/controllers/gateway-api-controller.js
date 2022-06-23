@@ -112,6 +112,7 @@ exports.getResourceUsage = async function(req, res) {
  */
 exports.executeApp = async function(req, res) {
     const appId = req.body.appId;
+    const linkGraph = req.body.linkGraph;
     if(!appId) {
         res.status(400).send({
             message: 'no app id provided!'
@@ -124,6 +125,7 @@ exports.executeApp = async function(req, res) {
         // The data format is described in the platform-manager.js
         const response = await messagingService.query(serviceName, "app-manager", "execute-app", {
             "appId": appId,
+            "linkGraph": linkGraph,
             "appPath": appPath,
             "metadataPath": metadataPath
         });

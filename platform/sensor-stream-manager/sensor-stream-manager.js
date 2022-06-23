@@ -521,6 +521,7 @@ function difference(setA, setB) {
 messagingService.listenForEvent("request-streams", (message) => {
     // appData = {
     //     "topic": appId,
+    //     "linkGraph": linkGraph, -> optional
     //     "metadataPath": appData.metadataPath
     // }
     const appData = message.data;
@@ -535,8 +536,12 @@ messagingService.listenForEvent("request-streams", (message) => {
             if(devices.hasOwnProperty("ids")) {
                 const deviceIds = devices["ids"];
 
+                let linkGraph;
                 // identify the gateways that can provide the device streams
-                utils.getLinkGraph().then(linkGraph => {
+                if(appData.hasOwnProperty("linkGraph") && appData["linkGraph"]) {
+                    linkGraph = appData["linkGraph"];
+                    console.log("using linkGraph provided by app-manager");
+
                     getHostGateways(deviceIds, linkGraph).then(gatewayDeviceMapping => {
                         const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
 
@@ -557,7 +562,31 @@ messagingService.listenForEvent("request-streams", (message) => {
                         }
                         console.log(`[INFO] Streams set up for application ${topic} successfully!`);
                     });
-                });
+                } else {
+                    // TODO remove redundancy
+                    utils.getLinkGraph().then(linkGraph => {
+                        getHostGateways(deviceIds, linkGraph).then(gatewayDeviceMapping => {
+                            const optimalGatewayDeviceMapping = getOptimalGatewayDeviceMapping(gatewayDeviceMapping);
+
+                            const topic = appData["topic"];
+
+                            // store this sensor stream request for later reference
+                            sensorStreamRequests[topic] = new SensorStreamRequest(deviceIds, optimalGatewayDeviceMapping);
+
+                            // store application's sensor stream requirement in sensorStreamRouteTable
+                            for (const ip in optimalGatewayDeviceMapping) {
+                                const sensorIds = optimalGatewayDeviceMapping[ip];
+                                // store the sensor connected to local gateway
+                                if (ip === localGatewayIp) {
+                                    registerToLocalGateway(ip, sensorIds, topic);
+                                } else {
+                                    registerToRemoteGateway(ip, sensorIds, topic);
+                                }
+                            }
+                            console.log(`[INFO] Streams set up for application ${topic} successfully!`);
+                        });
+                    })
+                }
             }
         } else {
             console.error("invalid metadata file received. no device information present.");

@@ -30,6 +30,7 @@ function getFreeMemoryMB() {
  * Get the % of free cpu, and the megabytes of free memory available
  * @return {Promise<{cpu: *, memory: *}>}
  */
+// TODO change this to use load avg instead of cpu free
 function getResourceUsage() {
 	return getFreeCpuPercent().then(freeCpuPercent => {
 		return {
@@ -185,12 +186,14 @@ function scheduleApp(appFiles) {
  * @param gatewayIP The ip of the gateway where the app needs to run
  * @param appFiles Object with key-value pairs app and metadata paths
  * @param appId
+ * @param linkGraph optional
  * @return {*}
  */
-function executeAppOnGateway(gatewayIP, appFiles, appId) {
+function executeAppOnGateway(gatewayIP, appFiles, appId, linkGraph) {
 	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/execute-app`;
 	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
-		"appId": appId
+		"appId": appId,
+		"linkGraph": linkGraph
 	});
 }
 

@@ -107,10 +107,11 @@ function getLogPath(appName) {
  5. store the app's info in the memory obj and in db
  6. request SSM to setup streams for this app based on its requirements
  * @param appId
+ * @param linkGraph optional linkgraph to speedup compute
  * @param tempAppPath
  * @param tempMetadataPath
  */
-async function executeApplication(appId, tempAppPath, tempMetadataPath) {
+async function executeApplication(appId, linkGraph, tempAppPath, tempMetadataPath) {
     let metadata;
     try {
         metadata = await fs.readJson(tempMetadataPath);
@@ -142,6 +143,7 @@ async function executeApplication(appId, tempAppPath, tempMetadataPath) {
     // request sensor-stream-manager to provide streams for this app
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
         "topic": appId,
+        "linkGraph": linkGraph,
         "metadataPath": metadataPath
     });
 }
@@ -353,7 +355,7 @@ messagingService.listenForQuery('execute-app', message => {
     const params = message.data.query.params;
 
     console.log(`received request to execute app. appPath = ${params.appPath}`);
-    executeApplication(params.appId, params.appPath, params.metadataPath)
+    executeApplication(params.appId, params.linkGraph, params.appPath, params.metadataPath)
         .then(() => {
             messagingService.respondToQuery(query, {
                 'status': true

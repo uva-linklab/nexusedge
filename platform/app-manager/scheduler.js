@@ -152,7 +152,7 @@ async function schedule(appPath, metadataPath) {
 
         try {
             console.log(`executing the app on ${executorGateway.ip}`);
-            await utils.executeAppOnGateway(executorGateway.ip, appFiles, appId);
+            await utils.executeAppOnGateway(executorGateway.ip, appFiles, appId, linkGraph);
         } catch(err) {
             throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${error.toString()}`);
         }
