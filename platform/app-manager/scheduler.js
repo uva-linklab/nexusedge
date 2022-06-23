@@ -154,7 +154,7 @@ async function schedule(appPath, metadataPath) {
             console.log(`executing the app on ${executorGateway.ip}`);
             await utils.executeAppOnGateway(executorGateway.ip, appFiles, appId, linkGraph);
         } catch(err) {
-            throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${error.toString()}`);
+            throw new Error(`Error trying to execute app ${appId} on ${executorGateway.ip}. Error = ${err.toString()}`);
         }
 
         // pick a watcher gateway (randomly picked from the candidate gateways, not the executor gateway)

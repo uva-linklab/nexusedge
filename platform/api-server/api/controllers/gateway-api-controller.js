@@ -112,7 +112,10 @@ exports.getResourceUsage = async function(req, res) {
  */
 exports.executeApp = async function(req, res) {
     const appId = req.body.appId;
-    const linkGraph = req.body.linkGraph;
+    let linkGraph;
+    if(req.body.linkGraph) {
+        linkGraph = JSON.parse(req.body.linkGraph.toString());
+    }
     if(!appId) {
         res.status(400).send({
             message: 'no app id provided!'

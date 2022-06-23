@@ -193,7 +193,7 @@ function executeAppOnGateway(gatewayIP, appFiles, appId, linkGraph) {
 	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/execute-app`;
 	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
 		"appId": appId,
-		"linkGraph": linkGraph
+		"linkGraph": JSON.stringify(linkGraph)
 	});
 }
 
