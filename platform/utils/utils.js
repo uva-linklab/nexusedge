@@ -10,6 +10,8 @@ const sysinfo = require('systeminformation');
 
 // store the time when the gateway platform starts up
 const startTime = Date.now();
+let key, iv, groupKey;
+let backhaulInterface;
 
 const StoragePath = '/var/tmp';
 
@@ -115,7 +117,7 @@ function getConfig(key) {
  * @return {string}
  */
 function getGatewayIp() {
-	const interfaceInConfig = getConfig('network')['interface'];
+	const interfaceInConfig = getBackhaulInterface();
 	const systemInterfaces = os.networkInterfaces();
 	if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
 		const sysInterface = systemInterfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
@@ -140,19 +142,52 @@ function getGatewayId() {
 		return fs.readFileSync('/etc/gateway-id', 'utf-8').trim();
 	} catch (e) {
 		console.log("/etc/gateway-id not found or unreadable");
-		const interfaceInConfig = getConfig('network')['interface'];
-		const systemInterfaces = os.networkInterfaces();
-		if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
-			const sysInterface = systemInterfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
-			if(sysInterface) {
-				return sysInterface.mac.replace(/:/g, ''); // remove all colon chars
-			} else {
-				throw new Error(`${interfaceInConfig} interface defined in utils/config.json is not an IPv4 interface`);
-			}
+		if(process.env.NEXUSEDGE_GATEWAY_ID) {
+			return process.env.NEXUSEDGE_GATEWAY_ID;
 		} else {
-			throw new Error(`interface ${interfaceInConfig} defined in utils/config.json is not valid`);
+			const interfaceInConfig = getBackhaulInterface();
+			const systemInterfaces = os.networkInterfaces();
+			if(systemInterfaces.hasOwnProperty(interfaceInConfig)) {
+				const sysInterface = systemInterfaces[interfaceInConfig].find(elem => elem.family === 'IPv4');
+				if(sysInterface) {
+					return sysInterface.mac.replace(/:/g, ''); // remove all colon chars
+				} else {
+					throw new Error(`${interfaceInConfig} interface defined in env var or utils/config.json is not an IPv4 interface`);
+				}
+			} else {
+				throw new Error(`${interfaceInConfig} interface defined in env var or utils/config.json is not valid`);
+			}
 		}
 	}
+}
+
+function getBackhaulInterface() {
+	if(!backhaulInterface) {
+		if(process.env.NEXUSEDGE_BACKHAUL_INTERFACE) {
+			backhaulInterface = process.env.NEXUSEDGE_BACKHAUL_INTERFACE;
+			console.log("read backhaul interface from env var");
+		} else {
+			backhaulInterface = getConfig('network')['interface'];
+		}
+	}
+	return backhaulInterface;
+}
+
+function getGroupKey() {
+	if(!groupKey) {
+		if(process.env.NEXUSEDGE_GROUP_KEY && process.env.NEXUSEDGE_GROUP_IV) {
+			key = process.env.NEXUSEDGE_GROUP_KEY;
+			iv = process.env.NEXUSEDGE_GROUP_IV;
+			groupKey = {
+				"key": key,
+				"iv": iv
+			};
+			console.log("read group key and iv from env vars");
+		} else {
+			groupKey = getConfig('groupKey');
+		}
+	}
+	return groupKey;
 }
 
 // TODO: move getAdvertisementName() and getGateway() into a separate file that is available on npm for aux devices to use
@@ -164,7 +199,7 @@ function getGatewayId() {
  * @return {string}
  */
 function getAdvertisementName() {
-	const groupKey = getConfig('groupKey');
+	const groupKey = getGroupKey();
 
 	const id = getGatewayId();
 	const ip = getGatewayIp();
@@ -181,7 +216,7 @@ function getAdvertisementName() {
  * @return {{ip: string, id: string}}
  */
 function getGatewayDetails(advertisementName) {
-	const groupKey = getConfig('groupKey');
+	const groupKey = getGroupKey();
 
 	const decryptedStr = decryptAES(advertisementName, groupKey.key, groupKey.iv);
 	const parts = decryptedStr.split('*');
