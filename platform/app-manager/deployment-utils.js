@@ -111,18 +111,40 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
     if (runtime === 'nodejs') {
         executablePath = path.join(runPath, 'app.js');
 
+        // Install application dependencies if package-lock.json exists.
+        if (fs.existsSync(path.join(runPath, 'package-lock.json'))) {
+            child_process.execFileSync(
+                '/usr/bin/npm',
+                ['install'],
+                { cwd: runPath });
+        }
+
         // copy the oracle library to use for the app.
         copyOracleLibrary(runPath, runtime);
     } else if (runtime === 'python') {
         // Unzip the wheel.
+        var moduleName = '';
         var dir = fs.opendirSync(runPath);
         var entry = dir.readSync();
         while (entry != null) {
             if (path.extname(entry.name) === '.whl') {
-                child_process.execFileSync(
+                // Get the name of the top-level module.
+                const outputBytes = child_process.execFileSync(
                     '/usr/bin/unzip',
-                    [path.join(entry.name)],
+                    ['-q', '-c', '-a', entry.name, '*/top_level.txt'],
                     { cwd: runPath });
+                moduleName = String.fromCharCode.apply(String, outputBytes);
+
+                // Install application to the run path.
+                console.log(`Installing package to ${runPath}`)
+                // Look for pip at pip3, otherwise, pip is for Python 3.
+                var pipPath = '/usr/bin/pip3';
+                if (!fs.existsSync('/usr/bin/pip3')) {
+                    pipPath = '/usr/bin/pip';
+                }
+                child_process.execFileSync(
+                    pipPath,
+                    ['install', '--target', runPath, path.join(runPath, entry.name)]);
                 break;
             }
 
@@ -137,17 +159,10 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
             return result;
         }
 
-        executablePath = findPythonMain(runPath);
-
-        if (executablePath == null) {
-            result.status = false;
-            result.message = 'Could not find __main__.py file.';
-
-            return result;
-        }
+        executablePath = path.join(runPath, 'bin', moduleName);
 
         // copy the oracle library to use for the app.
-        copyOracleLibrary(executablePath, runtime);
+        copyOracleLibrary(runPath, runtime);
     } else {
         result.status = false;
         result.message = 'Application metadata does not specify a runtime.';
