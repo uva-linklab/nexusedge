@@ -47,6 +47,23 @@ For e.g.:
 ```
 
 ## Running the Middleware as a Docker Container
+To run with default configuration as shown above:
 ```
 docker run --net=host -d nabeeln7/on-the-edge:latest
+```
+
+### Changing the Configuration of the Container
+To override configuration, an environment file can be passed to the docker container:
+```
+docker run --net=host -d --env-file env.list nabeeln7/on-the-edge:latest
+```
+
+The environment file is of the following format:
+```
+NEXUSEDGE_GATEWAY_ID=dca632a232bd
+NEXUSEDGE_BACKHAUL_INTERFACE=wlan0
+NEXUSEDGE_GROUP_KEY=95CFEF1B1F1F5FAAC6954BC1BD713081
+NEXUSEDGE_GROUP_IV=6F2E2CEE52C1AB42
+NEXUSEDGE_BLE_ADV_SERVICE_UUID=28338db15c5841cca00971c5fd792920
+NEXUSEDGE_BLE_ADV_CHAR_UUID=28338db15c5841cca00971c5fd792921
 ```
