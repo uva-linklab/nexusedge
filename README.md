@@ -26,7 +26,8 @@ protocol websockets
 * Add a config file named config.json in platform/utils/ which contains:  
 (1) The network interface that the gateway uses for its backhaul network.  
 *Note: Ensure that this interface uses IPv4*  
-(2) The Group Key used to uniquely identify a gateway group.
+(2) The Group Key used to uniquely identify a gateway group.  
+(3) The BLE advertisement service and characteristic UUIDs.
 
 For e.g.:
 ```json
@@ -37,6 +38,10 @@ For e.g.:
   "groupKey": {
     "key": "95CFEF1B1F1F5FAAC6954BC1BD713081",
     "iv": "6F2E2CEE52C1AB42"
+  },
+  "bleAdvUuids": {
+    "serviceUuid": "18338db15c5841cca00971c5fd792920",
+    "charUuid": "18338db15c5841cca00971c5fd792921"
   }
 }
 ```

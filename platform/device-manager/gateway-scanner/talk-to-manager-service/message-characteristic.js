@@ -1,7 +1,8 @@
 const util = require('util');
 const bleno = require('@abandonware/bleno');
+const utils = require('../../../utils/utils');
 
-const characteristicUuid = '18338db15c5841cca00971c5fd792921';
+const characteristicUuid = utils.getBleAdvUuid().charUuid;
 
 function MessageCharacteristic(messagingService, onWriteRequestFinished) {
     bleno.Characteristic.call(this, {

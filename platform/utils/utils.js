@@ -12,6 +12,7 @@ const sysinfo = require('systeminformation');
 const startTime = Date.now();
 let key, iv, groupKey;
 let backhaulInterface;
+let serviceUuid, charUuid, bleAdvUuids;
 
 const StoragePath = '/var/tmp';
 
@@ -190,6 +191,23 @@ function getGroupKey() {
 	return groupKey;
 }
 
+function getBleAdvUuid() {
+	if(!bleAdvUuids) {
+		if(process.env.NEXUSEDGE_BLE_ADV_SERVICE_UUID && process.env.NEXUSEDGE_BLE_ADV_CHAR_UUID) {
+			serviceUuid = process.env.NEXUSEDGE_BLE_ADV_SERVICE_UUID;
+			charUuid = process.env.NEXUSEDGE_BLE_ADV_CHAR_UUID;
+			bleAdvUuids = {
+				"serviceUuid": serviceUuid,
+				"charUuid": charUuid
+			};
+			console.log("read serviceUuid and charUuid from env vars");
+		} else {
+			bleAdvUuids = getConfig('bleAdvUuids');
+		}
+	}
+	return bleAdvUuids;
+}
+
 // TODO: move getAdvertisementName() and getGateway() into a separate file that is available on npm for aux devices to use
 /**
  * Returns an encrypted string that has embedded information about the id and ip address of the gateway. The encryption
@@ -282,5 +300,6 @@ module.exports = {
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
 	getResourceUsage: getResourceUsage,
-    getResources: getResources
+    getResources: getResources,
+	getBleAdvUuid: getBleAdvUuid
 };
