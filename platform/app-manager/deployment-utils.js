@@ -136,7 +136,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
                     '/usr/bin/unzip',
                     ['-q', '-c', '-a', entry.name, '*/top_level.txt'],
                     { cwd: runPath });
-                moduleName = String.fromCharCode.apply(String, outputBytes);
+                moduleName = String.fromCharCode.apply(String, outputBytes).trim();
                 console.log(`Using ${moduleName} as the top-level module.`);
 
                 // Install application to the run path.
