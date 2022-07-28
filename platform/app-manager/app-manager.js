@@ -178,12 +178,16 @@ messagingService.listenForQuery('schedule-app', async (message) => {
         });
 
         return;
+    } else {
+        console.log('Successfully extracted metadata file.');
     }
 
+    console.log('Parsing runtime and deployment metadata.');
     const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
     const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
 
     // Obtain gateway resource information to make a scheduling decision.
+    console.log('Getting link graph for scheduling.');
     const graph = await utils.getLinkGraph();
     const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
         const gatewayInfo = graph.data[gatewayId];
@@ -239,6 +243,7 @@ messagingService.listenForQuery('schedule-app', async (message) => {
         request(opts)
             .then(
                 () => {
+                    console.log(`This gateway finished scheduling; it is all up to ${gateway.ip} now.`);
                     messagingService.respondToQuery(query, {
                         status: true,
                         message: ''
@@ -459,6 +464,7 @@ function schedule(deployMetadata, runMetadata, gateways) {
         return gw.resources.cpuFreePercent < SchedulableCPUThreshold
             && gw.resources.memoryFreeMB > SchedulableMemoryThreshold
     });
+    console.log(`Overload check prunes to ${candidates.length} GWs.`);
 
     // Include only gateways that fulfill all essential capabilities.
     candidates = candidates.filter((gw) => {
@@ -471,9 +477,11 @@ function schedule(deployMetadata, runMetadata, gateways) {
 
         return true;
     });
+    console.log(`Required cap. check prunes to ${candidates.length} GWs.`);
 
     // Make sure we still have gateways to work with after this filtering.
     if (candidates.length == 0) {
+        console.log(`No more gateways; app cannot run.`);
         return null;
     }
 
@@ -503,6 +511,7 @@ function schedule(deployMetadata, runMetadata, gateways) {
         return gw;
     });
     candidates = candidates.filter((gw) => gw.preferencesFulfilled == mostFulfilled);
+    console.log(`Prioritization step prunes to ${candidates.length} GWs.`);
 
     // (3) Aim to balance loads and for a tight requirements fit.
     const requestedDeviceIds = new Set(runMetadata.devices.ids);
@@ -563,6 +572,15 @@ function schedule(deployMetadata, runMetadata, gateways) {
     optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
 
     if (candidates.length > 0) {
+        console.log('Top three:');
+        for (var i = 0; i < 3; i++) {
+            if (candidates.length > i) {
+                console.log(`#${i+1}: ${candidates[0].ip}`);
+            } else {
+                break;
+            }
+        }
+
         return candidates[0];
     } else {
         return null;
