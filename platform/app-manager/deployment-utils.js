@@ -239,7 +239,14 @@ function executeApplication(id, executablePath, logPath, runtime) {
 	} else if(runtime === 'python') {
         console.log(`Executing Python 3 application at ${executablePath}.`);
 		appProcess = spawn('python3', ['-u', executablePath], {
-			env: {APP_DATA_TOPIC: id}, // Pass the application's ID to the app as the MQTT topic.
+			env: {
+                // Pass the application's ID to the app as the MQTT topic.
+                APP_DATA_TOPIC: id,
+                // Add the application's directory to the Python search path
+                // so the runtime can find the application's locally-installed
+                // dependencies.
+                PYTHONPATH: path.join(AppDeployPath, id)
+            },
 			stdio: [
 				0,
 				fs.openSync(logPath, 'w'),
