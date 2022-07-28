@@ -127,6 +127,7 @@ exports.executeApp = async function(req, res) {
     });
 
     if (executeResult.status === true) {
+        console.log('App manager reports application started successfully.');
         res.sendStatus(204);
     } else if (executeResult.message.length !== 0) {
         res.status(400).send(executeResult.message);

@@ -109,10 +109,12 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
     // Prepare the application code for execution depending on its type.
     var executablePath = null;
     if (runtime === 'nodejs') {
+        console.log(`${appName} is a Node application.`);
         executablePath = path.join(runPath, 'app.js');
 
         // Install application dependencies if package-lock.json exists.
         if (fs.existsSync(path.join(runPath, 'package-lock.json'))) {
+            console.log('Installing dependencies from NPM.');
             child_process.execFileSync(
                 '/usr/bin/npm',
                 ['install'],
@@ -122,6 +124,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
         // copy the oracle library to use for the app.
         copyOracleLibrary(runPath, runtime);
     } else if (runtime === 'python') {
+        console.log(`${appName} is a Python 3 application.`);
         // Unzip the wheel.
         var moduleName = '';
         var dir = fs.opendirSync(runPath);
@@ -134,14 +137,15 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
                     ['-q', '-c', '-a', entry.name, '*/top_level.txt'],
                     { cwd: runPath });
                 moduleName = String.fromCharCode.apply(String, outputBytes);
+                console.log(`Using ${moduleName} as the top-level module.`);
 
                 // Install application to the run path.
-                console.log(`Installing package to ${runPath}`)
                 // Look for pip at pip3, otherwise, pip is for Python 3.
                 var pipPath = '/usr/bin/pip3';
                 if (!fs.existsSync('/usr/bin/pip3')) {
                     pipPath = '/usr/bin/pip';
                 }
+                console.log(`Installing package to ${runPath} with ${pipPath}`)
                 child_process.execFileSync(
                     pipPath,
                     ['install', '--target', runPath, path.join(runPath, entry.name)]);
@@ -154,6 +158,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
 
         // Didn't find the wheel file.
         if (entry == null) {
+            console.log('Could not find the wheel file for the application.');
             result.status = false;
             result.message = 'Could not locate .whl file for Python application.';
             return result;
@@ -221,6 +226,7 @@ function findPythonMain(appRoot) {
 function executeApplication(id, executablePath, logPath, runtime) {
 	let appProcess;
 	if(runtime === 'nodejs') {
+        console.log(`Executing Node application at ${executablePath}.`);
 		appProcess = fork(executablePath, [], {
 			env: {APP_DATA_TOPIC: id}, // pass the application's id to the app as the MQTT Topic
 			stdio: [
@@ -231,8 +237,9 @@ function executeApplication(id, executablePath, logPath, runtime) {
 			]
 		});
 	} else if(runtime === 'python') {
+        console.log(`Executing Python 3 application at ${executablePath}.`);
 		appProcess = spawn('python3', ['-u', executablePath], {
-			env: {APP_DATA_TOPIC: id},
+			env: {APP_DATA_TOPIC: id}, // Pass the application's ID to the app as the MQTT topic.
 			stdio: [
 				0,
 				fs.openSync(logPath, 'w'),
@@ -248,6 +255,7 @@ function executeApplication(id, executablePath, logPath, runtime) {
 	console.log(`   path: ${executablePath}`);
 	console.log(`    id: ${id}`);
 	console.log(`    pid: ${appProcess.pid}`);
+
 	return appProcess;
 }
 

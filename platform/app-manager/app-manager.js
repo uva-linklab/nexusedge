@@ -113,8 +113,12 @@ messagingService.listenForQuery('execute-app', message => {
     const appName = path.basename(appPackagePath);
     const appId = generateAppId(appName);
 
+    console.log(`Received request to start ${appName}.`);
+
     const result = deploymentUtils.deployApplication(
         appPackagePath, deployMetadataPath, appName, appId);
+
+    console.log(`Executable is at ${result.executablePath}.`);
 
     if (result.status === true) {
         const logPath = path.join(__dirname, 'logs', `${result.appName}-${result.appId}.log`);
@@ -575,7 +579,7 @@ function schedule(deployMetadata, runMetadata, gateways) {
         console.log('Top three:');
         for (var i = 0; i < 3; i++) {
             if (candidates.length > i) {
-                console.log(`#${i+1}: ${candidates[0].ip}`);
+                console.log(`#${i+1}: ${candidates[i].ip}`);
             } else {
                 break;
             }
