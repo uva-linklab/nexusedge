@@ -1,5 +1,6 @@
 const multer  = require('multer');
 const fs = require('fs');
+const path = require('path');
 /*
 This file specifies the controller methods that handle API endpoints
 Controllers are to be placed in api/controllers/
@@ -26,8 +27,10 @@ module.exports = function(app) {
     app.get('/gateway/apps', gatewayAPIController.getApps);
     app.get('/gateway/link-graph-data', gatewayAPIController.getLinkGraphData);
     app.post('/gateway/execute-app',
-             uploader.fields([{name: 'appPackage'}, {name: 'deployMetadata'}]),
-             gatewayAPIController.executeApp);
+        uploader.fields([{name: 'appPackage'}, {name: 'deployMetadata'}]),
+        gatewayAPIController.executeApp);
+    app.post('/gateway/watch-app', uploader.fields([{name: 'app'}, {name: 'metadata'}]),
+        gatewayAPIController.watchApp);
     app.get('/gateway/apps/:id/terminate', gatewayAPIController.terminateApp);
     app.get('/gateway/apps/:id/log-streaming-topic', gatewayAPIController.getLogStreamingTopic);
     app.get('/gateway/apps/:id/start-log-streaming', gatewayAPIController.startLogStreaming);
@@ -39,6 +42,8 @@ module.exports = function(app) {
     // TODO: need to be changed to the general api.
     app.post('/gateway/register-app-sensor-requirement',
         gatewayAPIController.registerAppSensorRequirement);
+    app.post('/gateway/deregister-app-sensor-requirement',
+        gatewayAPIController.deregisterAppSensorRequirement);
     app.get('/gateway/retrieve-privacy-policy',
         gatewayAPIController.retrievePrivacyPolicy);
     app.get('/platform/link-graph-data', linkGraphController.getLinkGraphData);
@@ -59,7 +64,7 @@ module.exports = function(app) {
  */
 function getMultipartFormDataUploader() {
     //store the uploaded files to deployed-apps directory. Create this directory if not already present.
-    const deployedAppsPath = `${__dirname}/../deployed-apps/`;
+    const deployedAppsPath = path.join(__dirname, '..', 'deployed-apps');
     if (!fs.existsSync(deployedAppsPath)){
         fs.mkdirSync(deployedAppsPath);
     }
@@ -67,7 +72,13 @@ function getMultipartFormDataUploader() {
     const multerStorage = multer.diskStorage({
         //set the storage destination
         destination: function (req, file, cb) {
-            cb(null, deployedAppsPath);
+            // to ensure we don't overwrite files with the same name, create a timestamp based directory for each file
+            // ps: this actually creates 1 directory per file, not 1 directory per http request
+            const tempDirPath = path.join(__dirname, '..', 'deployed-apps', Date.now().toString());
+            if (!fs.existsSync(tempDirPath)){
+                fs.mkdirSync(tempDirPath);
+            }
+            cb(null, tempDirPath);
         },
         //use the original filename as the multer filename
         filename: function (req, file, cb) {

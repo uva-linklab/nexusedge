@@ -4,7 +4,8 @@ const fetch = require('node-fetch');
 const os = require('os');
 const Address4 = require('ip-address').Address4;
 const osUtils = require('os-utils');
-const fs = require('fs');
+const fs = require('fs-extra');
+const httpFileTransfer = require("./http-file-transfer");
 const path = require('path');
 const sysinfo = require('systeminformation');
 
@@ -63,6 +64,7 @@ function getFreeMemoryMB() {
  * Get the % of free cpu, and the megabytes of free memory available
  * @return {Promise<{cpu: *, memory: *}>}
  */
+// TODO change this to use load avg instead of cpu free
 function getResourceUsage() {
 	return getFreeCpuPercent().then(freeCpuPercent => {
 		return {
@@ -286,6 +288,63 @@ function sendPostRequest(url, data) {
 	});
 }
 
+/**
+ * * Calls the execute-app API to run an app on a specified gateway
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @return {*}
+ */
+function scheduleApp(appFiles) {
+	const httpFileTransferUri = `http://localhost:5000/platform/schedule-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+	});
+}
+
+/**
+ * * Calls the execute-app API to run an app on a specified gateway
+ * @param gatewayIP The ip of the gateway where the app needs to run
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @param appId
+ * @param linkGraph optional
+ * @return {*}
+ */
+function executeAppOnGateway(gatewayIP, appFiles, appId, linkGraph) {
+	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/execute-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+		"appId": appId,
+		"linkGraph": JSON.stringify(linkGraph)
+	});
+}
+
+/**
+ * * Calls the watch-app API to watch the app on a specified gateway
+ * @param gatewayIP The ip of the gateway where the app needs to run
+ * @param appFiles Object with key-value pairs app and metadata paths
+ * @param appId
+ * @param executorGatewayId
+ * @return {*}
+ */
+function watchAppOnGateway(gatewayIP, appFiles, appId, executorGatewayId) {
+	const httpFileTransferUri = `http://${gatewayIP}:5000/gateway/watch-app`;
+	return httpFileTransfer.transferFiles(httpFileTransferUri, appFiles, {
+		"appId": appId,
+		"executorGatewayId": executorGatewayId
+	});
+}
+
+
+async function getGatewayResourceUsage(gatewayIp) {
+	const execUrl = `http://${gatewayIp}:5000/gateway/resource-usage`;
+	return fetch(execUrl, {method: 'GET'}).then(body => body.json());
+}
+
+/**
+ * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
+ * @param filePath
+ */
+function deleteFile(filePath) {
+	return fs.remove(filePath);
+}
+
 module.exports = {
     tarPath: tarPath,
 
@@ -300,6 +359,11 @@ module.exports = {
 	getFreeCpuPercent: getFreeCpuPercent,
 	getFreeMemoryMB: getFreeMemoryMB,
 	getResourceUsage: getResourceUsage,
-    getResources: getResources,
+	getGatewayResourceUsage: getGatewayResourceUsage,
+	executeAppOnGateway: executeAppOnGateway,
+	watchAppOnGateway: watchAppOnGateway,
+	scheduleApp: scheduleApp,
+	deleteFile: deleteFile,
+	getResources: getResources,
 	getBleAdvUuid: getBleAdvUuid
 };

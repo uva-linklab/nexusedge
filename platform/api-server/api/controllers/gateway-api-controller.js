@@ -1,5 +1,6 @@
 const MessagingService = require('../../../messaging-service');
 const utils = require('../../../utils/utils');
+const path = require('path');
 
 const serviceName = process.env.SERVICE_NAME;
 const messagingService = new MessagingService(serviceName);
@@ -117,23 +118,75 @@ exports.getResources = async function(req, res) {
  * @param res Response to the request.
  */
 exports.executeApp = async function(req, res) {
-    const packagePath = req["files"]["appPackage"][0]["path"];
-    const deployMetadataPath = req["files"]["deployMetadata"][0]["path"];
-
-    console.log(`Got app to run at '${packagePath}' (metadata at '${deployMetadataPath}'.`);
-    const executeResult = await messagingService.query(serviceName, "app-manager", "execute-app", {
-        "packagePath": packagePath,
-        "deployMetadataPath": deployMetadataPath,
-    });
-
-    if (executeResult.status === true) {
-        res.sendStatus(204);
-    } else if (executeResult.message.length !== 0) {
-        res.status(400).send(executeResult.message);
-    } else {
-        res.sendStatus(500);
+    const appId = req.body.appId;
+    let linkGraph;
+    if(req.body.linkGraph) {
+        linkGraph = JSON.parse(req.body.linkGraph.toString());
     }
-}
+    if(!appId) {
+        res.status(400).send({
+            message: 'no app id provided!'
+        });
+    } else {
+        const packagePath = req["files"]["appPackage"][0]["path"];
+        const deployMetadataPath = req["files"]["deployMetadata"][0]["path"];
+
+        console.log(`Got app to run at '${packagePath}' (metadata at '${deployMetadataPath}'.`);
+        // Forward the application path and metadata.
+        // The data format is described in the platform-manager.js
+        const executeResult = await messagingService.query(serviceName, "app-manager", "execute-app", {
+            "appId": appId,
+            "linkGraph": linkGraph,
+            "packagePath": packagePath,
+            "deployMetadataPath": deployMetadataPath,
+        });
+
+        // remove the app and metadata
+        utils.deleteFile(path.dirname(packagePath));
+        utils.deleteFile(path.dirname(deployMetadataPath));
+
+        if (executeResult.status === true) {
+            res.sendStatus(204);
+        } else if (executeResult.message.length !== 0) {
+            res.status(400).send(executeResult.message);
+        } else {
+            res.sendStatus(500);
+        }
+    }
+};
+
+/**
+ * This endpoint takes a copy of the  uploaded code and metadata and requests app-manager to watch it.
+ * @param req
+ * @param res
+ * @returns {Promise<void>}
+ */
+exports.watchApp = async function(req, res) {
+    const appId = req.body.appId;
+    const executorGatewayId = req.body.executorGatewayId;
+    if(!appId || !executorGatewayId) {
+        res.status(400).send({
+            message: 'no app id or executor gateway id provided!'
+        });
+    } else {
+        const appPath = req["files"]["appPackage"][0]["path"];
+        const metadataPath = req["files"]["deployMetadata"][0]["path"];
+
+        // Forward the application path and metadata.
+        // The data format is described in the platform-manager.js
+        const response = await messagingService.query(serviceName, "app-manager", "watch-app", {
+            "appId": appId,
+            "executorGatewayId": executorGatewayId,
+            "appPath": appPath,
+            "metadataPath": metadataPath,
+        });
+
+        // remove the app and metadata
+        utils.deleteFile(path.dirname(appPath));
+        utils.deleteFile(path.dirname(metadataPath));
+        res.send(response);
+    }
+};
 
 exports.terminateApp = async function(req, res) {
     const appId = req.params['id'];
@@ -199,7 +252,6 @@ exports.stopLogStreaming = async function(req, res) {
     }
 };
 
-// TODO: need to be changed to the general api.
 /**
  * This endpoint takes sensor requirement from the remote gateways and
  * passes the sensor requirement to sensor-stream-manager.
@@ -209,16 +261,13 @@ exports.stopLogStreaming = async function(req, res) {
  */
 exports.registerAppSensorRequirement = async function(req, res) {
     // Forward the application's sensor requirement to sensor-stream-manager
-    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", {
-        "meta" : {
-            "sender": "api-server",
-            "recipient": "sensor-stream-manager",
-            "event": "register-topic"
-        },
-        "payload": {
-            "app": req.body
-        }
-    });
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "register-topic", req.body);
+    res.send();
+};
+
+exports.deregisterAppSensorRequirement = async function(req, res) {
+    // Forward the application's sensor requirement to sensor-stream-manager
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "deregister-topic", req.body);
     res.send();
 };
 

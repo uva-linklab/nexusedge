@@ -1,9 +1,8 @@
-const child_process = require('child_process');
 const fs = require('fs-extra');
 const path = require("path");
-const {fork, spawn} = require('child_process');
+const {fork, spawn, execFileSync} = require('child_process');
 
-const utils = require('../utils/utils')
+const utils = require('../utils/utils');
 
 const executableDirPath = path.join(__dirname, 'executables');
 
@@ -37,6 +36,25 @@ function storeApp(tempAppPath, tempMetadataPath) {
 	console.log(`metadata copied from ${tempMetadataPath} to ${metadataTargetPath}`);
 
 	return targetDirectoryPath;
+}
+
+/**
+ * This function takes the directory path of an application and deletes the entire directory
+ * @param appDirectoryPath the path of the directory where the app and metadata was stored
+ */
+async function deleteApp(appDirectoryPath) {
+	const exists = await fs.pathExists(appDirectoryPath);
+	if(exists) {
+		try {
+			await fs.remove(appDirectoryPath);
+			console.log(`removed ${appDirectoryPath} successfully.`);
+		} catch (err) {
+			console.log(`error while removing ${appDirectoryPath}.`);
+			console.error(err);
+		}
+	} else {
+		console.log(`couldn't remove ${appDirectoryPath}. directory doesn't exist.`);
+	}
 }
 
 function copyOracleLibrary(targetPath, runtime) {
@@ -85,7 +103,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
     fs.ensureDirSync(runPath);
 
     console.log(`Extracting ${appName} to '${runPath}'...`);
-    child_process.execFileSync(
+    execFileSync(
         utils.tarPath,
         ['-x', '-f', appPackagePath],
         { cwd: runPath });
@@ -113,7 +131,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
 
         // Install application dependencies if package-lock.json exists.
         if (fs.existsSync(path.join(runPath, 'package-lock.json'))) {
-            child_process.execFileSync(
+            execFileSync(
                 '/usr/bin/npm',
                 ['install'],
                 { cwd: runPath });
@@ -129,7 +147,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
         while (entry != null) {
             if (path.extname(entry.name) === '.whl') {
                 // Get the name of the top-level module.
-                const outputBytes = child_process.execFileSync(
+                const outputBytes = execFileSync(
                     '/usr/bin/unzip',
                     ['-q', '-c', '-a', entry.name, '*/top_level.txt'],
                     { cwd: runPath });
@@ -142,7 +160,7 @@ function deployApplication(appPackagePath, deployMetadataPath, appName, appId) {
                 if (!fs.existsSync('/usr/bin/pip3')) {
                     pipPath = '/usr/bin/pip';
                 }
-                child_process.execFileSync(
+                execFileSync(
                     pipPath,
                     ['install', '--target', runPath, path.join(runPath, entry.name)]);
                 break;
@@ -258,6 +276,7 @@ function cleanupExecutablesDir() {
 
 module.exports = {
 	storeApp: storeApp,
+	deleteApp: deleteApp,
 	copyOracleLibrary: copyOracleLibrary,
 	deployApplication: deployApplication,
     executeApplication: executeApplication,

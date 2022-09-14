@@ -1,6 +1,4 @@
 const request = require('request-promise');
-const fs = require('fs');
-const fsExtra = require('fs-extra');
 const path = require('path');
 const utils = require('../../../utils/utils');
 const MqttController = require('../../../utils/mqtt-controller');
@@ -119,6 +117,10 @@ exports.scheduleApplication = async function(req, res) {
             packagePath: packagePath,
             deployMetadataPath: deployMetadataPath
         });
+
+    // remove the app and metadata
+    utils.deleteFile(path.dirname(appPath));
+    utils.deleteFile(path.dirname(metadataPath));
 
     if (executeResult.status === true) {
         res.sendStatus(204);

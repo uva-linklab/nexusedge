@@ -1,4 +1,3 @@
-const fs = require('fs');
 const BleController = require('ble-controller');
 const bleController = BleController.getInstance();
 const utils = require('../../utils/utils');
@@ -102,8 +101,8 @@ class GatewayScanner {
     }
 
     getActiveGateways() {
-        // find gateways that have been active in the last 15 seconds
-        const timeMillis = 15 * 1000;
+        // find gateways that have been active in the last 5 seconds
+        const timeMillis = 5 * 1000;
 
         // make a deep copy of the discovered gateways object, since we need to delete the lastActiveTime field
         // reference: https://stackoverflow.com/a/122704/445964

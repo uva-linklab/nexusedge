@@ -1,7 +1,6 @@
 const request = require('request-promise');
 const Queue = require('queue-fifo');
 const utils = require("../../../utils/utils");
-const queue = new Queue();
 
 /**
  * Generates the link graph by traversing through the entire gateway network one neighbor at a time.
@@ -11,6 +10,7 @@ const queue = new Queue();
  * @returns {Promise<*>} linkGraph in json response format
  */
 exports.getLinkGraphData = async function(req, res) {
+	const queue = new Queue();
 	const visited = new Set();
 	const data = {};
 	const graph = {};
@@ -25,41 +25,37 @@ exports.getLinkGraphData = async function(req, res) {
 		const node = queue.dequeue();
 
 		// request for the neighbor data of a node is an API call made to that node's server
-		// TODO remove if node is unreachable
-		const partialLinkGraph = await getPartialLinkGraphData(node.ip);
+		try {
+			const partialLinkGraph = await getPartialLinkGraphData(node.ip);
 
-		data[node.id] = {"ip": node.ip};
-		data[node.id]["devices"] = partialLinkGraph["devices"];
-		data[node.id]["apps"] = partialLinkGraph["apps"];
-		graph[node.id] = partialLinkGraph["neighbors"].map(_ => _.id);
+			data[node.id] = {"ip": node.ip};
+			data[node.id]["devices"] = partialLinkGraph["devices"];
+			data[node.id]["apps"] = partialLinkGraph["apps"];
+			graph[node.id] = partialLinkGraph["neighbors"].map(_ => _.id);
 
-		for(const neighborNode of partialLinkGraph["neighbors"]) {
-			const neighborId = neighborNode.id;
-			const neighborIPAddress = neighborNode.ip;
+			for(const neighborNode of partialLinkGraph["neighbors"]) {
+				const neighborId = neighborNode.id;
+				const neighborIPAddress = neighborNode.ip;
 
-			// Add this node to the traversal queue, if is not already traversed.
-			// All traversed nodes are added as keys to the graph dictionary. So the key set can be used to check
-			// if traversed or not.
-			if(!visited.has(neighborId)) {
-				visited.add(neighborId);
-				queue.enqueue(neighborNode);
+				// Add this node to the traversal queue, if is not already traversed.
+				// All traversed nodes are added as keys to the graph dictionary. So the key set can be used to check
+				// if traversed or not.
+				if(!visited.has(neighborId)) {
+					visited.add(neighborId);
+					queue.enqueue(neighborNode);
+				}
+			}
+		} catch(err) {
+			console.log(`${node.id} cannot be reached`);
+			// remove this node from all other graph entries
+			for (const [graphNode, graphNeighbors] of Object.entries(graph)) {
+				graph[graphNode] = graphNeighbors.filter(neighbor => neighbor !== node.id);
 			}
 		}
 	}
 	const linkGraph = {"graph": graph, "data": data};
 	return res.json(linkGraph);
 };
-
-async function isGatewayReachable(gatewayIP) {
-	const execUrl = `http://${gatewayIP}:5000/gateway/status`;
-	try {
-		const body = await request({method: 'GET', uri: execUrl, timeout: 5000});
-		const statusData = JSON.parse(body);
-		return statusData["status"];
-	} catch(e) {
-		return false;
-	}
-}
 
 /**
  * Uses the gateway API to query for the devices connected to a given gateway
@@ -86,7 +82,7 @@ async function getApps(gatewayIP) {
 /**
  * Uses the gateway API to query partial data for the link graph from a gateway
  * @param gatewayIP IP address of the gateway
- * @returns {Promise<any>} promise of a list of list of gateway_name and gateway_IP
+ * @returns {Promise<any>} { "neighbors": [{id: xx, ip: yy}, ..], "devices": [], "apps": [] }
  */
 async function getPartialLinkGraphData(gatewayIP) {
 	const execUrl = `http://${gatewayIP}:5000/gateway/link-graph-data`;

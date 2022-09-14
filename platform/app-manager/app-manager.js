@@ -1,4 +1,6 @@
 const deploymentUtils = require("./deployment-utils");
+const scheduler = require("./scheduler");
+const watcher = require("./watcher");
 const fs = require("fs-extra");
 const fsPromises = require("fs").promises;
 const path = require("path");
@@ -30,41 +32,43 @@ setTimeout(() => {
  * Resumes all apps that were executing on this gateway
  */
 function restartAllApps() {
-    appsDao.fetchAll().then(apps => {
-        apps.forEach(app => {
-            const logPath = getLogPath(app.name);
+    // restart applications if you're the only gateway present. otherwise trust that resiliency is handled by the watcher gateway.
+    utils.getLinkGraph().then(linkGraph => {
+        // if you're the only gateway available
+        if(Object.keys(linkGraph["data"]).length === 1) {
+            console.log("you're the last gateway standing. restart all apps.");
+            appsDao.fetchAll().then(apps => {
+                apps.forEach(app => {
+                    const logPath = getLogPath(app.name);
 
-            // restart the app
-            const appProcess = deploymentUtils.executeApplication(app.id,
-                app.executablePath,
-                logPath,
-                app.runtime);
+                    // restart the app
+                    const appProcess = deploymentUtils.executeApplication(app.id,
+                        app.executablePath,
+                        logPath,
+                        app.runtime);
 
-            // record app info in memory
-            storeAppInfo(app, appProcess, logPath);
+                    // record app info in memory
+                    storeAppInfo(app, appProcess, logPath);
 
-            // request sensor-stream-manager to provide streams for this app
-            messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-                "topic": app.id,
-                "metadataPath": app.metadataPath
+                    // request sensor-stream-manager to provide streams for this app
+                    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+                        "topic": app.id,
+                        "metadataPath": app.metadataPath
+                    });
+                })
             });
-        })
+        } else {
+            console.log("you're not the last gateway standing. trust the process. remove all apps.");
+            // clear the apps dao
+            appsDao.fetchAll().then(apps => {
+                apps.forEach(app => {
+                    appsDao.removeApp(app.id)
+                        .then(() => console.log(`app ${app.name} (${app.id}) removed from db`))
+                        .catch(() => console.log(`error removing app ${app.id} from db`));
+                });
+            });
+        }
     });
-}
-
-/**
- * This function generates the id of the new application.
- * The id is also used for application's topic
- * @param {string} appName
- * @returns {string}
- */
-function generateAppId(appName) {
-    // The fastest algorithm is sha1-base64
-    // Reference: https://medium.com/@chris_72272/what-is-the-fastest-node-js-hashing-algorithm-c15c1a0e164e
-    const hash = crypto.createHash('sha1');
-    // Use the timestamp and application's name to create id
-    hash.update(Date.now().toString() + appName);
-    return hash.digest('hex');
 }
 
 /**
@@ -97,13 +101,6 @@ function getLogPath(appName) {
     return path.join(__dirname, 'logs', `${appName}.out`);
 }
 
-// listen to events to deploy applications
-messagingService.listenForEvent('deploy-app', message => {
-    const appData = message.data;
-    deployApplication(appData.appPath, appData.metadataPath, appData.runtime);
-});
-
-
 // Start running an application from an application package.
 messagingService.listenForQuery('execute-app', message => {
     const query = message.data.query;
@@ -112,6 +109,28 @@ messagingService.listenForQuery('execute-app', message => {
 
     const appName = path.basename(appPackagePath);
     const appId = generateAppId(appName);
+/**
+ * This function deploys a given application.
+ 1. generate a new app id from app name
+ 2. copy the app and metadata to a new permanent directory
+ 3. copy oracle library into this new directory (this should be a sin!)
+ 4. start the process for the app
+ 5. store the app's info in the memory obj and in db
+ 6. request SSM to setup streams for this app based on its requirements
+ * @param appId
+ * @param linkGraph optional linkgraph to speedup compute
+ * @param tempAppPath
+ * @param tempMetadataPath
+ */
+async function executeApplication(appId, linkGraph, tempAppPath, tempMetadataPath) {
+    let metadata;
+    try {
+        metadata = await fs.readJson(tempMetadataPath);
+    } catch (err) {
+        throw new Error(`while executing app ${appId}, error reading json file at metadataPath ${tempMetadataPath}. Error = ${err.toString()}`);
+    }
+
+    const appName = path.basename(tempAppPath);
 
     const result = deploymentUtils.deployApplication(
         appPackagePath, deployMetadataPath, appName, appId);
@@ -124,10 +143,20 @@ messagingService.listenForQuery('execute-app', message => {
             result.executablePath,
             result.deployMetadataPath,
             result.runtime);
+    // copy the oracle library to use for the app.
+    // TODO: ideally this should be reused by all apps!
+    deploymentUtils.copyOracleLibrary(appDirectoryPath, metadata.runtime);
+
+    const appExecutablePath = path.join(appDirectoryPath, appName);
+    const metadataPath = path.join(appDirectoryPath, path.basename(tempMetadataPath));
+    const logPath = getLogPath(appName);
+    const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, metadata.runtime);
 
         // execute the app!
         const appProcess = deploymentUtils.executeApplication(
             appId, result.executablePath, logPath, result.runtime);
+    // execute the app!
+    const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, metadata.runtime);
 
         // record app info in memory and/or db
         storeAppInfo(app, appProcess, logPath);
@@ -144,120 +173,18 @@ messagingService.listenForQuery('execute-app', message => {
             message: ''
         });
     }
+    // request sensor-stream-manager to provide streams for this app
+    messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
+        "topic": appId,
+        "linkGraph": linkGraph,
+        "metadataPath": metadataPath
+    });
+}
 
     messagingService.respondToQuery(query, {
         status: result.status,
         message: result.message
     });
-});
-
-messagingService.listenForQuery('schedule-app', async (message) => {
-    const query = message.data.query;
-    const packagePath = query.params.packagePath;
-    const deployMetadataPath = query.params.deployMetadataPath;
-
-    // Unpackage the app metadata.
-    const extractDir = '/tmp';
-    const tarMetadataPaths = ['_metadata.json', './_metadata.json'];
-    for (var i = 0; i < tarMetadataPaths.length; i++) {
-        try {
-            child_process.execFileSync(
-                utils.tarPath,
-                ['-x', '-f', packagePath, tarMetadataPaths[i]],
-                { cwd: extractDir, timeout: 2000 });
-        } catch (_e) {
-            // Defer returning an error until trying all paths.
-        }
-    }
-    // Make sure we have a metadata file.
-    if (!fs.existsSync(path.join(extractDir, '_metadata.json'))) {
-        console.log(`Failed to unpackage app metadata: ${e}.`);
-        messagingService.respondToQuery(query, {
-            status: false,
-            message: ''
-        });
-
-        return;
-    }
-
-    const runMetadata = JSON.parse(await fs.promises.readFile(path.join(extractDir, '_metadata.json')));
-    const deployMetadata = JSON.parse(await fs.promises.readFile(deployMetadataPath));
-
-    // Obtain gateway resource information to make a scheduling decision.
-    const graph = await utils.getLinkGraph();
-    const gatewayResources = await Promise.all(Object.keys(graph.data).map((gatewayId) => {
-        const gatewayInfo = graph.data[gatewayId];
-        const ip = gatewayInfo.ip;
-
-        // Get a count of devices by type for each gateway.
-        // This is used for deployment metadata that specifies a particular kind of device.
-        var deviceTypes = new Map();
-        gatewayInfo.devices.forEach((device) => {
-            if (deviceTypes.has(device.type)) {
-                deviceTypes[device.type] += 1;
-            } else {
-                deviceTypes.set(device.type, 1);
-            }
-        });
-
-        const opts = {
-            method: 'GET',
-            uri: `http://${ip}:5000/gateway/resources`,
-            json: true
-        };
-
-        return request(opts)
-            .then((resources) => {
-                const deviceInfo = {
-                    id: gatewayId,
-                    ip: ip,
-                    resources: resources,
-                    deviceIds: gatewayInfo.devices.map(device => device.id),
-                    deviceTypes: deviceTypes
-                };
-
-                return deviceInfo;
-            });
-    }));
-
-    // Run the scheduling algorithm to determine where to put the application.
-    const gateway = schedule(deployMetadata, runMetadata, gatewayResources);
-    if (gateway !== null) {
-        console.log(`Sending application to run on ${gateway.ip}.`);
-
-        const gatewayUri = `http://${gateway.ip}:5000/gateway/execute-app`;
-        const formData = {
-            'appPackage': fs.createReadStream(packagePath),
-            'deployMetadata': fs.createReadStream(deployMetadataPath)
-        };
-        const opts = {
-            method: 'POST',
-            uri: gatewayUri,
-            formData: formData
-        };
-
-        request(opts)
-            .then(
-                () => {
-                    messagingService.respondToQuery(query, {
-                        status: true,
-                        message: ''
-                    });
-                },
-
-                (e) => {
-                    messagingService.respondToQuery(query, {
-                        status: false,
-                        message: `Execution failed: ${e}`
-                    });
-                });
-    } else {
-        // No gateways available for the application.
-        messagingService.respondToQuery(query, {
-            status: false,
-            message: 'No gateways available to run application.'
-        });
-    }
 });
 
 messagingService.listenForQuery("get-apps", message => {
@@ -439,159 +366,64 @@ messagingService.listenForEvent('send-to-device', message => {
     messagingService.forwardMessage(serviceName, 'device-manager', 'send-to-device', message.data);
 });
 
-const SchedulableCPUThreshold = 80;
-const SchedulableMemoryThreshold = 200;
+// listen to schedule an application
+messagingService.listenForQuery('schedule-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
 
-/** Decide which gateway should run an application.
- *
- * Makes a decision to schedule an application on a gateway provided in `gateways`.
- * If no gateway is suitable for the application, this function returns null.
- *
- * @param deployMetadata Deploy-time application information.
- * @param runMetadata Build-time application information.
- * @param gateways Nexus Edge gateways to select a gateway from.
- */
-function schedule(deployMetadata, runMetadata, gateways) {
-    // (1) Remove gateways based on specs, requirements, and connected devices.
-    // Remove overloaded gateways.
-    // Inspect CPU and memory load and removes gateways that are above the threshold.
-    var candidates = gateways.filter((gw) => {
-        return gw.resources.cpuFreePercent < SchedulableCPUThreshold
-            && gw.resources.memoryFreeMB > SchedulableMemoryThreshold
-    });
+    console.log(`received request to schedule app. appPath = ${params.appPath}`);
 
-    // Include only gateways that fulfill all essential capabilities.
-    candidates = candidates.filter((gw) => {
-        for (var i = 0; i < runMetadata.requires.length; i++) {
-            const r = runMetadata.requires[i];
-            if (evaluateCapability(gw, r) != true) {
-                return false;
-            }
-        }
-
-        return true;
-    });
-
-    // Make sure we still have gateways to work with after this filtering.
-    if (candidates.length == 0) {
-        return null;
-    }
-
-    // (2) Prioritize gateways with preferred capabilities.
-    // Tier gateways by the number of optional requirements they fulfill
-    // and take the gateways fulfilling the most preferences.
-    // This does mean that each preferential capability is weighted evenly.
-    //
-    // Also the decision made here may run counter to the optimization step.
-    // Example: single gateway with 10 preferential capabilities filled but is loaded
-    // vs. five gateways with 9 preferential capabilities filled but less loaded.
-    var mostFulfilled = 0;
-    candidates = candidates.map((gw) => {
-        var noFulfilled = 0;
-        runMetadata.prefers.forEach((p) => {
-            if (evaluateCapability(gw, p)) {
-                noFulfilled += 1;
-            }
+    scheduler.schedule(params.packagePath, params.deployMetadataPath)
+        .then( scheduleInfo => {
+            messagingService.respondToQuery(query, {
+                'status': true,
+                'scheduleInfo': scheduleInfo
+            });
+        })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
         });
+});
 
-        gw.preferencesFulfilled = noFulfilled;
-        // Cache the most fulfilled for selecting the most preferential.
-        if (noFulfilled > mostFulfilled) {
-            mostFulfilled = noFulfilled;
-        }
+// listen to queries to execute applications on gateway
+messagingService.listenForQuery('execute-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
 
-        return gw;
-    });
-    candidates = candidates.filter((gw) => gw.preferencesFulfilled == mostFulfilled);
+    console.log(`received request to execute app. appPath = ${params.appPath}`);
+    executeApplication(params.appId, params.linkGraph, params.packagePath, params.deployMetadataPath)
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
+        })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
+        });
+});
 
-    // (3) Aim to balance loads and for a tight requirements fit.
-    const requestedDeviceIds = new Set(runMetadata.devices.ids);
-    const optimizationSortFns = [
-        (gwa, gwb) => gwb.resources.memoryFreeMB - gwa.resources.memoryFreeMB,
-        (gwa, gwb) => {
-            const reduceGpuMem = (acc, gpu) => acc + gpu.memoryFreeMB;
-            const a = gwa.resources.gpus.reduce(reduceGpuMem, 0);
-            const b = gwb.resources.gpus.reduce(reduceGpuMem, 0);
-            return b - a;
-        },
-        (gwa, gwb) => gwa.resources.storageFreeMB > gwb.resources.storageFreeMB,
-        (gwa, gwb) => {
-            const reduceGpuUtil = (acc, gpu) => acc + gpu.utilization;
-            const a = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
-            const b = gwa.resources.gpus.reduce(reduceGpuUtil, 0);
-            return b - a;
-        },
-        (gwa, gwb) => gwb.resources.cpuFreePercent - gwa.resources.cpuFreePercent,
-        // Prefer gateways with more of a type of connected devices requested of the application.
-        (gwa, gwb) => {
-            // Accumulate the counts of all the device types that the application will make use of.
-            const sumDeviceTypes = function (gw) {
-                return Object.keys(gw.deviceTypes)
-                    .filter((deviceType) => {
-                        return deviceType in deployMetadata.devices.types
-                            || deviceType in runMetadata.devices;
-                    })
-                    .reduce((count, deviceType) => count + gw.deviceTypes[deviceType], 0);
-            };
+// "watch" an application: periodically check if the gateway that executes an application fails. if so, restart app
+messagingService.listenForQuery('watch-app', message => {
+    const query = message.data.query;
+    const params = message.data.query.params;
 
-            const gwaSum = sumDeviceTypes(gwa);
-            const gwbSum = sumDeviceTypes(gwb);
-
-            return gwbSum - gwaSum;
-        },
-        // Prefer gateways with the most specifically requested devices connected.
-        (gwa, gwb) => {
-            const sumRequestedDevices = function (gw) {
-                    return gw.deviceIds.reduce(
-                        (acc, id) => {
-                            if (requestedDeviceIds.has(id)) {
-                                return acc + 1;
-                            } else {
-                                return acc;
-                            }
-                        }, 0);
-            };
-
-            const gwaCount = sumRequestedDevices(gwa);
-            const gwbCount = sumRequestedDevices(gwb);
-
-            return gwbCount - gwaCount;
-        },
-        // Look for a tighter fit on gateway requirements by prioritizing gateways with the least no. of capabilities.
-        (gwa, gwb) => capabilityCount(gwa.resources) < capabilityCount(gwb.resources)
-    ];
-    optimizationSortFns.forEach((sortFn) => { candidates.sort(sortFn); });
-
-    if (candidates.length > 0) {
-        return candidates[0];
-    } else {
-        return null;
-    }
-}
-
-const SchedulableGPUThreshold = 80;
-const SchedulableVRAMThreshold = 200;
-
-function evaluateCapability(gw, tag) {
-    if (r == 'gpu') {
-        // At least one GPU must have sufficient memory and idle compute.
-        return gw.gpus.some(gpu => gpu.memoryFreeMB > SchedulableGPUThreshold
-                            && gpu.utilization < SchedulableVRAMThreshold);
-    } else if (r == 'secure-enclave') {
-        // Just a flag check.
-        return gw.secureEnclave;
-    } else {
-        // Unknown requirement.
-        console.log(`Unknown requirement specified: '${r}'`);
-        return null;
-    }
-}
-
-function capabilityCount(resources) {
-    var count = 0;
-
-    if (resources.gpus.length > 0) { count += 1; }
-    if (resources.secureEnclave) { count += 1; }
-    if (resources.storageFreeMB > 1024) { count += 1; }
-
-}
+    console.log(`received request to watch app. appPath = ${params.appPath}`);
+    watcher.watch(params.appId, params.executorGatewayId, params.packagePath, params.deployMetadataPath)
+        .then(() => {
+            messagingService.respondToQuery(query, {
+                'status': true
+            });
+        })
+        .catch(error => {
+            messagingService.respondToQuery(query, {
+                'status': false,
+                'error': error
+            });
+        });
+});
