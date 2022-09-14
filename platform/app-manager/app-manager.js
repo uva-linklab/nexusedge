@@ -2,11 +2,7 @@ const deploymentUtils = require("./deployment-utils");
 const scheduler = require("./scheduler");
 const watcher = require("./watcher");
 const fs = require("fs-extra");
-const fsPromises = require("fs").promises;
 const path = require("path");
-const child_process = require('child_process');
-const request = require('request-promise');
-const crypto = require('crypto');
 const Tail = require('tail').Tail;
 const MessagingService = require('../messaging-service');
 const MqttController = require('../utils/mqtt-controller');
@@ -101,14 +97,6 @@ function getLogPath(appName) {
     return path.join(__dirname, 'logs', `${appName}.out`);
 }
 
-// Start running an application from an application package.
-messagingService.listenForQuery('execute-app', message => {
-    const query = message.data.query;
-    const appPackagePath = query.params.packagePath;
-    const deployMetadataPath = query.params.deployMetadataPath;
-
-    const appName = path.basename(appPackagePath);
-    const appId = generateAppId(appName);
 /**
  * This function deploys a given application.
  1. generate a new app id from app name
@@ -132,17 +120,9 @@ async function executeApplication(appId, linkGraph, tempAppPath, tempMetadataPat
 
     const appName = path.basename(tempAppPath);
 
-    const result = deploymentUtils.deployApplication(
-        appPackagePath, deployMetadataPath, appName, appId);
+    // shift this app from the current temporary directory to a permanent directory
+    const appDirectoryPath = deploymentUtils.storeApp(tempAppPath, tempMetadataPath);
 
-    if (result.status === true) {
-        const logPath = path.join(__dirname, 'logs', `${result.appName}-${result.appId}.log`);
-        const app = new appsDao.App(
-            appId,
-            appName,
-            result.executablePath,
-            result.deployMetadataPath,
-            result.runtime);
     // copy the oracle library to use for the app.
     // TODO: ideally this should be reused by all apps!
     deploymentUtils.copyOracleLibrary(appDirectoryPath, metadata.runtime);
@@ -152,27 +132,13 @@ async function executeApplication(appId, linkGraph, tempAppPath, tempMetadataPat
     const logPath = getLogPath(appName);
     const app = new appsDao.App(appId, appName, appExecutablePath, metadataPath, metadata.runtime);
 
-        // execute the app!
-        const appProcess = deploymentUtils.executeApplication(
-            appId, result.executablePath, logPath, result.runtime);
     // execute the app!
     const appProcess = deploymentUtils.executeApplication(appId, appExecutablePath, logPath, metadata.runtime);
 
-        // record app info in memory and/or db
-        storeAppInfo(app, appProcess, logPath);
-        appsDao.addApp(app).then(() => console.log("added app info to db"));
+    // record app info in memory and/or db
+    storeAppInfo(app, appProcess, logPath);
+    appsDao.addApp(app).then(() => console.log("added app info to db"));
 
-        // request sensor-stream-manager to provide streams for this app
-        messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
-            "topic": appId,
-            "metadataPath": result.deployMetadataPath
-        });
-
-        messagingService.respondToQuery(query, {
-            status: true,
-            message: ''
-        });
-    }
     // request sensor-stream-manager to provide streams for this app
     messagingService.forwardMessage(serviceName, "sensor-stream-manager", "request-streams", {
         "topic": appId,
@@ -180,12 +146,6 @@ async function executeApplication(appId, linkGraph, tempAppPath, tempMetadataPat
         "metadataPath": metadataPath
     });
 }
-
-    messagingService.respondToQuery(query, {
-        status: result.status,
-        message: result.message
-    });
-});
 
 messagingService.listenForQuery("get-apps", message => {
     const query = message.data.query;
