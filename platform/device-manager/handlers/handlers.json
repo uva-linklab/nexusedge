@@ -26,5 +26,9 @@
     "ibeacon-handler": {
         "main": "ibeacon-handler.js",
         "controller": "ble-controller"
+    },
+    "sol-eh-handler": {
+        "main": "sol-eh-handler.js",
+        "controller": "ble-controller"
     }
 }

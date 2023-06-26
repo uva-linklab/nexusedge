@@ -1,0 +1,14 @@
+{
+  "name": "sol-eh-handler",
+  "version": "1.0.0",
+  "description": "Handler to parse SOL sensors",
+  "main": "sol-eh-handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nabeel Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "ble-controller": "^1.3.0"
+  }
+}
