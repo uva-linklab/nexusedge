@@ -6,7 +6,6 @@ const bleController = BleController.getInstance();
 
 // standard iBeacon values
 const SOL_EH_COMPANY_ID = 0xA154;
-const SOL_EH_MANUFACTURER_DATA_LENGTH = 24;
 
 class SolEhHandler {
     constructor(handlerId) {
@@ -26,7 +25,7 @@ class SolEhHandler {
                 const companyId = manufacturerData.readUInt16LE(0);
 
                 // filter beacons based on company id and manufacturer data length
-                return companyId === SOL_EH_COMPANY_ID && manufacturerData.length === SOL_EH_MANUFACTURER_DATA_LENGTH;
+                return companyId === SOL_EH_COMPANY_ID;
             }, this._handlePeripheral.bind(this));
         });
     }
