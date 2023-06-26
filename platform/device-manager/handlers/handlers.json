@@ -15,17 +15,9 @@
         "main": "leviton-lighting-handler.js",
         "controller": "ble-controller"
     },
-    "assist-ekg-handler": {
-        "main": "ekg-handler.js",
-        "controller": "ble-controller"
-    },
     "enocean-handler": {
         "main": "enocean-handler.js",
         "controller": "enocean-controller"
-    },
-    "ibeacon-handler": {
-        "main": "ibeacon-handler.js",
-        "controller": "ble-controller"
     },
     "sol-eh-handler": {
         "main": "sol-eh-handler.js",
