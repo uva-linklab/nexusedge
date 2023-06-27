@@ -40,6 +40,10 @@ class GatewayScanner {
         });
     }
 
+    stop() {
+        bleController.stopAdvertisingAndScanning();
+    }
+
     talkToGateway(gatewayIP, payload) {
         // add to pendingMessages
         if(pendingMessages.hasOwnProperty(gatewayIP)) {

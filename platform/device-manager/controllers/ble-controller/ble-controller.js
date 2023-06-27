@@ -128,6 +128,11 @@ class BleController {
         });
     }
 
+    stopAdvertisingAndScanning() {
+        bleno.stopAdvertising();
+        this.stopScanning();
+    }
+
     // noble related
 
     // TODO rather than picking up the gateway address from ble-scanner
