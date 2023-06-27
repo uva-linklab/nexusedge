@@ -1,6 +1,6 @@
 {
   "name": "ble-controller",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Controller for the gateway platform which enables advertising or scanning for BLE peripherals. Uses the noble and bleno npm modules.",
   "main": "ble-controller.js",
   "scripts": {
