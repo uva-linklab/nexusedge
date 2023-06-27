@@ -262,3 +262,10 @@ function getHostGatewayIp(deviceId) {
         })
     })
 }
+
+process.on("SIGTERM", () => {
+    console.log(`${Date.now()} stopping gateway-scanner`);
+    // ensure we stop BLE scanning and advertising
+    gatewayScanner.stop();
+    process.exit(0);
+});
