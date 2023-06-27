@@ -4,7 +4,7 @@
   "description": "Handler for obtaining data from estimotes.",
   "main": "estimote-handler.js",
   "dependencies": {
-    "ble-controller": "^1.3.0"
+    "ble-controller": "^1.3.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
